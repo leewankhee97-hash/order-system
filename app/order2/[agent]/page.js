@@ -164,9 +164,29 @@ export default function Page() {
   function getAgentPrice(product) {
   const level = getAgentLevel()
 
-  const p1 = Number(product.price_1 ?? product.price1 ?? product.price_level_1 ?? product.retail_price ?? 0)
-  const p2 = Number(product.price_2 ?? product.price2 ?? product.price_level_2 ?? product.agent_price ?? 0)
-  const p3 = Number(product.price_3 ?? product.price3 ?? product.price_level_3 ?? product.vip_price ?? 0)
+  const p1 = Number(
+    product.price_1 ??
+      product.price1 ??
+      product.price_level_1 ??
+      product.retail_price ??
+      0
+  )
+
+  const p2 = Number(
+    product.price_2 ??
+      product.price2 ??
+      product.price_level_2 ??
+      product.agent_price ??
+      0
+  )
+
+  const p3 = Number(
+    product.price_3 ??
+      product.price3 ??
+      product.price_level_3 ??
+      product.vip_price ??
+      0
+  )
 
   if (level === 3) return p3
   if (level === 2) return p2
