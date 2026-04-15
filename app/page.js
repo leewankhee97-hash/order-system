@@ -32,7 +32,7 @@ export default function HomePage() {
 
       const { data, error } = await supabase
         .from('agents')
-        .select('id, code, name, slug, is_active, agent_name, level')
+        .select('id, code, name, slug, agent_slug, is_active, agent_name, level')
         .eq('is_active', true)
         .order('code', { ascending: true })
 
@@ -65,7 +65,6 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#f6efe8] p-4 md:p-6">
       <div className="mx-auto max-w-6xl space-y-6">
-
         <section className="rounded-[28px] border border-[#ead8c7] bg-[#fffaf5] p-8 shadow-sm">
           <h1 className="text-3xl font-bold text-[#5f3d2e] md:text-4xl">
             Order System
@@ -132,7 +131,7 @@ export default function HomePage() {
           {!loading && !error && agents.length > 0 && (
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {agents.map((agent) => {
-                const slug = (agent.slug || '').trim()
+                const slug = (agent.agent_slug || agent.slug || '').trim()
                 const displayName =
                   (agent.name || '').trim() ||
                   (agent.agent_name || '').trim() ||
@@ -140,7 +139,7 @@ export default function HomePage() {
                   '未命名代理'
 
                 const code = (agent.code || '').trim()
-                const fullLink = slug ? `${siteUrl}/order/${slug}` : ''
+                const fullLink = slug ? `${siteUrl}/order2/${slug}` : ''
 
                 return (
                   <div
@@ -211,7 +210,7 @@ export default function HomePage() {
 
                     {slug ? (
                       <div className="mt-3 text-xs text-[#9a7c67]">
-                        路径：/order/{slug}
+                        路径：/order2/{slug}
                       </div>
                     ) : null}
                   </div>
@@ -220,7 +219,6 @@ export default function HomePage() {
             </div>
           )}
         </section>
-
       </div>
     </main>
   )
