@@ -101,6 +101,9 @@ export default function Page() {
   const [submitting, setSubmitting] = useState(false)
   const [copiedPreview, setCopiedPreview] = useState('')
 
+  const [previewCopied, setPreviewCopied] = useState(false)
+  const [summaryCopied, setSummaryCopied] = useState(false)
+
   useEffect(() => {
     init()
   }, [])
@@ -468,6 +471,55 @@ export default function Page() {
     products,
   ])
 
+  async function copyText(text) {
+    if (!text || !String(text).trim()) {
+      throw new Error('没有可复制的内容')
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      return
+    }
+
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-999999px'
+    textarea.style.top = '-999999px'
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+
+    const ok = document.execCommand('copy')
+    textarea.remove()
+
+    if (!ok) {
+      throw new Error('复制失败')
+    }
+  }
+
+  async function handleCopyPreview() {
+    try {
+      await copyText(livePreview || '')
+      setPreviewCopied(true)
+      setTimeout(() => setPreviewCopied(false), 1500)
+    } catch (err) {
+      console.error(err)
+      alert('没有可复制的预览内容')
+    }
+  }
+
+  async function handleCopySummary() {
+    try {
+      await copyText(copiedPreview || '')
+      setSummaryCopied(true)
+      setTimeout(() => setSummaryCopied(false), 1500)
+    } catch (err) {
+      console.error(err)
+      alert('没有可复制的订单摘要')
+    }
+  }
+
   async function submit(e) {
     e.preventDefault()
 
@@ -612,7 +664,7 @@ export default function Page() {
       setCopiedPreview(copiedSummary)
 
       try {
-        await navigator.clipboard.writeText(copiedSummary)
+        await copyText(copiedSummary)
         setSuccess(`成功：${oid}（订单摘要已复制）`)
       } catch {
         setSuccess(`成功：${oid}`)
@@ -1306,9 +1358,24 @@ export default function Page() {
               </div>
 
               <div className="mt-4">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
-                  Order Summary Preview
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
+                    Order Summary Preview
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyPreview}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                      previewCopied
+                        ? 'border-green-200 bg-green-50 text-green-600'
+                        : 'border-[#d9c2af] bg-[#fffaf5] text-[#7a5a45] hover:bg-[#f8efe6]'
+                    }`}
+                  >
+                    {previewCopied ? '已复制' : '一键复制'}
+                  </button>
                 </div>
+
                 <textarea
                   value={livePreview || '请选择产品后，这里会自动显示订单预览'}
                   readOnly
@@ -1318,9 +1385,24 @@ export default function Page() {
 
               {copiedPreview ? (
                 <div className="mt-4">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
-                    Copied Summary
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
+                      Copied Summary
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCopySummary}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                        summaryCopied
+                          ? 'border-green-200 bg-green-50 text-green-600'
+                          : 'border-[#d9c2af] bg-[#fffaf5] text-[#7a5a45] hover:bg-[#f8efe6]'
+                      }`}
+                    >
+                      {summaryCopied ? '已复制' : '一键复制'}
+                    </button>
                   </div>
+
                   <textarea
                     value={copiedPreview}
                     readOnly
