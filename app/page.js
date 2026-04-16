@@ -19,7 +19,7 @@ export default function HomePage() {
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [copiedSlug, setCopiedSlug] = useState('')
+  const [copiedId, setCopiedId] = useState('')
 
   useEffect(() => {
     loadAgents()
@@ -32,9 +32,9 @@ export default function HomePage() {
 
       const { data, error } = await supabase
         .from('agents')
-        .select('id, code, name, slug, agent_slug, is_active, agent_name, level')
+        .select('id, code, name, slug, is_active, level')
         .eq('is_active', true)
-        .order('code', { ascending: true })
+        .order('id', { ascending: true })
 
       if (error) throw error
 
@@ -49,12 +49,12 @@ export default function HomePage() {
 
   const siteUrl = useMemo(() => getSiteUrl(), [])
 
-  async function copyLink(link, slug) {
+  async function copyLink(link, id) {
     try {
       await navigator.clipboard.writeText(link)
-      setCopiedSlug(slug)
+      setCopiedId(String(id))
       setTimeout(() => {
-        setCopiedSlug('')
+        setCopiedId('')
       }, 1500)
     } catch (err) {
       console.error(err)
@@ -131,15 +131,14 @@ export default function HomePage() {
           {!loading && !error && agents.length > 0 && (
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {agents.map((agent) => {
-                const slug = (agent.agent_slug || agent.slug || '').trim()
+                const agentId = String(agent.id ?? '').trim()
                 const displayName =
-                  (agent.name || '').trim() ||
-                  (agent.agent_name || '').trim() ||
-                  (agent.code || '').trim() ||
-                  '未命名代理'
+                  String(agent.name || '').trim() ||
+                  String(agent.code || '').trim() ||
+                  `代理 ${agentId}`
 
-                const code = (agent.code || '').trim()
-                const fullLink = slug ? `${siteUrl}/order2/${slug}` : ''
+                const code = String(agent.code || '').trim()
+                const fullLink = agentId ? `${siteUrl}/order2/${agentId}` : ''
 
                 return (
                   <div
@@ -187,11 +186,11 @@ export default function HomePage() {
                     <div className="mt-4 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => copyLink(fullLink, slug)}
+                        onClick={() => copyLink(fullLink, agent.id)}
                         disabled={!fullLink}
                         className="flex-1 rounded-2xl bg-[#6f4b3e] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#5f3d2e] disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {copiedSlug === slug ? '已复制' : '复制链接'}
+                        {copiedId === String(agent.id) ? '已复制' : '复制链接'}
                       </button>
 
                       <a
@@ -208,9 +207,9 @@ export default function HomePage() {
                       </a>
                     </div>
 
-                    {slug ? (
+                    {agentId ? (
                       <div className="mt-3 text-xs text-[#9a7c67]">
-                        路径：/order2/{slug}
+                        路径：/order2/{agentId}
                       </div>
                     ) : null}
                   </div>
