@@ -80,6 +80,8 @@ function getProductType(product) {
       ''
   )
 
+  const upper = raw.toUpperCase()
+
   if (
     raw.includes('烟弹') ||
     raw.includes('POD') ||
@@ -170,7 +172,6 @@ export default function Page() {
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedVariant, setSelectedVariant] = useState('')
   const [search, setSearch] = useState('')
-  const [bundleSearch, setBundleSearch] = useState('')
 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -393,11 +394,6 @@ export default function Page() {
     return Object.values(bundleSelect).reduce((s, v) => s + Number(v || 0), 0)
   }, [bundleSelect])
 
-  const bundleRemaining = useMemo(() => {
-    const remain = bundleLimit - bundleCount
-    return remain > 0 ? remain : 0
-  }, [bundleLimit, bundleCount])
-
   function setBundleQty(pid, qty) {
     const currentMap = { ...bundleSelect }
     const next = Math.max(0, Number(qty || 0))
@@ -417,46 +413,6 @@ export default function Page() {
     if (next > Number(maxStock || 0)) next = Number(maxStock || 0)
     setBundleQty(pid, next)
   }
-
-  const sortedBundleProducts = useMemo(() => {
-    const q = bundleSearch.trim().toLowerCase()
-
-    const list = bundleProducts
-      .filter((p) => {
-        if (!q) return true
-        const joined = [
-          p.brand,
-          p.series,
-          p.name,
-          cleanProductName(p),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-
-        return joined.includes(q)
-      })
-      .map((p) => ({
-        ...p,
-        __displayName: cleanProductName(p),
-        __selectedQty: Number(bundleSelect[p.id] || 0),
-      }))
-      .sort((a, b) => {
-        const aSelected = a.__selectedQty > 0 ? 1 : 0
-        const bSelected = b.__selectedQty > 0 ? 1 : 0
-
-        if (aSelected !== bSelected) return bSelected - aSelected
-        if (b.__selectedQty !== a.__selectedQty) return b.__selectedQty - a.__selectedQty
-
-        return String(a.__displayName).localeCompare(String(b.__displayName))
-      })
-
-    return list
-  }, [bundleProducts, bundleSearch, bundleSelect])
-
-  const selectedBundleItems = useMemo(() => {
-    return sortedBundleProducts.filter((p) => Number(bundleSelect[p.id] || 0) > 0)
-  }, [sortedBundleProducts, bundleSelect])
 
   const cartQty = useMemo(() => {
     return cart.reduce((s, i) => s + Number(i.qty || 0), 0)
@@ -514,7 +470,6 @@ export default function Page() {
     setCart([])
     setSelectedBundle(null)
     setBundleSelect({})
-    setBundleSearch('')
     setDate('')
     setTime('')
     setName('')
@@ -884,7 +839,7 @@ export default function Page() {
                 </h1>
 
                 <p className="mt-2 text-sm text-[#9b7b63]">
-                  奶咖可爱风代理下单页 · 分类 / 品牌 / 口味或颜色
+                  欢迎来到下单系统，看来今天又要发大财了❤️
                 </p>
               </div>
 
@@ -1093,7 +1048,6 @@ export default function Page() {
                     onClick={() => {
                       setSelectedBundle(b)
                       setBundleSelect({})
-                      setBundleSearch('')
                     }}
                     className={`rounded-3xl border px-4 py-3 text-sm font-bold transition ${
                       selectedBundle?.id === b.id
@@ -1108,109 +1062,55 @@ export default function Page() {
 
               {selectedBundle ? (
                 <div className="mt-5 space-y-4">
-                  <div className="sticky top-0 z-10 rounded-3xl border border-[#eadacb] bg-[#fbf6f1]/95 p-4 backdrop-blur">
-                    <div className="flex flex-col gap-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex flex-wrap gap-3">
-                          <div className="rounded-2xl border border-[#eadacb] bg-white px-4 py-3 text-sm text-[#8c654a]">
-                            Bundle Price: <span className="font-bold text-[#6e4d36]">RM {money(bundleTotal)}</span>
-                          </div>
-
-                          <div className="rounded-2xl border border-[#eadacb] bg-white px-4 py-3 text-sm text-[#8c654a]">
-                            Need: <span className="font-bold text-[#5f4432]">{bundleLimit}</span>
-                          </div>
-
-                          <div className="rounded-2xl border border-[#eadacb] bg-white px-4 py-3 text-sm text-[#8c654a]">
-                            Selected: <span className="font-bold text-[#5f4432]">{bundleCount}</span>
-                          </div>
-
-                          <div className="rounded-2xl border border-[#eadacb] bg-white px-4 py-3 text-sm text-[#8c654a]">
-                            Remaining: <span className="font-bold text-[#5f4432]">{bundleRemaining}</span>
-                          </div>
+                  <div className="rounded-3xl border border-[#eadacb] bg-[#fbf6f1] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm text-[#8c654a]">
+                          Bundle Price: <span className="font-bold">RM {money(bundleTotal)}</span>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setBundleSelect({})}
-                          className="rounded-3xl border border-[#eadacb] bg-white px-4 py-2 text-sm text-[#7a5b47] hover:bg-[#f8efe6]"
-                        >
-                          Clear Bundle
-                        </button>
-                      </div>
-
-                      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                        <input
-                          type="text"
-                          placeholder="Search bundle flavour / color"
-                          value={bundleSearch}
-                          onChange={(e) => setBundleSearch(e.target.value)}
-                          className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#5c4333] outline-none placeholder:text-[#b29a88] focus:border-[#d7bda5]"
-                        />
-
-                        <div className="rounded-3xl border border-[#eadacb] bg-white px-4 py-3 text-sm text-[#8c654a]">
-                          {selectedBundleItems.length > 0
-                            ? `已选口味 ${selectedBundleItems.length} 项`
-                            : '未选任何口味'}
+                        <div className="mt-1 text-sm text-[#a18673]">
+                          Need Select: <span className="font-bold text-[#5f4432]">{bundleLimit}</span> | Selected:{' '}
+                          <span className="font-bold text-[#5f4432]">{bundleCount}</span>
                         </div>
                       </div>
 
-                      {selectedBundleItems.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedBundleItems.map((p) => (
-                            <button
-                              key={`selected-${p.id}`}
-                              type="button"
-                              onClick={() => setBundleQty(p.id, 0)}
-                              className="rounded-full border border-[#cba98a] bg-[#dcc0a8] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#cfaf93]"
-                            >
-                              {p.__displayName} × {bundleSelect[p.id] || 0}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setBundleSelect({})}
+                        className="rounded-3xl border border-[#eadacb] bg-white px-4 py-2 text-sm text-[#7a5b47] hover:bg-[#f8efe6]"
+                      >
+                        Clear Bundle
+                      </button>
                     </div>
                   </div>
 
-                  <div className="grid max-h-[560px] gap-3 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
-                    {sortedBundleProducts.map((p) => {
+                  <div className="grid gap-3">
+                    {bundleProducts.map((p) => {
                       const stockInfo = stockLabel(p.stock)
-                      const displayName = p.__displayName
-                      const qty = Number(bundleSelect[p.id] || 0)
-                      const selected = qty > 0
+                      const displayName = cleanProductName(p)
 
                       return (
                         <div
                           key={p.id}
-                          className={`rounded-[22px] border bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-3 transition ${
-                            selected
-                              ? 'border-[#cba98a] ring-2 ring-[#ecd8c6]'
-                              : 'border-[#eadacb]'
-                          }`}
+                          className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
                         >
-                          <div className="flex h-full flex-col justify-between gap-4">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             <div className="min-w-0">
                               <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
                                 {p.brand || 'NO BRAND'} {p.series ? `• ${p.series}` : ''}
                               </div>
-
-                              <div className="mt-2 min-h-[48px] text-base font-bold leading-6 text-[#5f4432]">
-                                {displayName}
+                              <div className="mt-2 text-base font-bold text-[#5f4432]">{displayName}</div>
+                              <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
+                                {stockInfo.text}
                               </div>
-
-                              <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <div className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
-                                  {stockInfo.text}
-                                </div>
-
-                                <div className="text-xs text-[#a88b77]">Stock: {p.stock}</div>
-                              </div>
+                              <div className="mt-2 text-xs text-[#a88b77]">Stock: {p.stock}</div>
                             </div>
 
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => changeBundleQty(p.id, -1, p.stock)}
-                                className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base text-[#6c513d] transition hover:bg-[#f8efe6]"
+                                className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] transition hover:bg-[#f8efe6]"
                               >
                                 -
                               </button>
@@ -1218,16 +1118,15 @@ export default function Page() {
                               <input
                                 type="number"
                                 min="0"
-                                value={qty}
+                                value={bundleSelect[p.id] || 0}
                                 onChange={(e) => setBundleQty(p.id, e.target.value)}
-                                className="h-9 w-16 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
+                                className="h-11 w-24 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
                               />
 
                               <button
                                 type="button"
                                 onClick={() => changeBundleQty(p.id, 1, p.stock)}
-                                disabled={qty >= Number(p.stock || 0) || bundleCount >= bundleLimit}
-                                className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+                                className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] transition hover:bg-[#f8efe6]"
                               >
                                 +
                               </button>
