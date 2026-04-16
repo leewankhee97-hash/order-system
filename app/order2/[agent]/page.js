@@ -450,8 +450,33 @@ export default function Page() {
   }, [cart])
 
   const bundleTotal = useMemo(() => {
-    return selectedBundle ? Number(selectedBundle.bundle_price || 0) : 0
-  }, [selectedBundle])
+  if (!selectedBundle) return 0
+
+  const items = []
+
+  Object.entries(bundleSelect).forEach(([pid, qty]) => {
+    const p = products.find((x) => String(x.id) === String(pid))
+    if (!p || !qty) return
+
+    for (let i = 0; i < qty; i++) {
+      items.push(p)
+    }
+  })
+
+  if (items.length === 0) return 0
+
+  const freeCount = Number(selectedBundle.free_qty || 0)
+
+  const sorted = [...items].sort(
+    (a, b) => getAgentPrice(a) - getAgentPrice(b)
+  )
+
+  const paidItems = sorted.slice(freeCount)
+
+  return paidItems.reduce((sum, item) => {
+    return sum + getAgentPrice(item)
+  }, 0)
+}, [selectedBundle, bundleSelect, products])
 
   const postageItemCount = useMemo(() => {
     const normalQty = cart.reduce((s, i) => s + Number(i.qty || 0), 0)
