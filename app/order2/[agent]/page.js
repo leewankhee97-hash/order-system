@@ -186,17 +186,23 @@ export default function Page() {
 
   async function init() {
     try {
+      const agentId = Number(agent)
 
-      const agentId = Number(params.agent)
+      if (!agentId || Number.isNaN(agentId)) {
+        setAgentInfo(null)
+        setProducts([])
+        setBundles([])
+        return
+      }
 
-const { data: a, error: agentError } = await supabase
-  .from('agents')
-  .select('*')
-  .eq('id', agentId)
-  .single()
+      const { data: a, error: agentError } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('id', agentId)
+        .single()
 
       console.log('AGENT PARAM:', agent)
-      console.log('NORMALIZED SLUG:', slug)
+      console.log('AGENT ID:', agentId)
       console.log('AGENT INFO:', a)
       console.log('AGENT ERROR:', agentError)
 
@@ -236,7 +242,6 @@ const { data: a, error: agentError } = await supabase
     if (!agentInfo) return
     const prefix =
       agentInfo.code ||
-      agentInfo.agent_name ||
       agentInfo.name ||
       'ORDER'
     const count = agentInfo.order_counter || 1
@@ -259,7 +264,6 @@ const { data: a, error: agentError } = await supabase
         product.price1 ??
         product.price_level_1 ??
         product.retail_price ??
-        product.price ??
         0
     )
 
@@ -731,7 +735,6 @@ const { data: a, error: agentError } = await supabase
 
       const prefix =
         agentInfo.code ||
-        agentInfo.agent_name ||
         agentInfo.name ||
         'ORDER'
       const count = agentInfo.order_counter || 1
@@ -886,7 +889,7 @@ const { data: a, error: agentError } = await supabase
                 </div>
 
                 <h1 className="mt-2 text-2xl font-black tracking-wide text-[#5f4432] md:text-4xl">
-                  {agentInfo?.agent_name || agentInfo?.name || agentInfo?.code || '欢迎下单'}
+                  {agentInfo?.name || agentInfo?.code || '欢迎下单'}
                 </h1>
 
                 <p className="mt-2 text-sm text-[#9b7b63]">
