@@ -186,13 +186,14 @@ export default function Page() {
 
   async function init() {
     try {
-      const slug = String(agent || '').trim().toLowerCase()
 
-      const { data: a, error: agentError } = await supabase
-        .from('agents')
-        .select('*')
-        .or(`agent_slug.eq.${slug},slug.eq.${slug}`)
-        .single()
+      const agentId = Number(params.agent)
+
+const { data: a, error: agentError } = await supabase
+  .from('agents')
+  .select('*')
+  .eq('id', agentId)
+  .single()
 
       console.log('AGENT PARAM:', agent)
       console.log('NORMALIZED SLUG:', slug)
