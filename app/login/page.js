@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const ADMIN_EMAIL = 'prolee97@hotmail.com' // 改成你自己的邮箱
+const ADMIN_EMAIL = 'prolee97@hotmail.com' // 一定要改
 
 export default function LoginPage() {
   const router = useRouter()
@@ -22,7 +22,7 @@ export default function LoginPage() {
     const { data } = await supabase.auth.getUser()
     const user = data?.user
 
-    if (user && user.email === ADMIN_EMAIL) {
+    if (user?.email === ADMIN_EMAIL) {
       router.replace('/admin')
       return
     }
@@ -40,16 +40,13 @@ export default function LoginPage() {
     setMessage('')
 
     try {
-      if (!email.trim()) {
-        throw new Error('请输入邮箱')
-      }
+      const loginEmail = email.trim()
 
-      if (!password.trim()) {
-        throw new Error('请输入密码')
-      }
+      if (!loginEmail) throw new Error('请输入邮箱')
+      if (!password.trim()) throw new Error('请输入密码')
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: loginEmail,
         password,
       })
 
@@ -58,14 +55,15 @@ export default function LoginPage() {
       const user = data?.user
 
       if (!user) {
-        throw new Error('登录失败')
+        throw new Error('登录成功，但没有取得用户资料')
       }
 
       if (user.email !== ADMIN_EMAIL) {
         await supabase.auth.signOut()
-        throw new Error('你没有权限进入后台')
+        throw new Error('这个账号没有后台权限')
       }
 
+      setMessage('登录成功，正在进入后台...')
       router.replace('/admin')
     } catch (error) {
       setMessage(error.message || '登录失败')
@@ -76,133 +74,80 @@ export default function LoginPage() {
 
   if (checking) {
     return (
-      <main
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#f7efe7',
-          color: '#6f4e37',
-          padding: 24,
-          fontWeight: 700,
-        }}
-      >
-        Checking login...
+      <main style={wrapStyle}>
+        <div style={cardStyle}>Checking login...</div>
       </main>
     )
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#f7efe7',
-        padding: 24,
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          background: '#fffaf5',
-          border: '1px solid #ead7c4',
-          borderRadius: 24,
-          padding: 28,
-          boxShadow: '0 10px 30px rgba(111, 78, 55, 0.08)',
-        }}
-      >
-        <div
-          style={{
-            fontSize: 30,
-            fontWeight: 900,
-            color: '#6f4e37',
-            marginBottom: 8,
-          }}
-        >
+    <main style={wrapStyle}>
+      <div style={cardStyle}>
+        <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 8, color: '#6f4e37' }}>
           Admin Login
-        </div>
+        </h1>
 
-        <div
-          style={{
-            fontSize: 14,
-            color: '#9a7b63',
-            marginBottom: 20,
-            lineHeight: 1.7,
-          }}
-        >
+        <div style={{ fontSize: 14, color: '#9a7b63', marginBottom: 18 }}>
           只有管理员账号可以进入后台
         </div>
 
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: 12 }}>
-            <label style={labelStyle}>Email</label>
+            <div style={labelStyle}>Email</div>
             <input
               type="email"
-              placeholder="请输入管理员邮箱"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="请输入管理员邮箱"
               style={inputStyle}
               autoComplete="email"
             />
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <label style={labelStyle}>Password</label>
+            <div style={labelStyle}>Password</div>
             <input
               type="password"
-              placeholder="请输入密码"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="请输入密码"
               style={inputStyle}
               autoComplete="current-password"
             />
           </div>
 
           {message ? (
-            <div
-              style={{
-                marginTop: 12,
-                marginBottom: 12,
-                padding: 12,
-                borderRadius: 14,
-                background: '#fff4f4',
-                border: '1px solid #e7bcbc',
-                color: '#a14f4f',
-                fontSize: 14,
-                lineHeight: 1.6,
-              }}
-            >
+            <div style={messageStyle}>
               {message}
             </div>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              height: 48,
-              marginTop: 8,
-              borderRadius: 14,
-              border: '1px solid #a47c57',
-              background: '#a47c57',
-              color: '#fff',
-              fontWeight: 800,
-              fontSize: 15,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
+          <button type="submit" disabled={loading} style={buttonStyle}>
             {loading ? '登录中...' : '登录后台'}
           </button>
         </form>
       </div>
     </main>
   )
+}
+
+const wrapStyle = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: '#f7efe7',
+  padding: 24,
+}
+
+const cardStyle = {
+  width: '100%',
+  maxWidth: 440,
+  background: '#fffaf5',
+  border: '1px solid #ead7c4',
+  borderRadius: 24,
+  padding: 28,
+  boxShadow: '0 10px 30px rgba(111, 78, 55, 0.08)',
 }
 
 const labelStyle = {
@@ -223,4 +168,29 @@ const inputStyle = {
   outline: 'none',
   color: '#6f4e37',
   fontSize: 15,
+}
+
+const buttonStyle = {
+  width: '100%',
+  height: 48,
+  marginTop: 8,
+  borderRadius: 14,
+  border: '1px solid #a47c57',
+  background: '#a47c57',
+  color: '#fff',
+  fontWeight: 800,
+  fontSize: 15,
+  cursor: 'pointer',
+}
+
+const messageStyle = {
+  marginTop: 12,
+  marginBottom: 12,
+  padding: 12,
+  borderRadius: 14,
+  background: '#f8f0e8',
+  border: '1px solid #d8b99d',
+  color: '#6f4e37',
+  fontSize: 14,
+  lineHeight: 1.6,
 }

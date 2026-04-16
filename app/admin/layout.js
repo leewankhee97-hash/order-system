@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const ADMIN_EMAIL = 'yourmail@gmail.com' // 改成你自己的邮箱
+const ADMIN_EMAIL = 'prolee97@hotmail.com' // 一定要改
 
 export default function AdminLayout({ children }) {
   const router = useRouter()
@@ -135,7 +135,7 @@ export default function AdminLayout({ children }) {
                 onClick={handleLogout}
                 style={logoutButtonStyle}
               >
-                Logout
+               Logout
               </button>
             </div>
           </aside>
