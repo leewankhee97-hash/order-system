@@ -442,7 +442,7 @@ export default function AdminProductsPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr',
+            gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 420px',
             gap: 20,
             alignItems: 'start',
           }}
@@ -533,12 +533,13 @@ export default function AdminProductsPage() {
 
             <div
               style={{
-                background: '#fffaf5',
-                border: '1px solid #ead7c4',
-                borderRadius: 20,
-                padding: 20,
-                overflowX: 'auto',
-              }}
+  background: '#fffaf5',
+  border: '1px solid #ead7c4',
+  borderRadius: 20,
+  padding: 20,
+  overflowX: 'auto',
+  maxWidth: '380',
+}}
             >
               {loading ? (
                 <div>读取中...</div>
