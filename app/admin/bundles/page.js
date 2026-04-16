@@ -9,7 +9,9 @@ const emptyForm = {
   buy_qty: '10',
   free_qty: '1',
   min_select_qty: '11',
-  bundle_price: '0',
+  bundle_price_1: '0',
+  bundle_price_2: '0',
+  bundle_price_3: '0',
   is_active: true,
 }
 
@@ -31,11 +33,8 @@ export default function AdminBundlesPage() {
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (error) {
-      setMessage(error.message)
-    } else {
-      setBundles(data || [])
-    }
+    if (error) setMessage(error.message)
+    else setBundles(data || [])
   }
 
   function handleChange(key, value) {
@@ -68,11 +67,11 @@ export default function AdminBundlesPage() {
       buy_qty: String(row.buy_qty ?? 10),
       free_qty: String(row.free_qty ?? 1),
       min_select_qty: String(
-        row.min_select_qty ??
-          row.required_qty ??
-          (Number(row.buy_qty || 0) + Number(row.free_qty || 0))
+        row.min_select_qty ?? (Number(row.buy_qty || 0) + Number(row.free_qty || 0))
       ),
-      bundle_price: String(row.bundle_price ?? 0),
+      bundle_price_1: String(row.bundle_price_1 ?? 0),
+      bundle_price_2: String(row.bundle_price_2 ?? 0),
+      bundle_price_3: String(row.bundle_price_3 ?? 0),
       is_active: row.is_active ?? true,
     })
   }
@@ -86,7 +85,9 @@ export default function AdminBundlesPage() {
     const buyQty = Number(form.buy_qty || 0)
     const freeQty = Number(form.free_qty || 0)
     const minSelectQty = Number(form.min_select_qty || 0)
-    const bundlePrice = Number(form.bundle_price || 0)
+    const bundlePrice1 = Number(form.bundle_price_1 || 0)
+    const bundlePrice2 = Number(form.bundle_price_2 || 0)
+    const bundlePrice3 = Number(form.bundle_price_3 || 0)
 
     if (!cleanName) {
       setMessage('请填写 Bundle Name')
@@ -119,24 +120,19 @@ export default function AdminBundlesPage() {
       buy_qty: buyQty,
       free_qty: freeQty,
       min_select_qty: minSelectQty,
-      bundle_price: bundlePrice,
+      bundle_price_1: bundlePrice1,
+      bundle_price_2: bundlePrice2,
+      bundle_price_3: bundlePrice3,
       is_active: !!form.is_active,
       updated_at: new Date().toISOString(),
     }
 
-    let res
-
-    if (editingId) {
-      res = await supabase
-        .from('bundle_rules')
-        .update(payload)
-        .eq('id', editingId)
-    } else {
-      res = await supabase.from('bundle_rules').insert({
-        ...payload,
-        created_at: new Date().toISOString(),
-      })
-    }
+    const res = editingId
+      ? await supabase.from('bundle_rules').update(payload).eq('id', editingId)
+      : await supabase.from('bundle_rules').insert({
+          ...payload,
+          created_at: new Date().toISOString(),
+        })
 
     if (res.error) {
       setMessage(res.error.message)
@@ -152,18 +148,14 @@ export default function AdminBundlesPage() {
     if (!ok) return
 
     const { error } = await supabase.from('bundle_rules').delete().eq('id', id)
-
-    if (error) {
-      setMessage(error.message)
-    } else {
+    if (error) setMessage(error.message)
+    else {
       setMessage('Bundle 已删除')
       fetchBundles()
     }
   }
 
   async function toggleActive(row) {
-    setMessage('')
-
     const { error } = await supabase
       .from('bundle_rules')
       .update({
@@ -181,27 +173,12 @@ export default function AdminBundlesPage() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        background: '#f7efe7',
-        padding: 24,
-        color: '#6f4e37',
-      }}
-    >
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 20 }}>
-          Bundle 规则管理
-        </h1>
+    <main style={{ minHeight: '100vh', background: '#f7efe7', padding: 24, color: '#6f4e37' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+        <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 20 }}>Bundle 规则管理</h1>
 
         <form onSubmit={submitForm} style={boxStyle}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0,1fr))',
-              gap: 12,
-            }}
-          >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
             <input
               placeholder="Bundle Name"
               value={form.name}
@@ -242,31 +219,42 @@ export default function AdminBundlesPage() {
             />
 
             <input
-              placeholder="Bundle Price"
+              placeholder="Bundle Price 1"
               type="number"
               min="0"
               step="0.01"
-              value={form.bundle_price}
-              onChange={(e) => handleChange('bundle_price', e.target.value)}
+              value={form.bundle_price_1}
+              onChange={(e) => handleChange('bundle_price_1', e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="Bundle Price 2"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.bundle_price_2}
+              onChange={(e) => handleChange('bundle_price_2', e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="Bundle Price 3"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.bundle_price_3}
+              onChange={(e) => handleChange('bundle_price_3', e.target.value)}
               style={inputStyle}
             />
           </div>
 
-          <div
-            style={{
-              marginTop: 14,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}
-          >
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
             <input
               id="is_active"
               type="checkbox"
               checked={!!form.is_active}
-              onChange={(e) =>
-                handleCheckboxChange('is_active', e.target.checked)
-              }
+              onChange={(e) => handleCheckboxChange('is_active', e.target.checked)}
             />
             <label htmlFor="is_active" style={{ fontWeight: 700 }}>
               启用 Bundle
@@ -277,7 +265,6 @@ export default function AdminBundlesPage() {
             <button type="submit" style={primaryButton}>
               {editingId ? '更新 Bundle' : '新增 Bundle'}
             </button>
-
             <button type="button" style={secondaryButton} onClick={resetForm}>
               清空
             </button>
@@ -296,17 +283,16 @@ export default function AdminBundlesPage() {
                   'Buy',
                   'Free',
                   'Need Select',
-                  'Bundle Price',
+                  'Price 1',
+                  'Price 2',
+                  'Price 3',
                   '状态',
                   '操作',
                 ].map((h) => (
-                  <th key={h} style={thStyle}>
-                    {h}
-                  </th>
+                  <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
             </thead>
-
             <tbody>
               {bundles.map((b) => (
                 <tr key={b.id}>
@@ -314,10 +300,10 @@ export default function AdminBundlesPage() {
                   <td style={tdStyle}>{b.brand}</td>
                   <td style={tdStyle}>{b.buy_qty}</td>
                   <td style={tdStyle}>{b.free_qty}</td>
-                  <td style={tdStyle}>
-                    {b.min_select_qty ?? b.required_qty ?? '-'}
-                  </td>
-                  <td style={tdStyle}>RM {Number(b.bundle_price || 0).toFixed(2)}</td>
+                  <td style={tdStyle}>{b.min_select_qty ?? '-'}</td>
+                  <td style={tdStyle}>RM {Number(b.bundle_price_1 || 0).toFixed(2)}</td>
+                  <td style={tdStyle}>RM {Number(b.bundle_price_2 || 0).toFixed(2)}</td>
+                  <td style={tdStyle}>RM {Number(b.bundle_price_3 || 0).toFixed(2)}</td>
                   <td style={tdStyle}>
                     <span
                       style={{
@@ -326,9 +312,7 @@ export default function AdminBundlesPage() {
                         borderRadius: 999,
                         fontSize: 12,
                         fontWeight: 800,
-                        border: b.is_active
-                          ? '1px solid #b9ddb8'
-                          : '1px solid #e2c1c1',
+                        border: b.is_active ? '1px solid #b9ddb8' : '1px solid #e2c1c1',
                         background: b.is_active ? '#edf9ed' : '#fff3f3',
                         color: b.is_active ? '#2f7a35' : '#a14f4f',
                       }}
@@ -338,27 +322,13 @@ export default function AdminBundlesPage() {
                   </td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        style={smallPrimaryButton}
-                        onClick={() => editRow(b)}
-                      >
+                      <button type="button" style={smallPrimaryButton} onClick={() => editRow(b)}>
                         编辑
                       </button>
-
-                      <button
-                        type="button"
-                        style={smallSecondaryButton}
-                        onClick={() => toggleActive(b)}
-                      >
+                      <button type="button" style={smallSecondaryButton} onClick={() => toggleActive(b)}>
                         {b.is_active ? '停用' : '启用'}
                       </button>
-
-                      <button
-                        type="button"
-                        style={smallDangerButton}
-                        onClick={() => deleteRow(b.id)}
-                      >
+                      <button type="button" style={smallDangerButton} onClick={() => deleteRow(b.id)}>
                         删除
                       </button>
                     </div>
@@ -369,7 +339,7 @@ export default function AdminBundlesPage() {
               {bundles.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={10}
                     style={{
                       ...tdStyle,
                       textAlign: 'center',
