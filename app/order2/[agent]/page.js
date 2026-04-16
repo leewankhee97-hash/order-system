@@ -65,6 +65,83 @@ function FilterButton({ active, onClick, children }) {
   )
 }
 
+function normalizeText(v) {
+  return String(v || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+function getProductType(product) {
+  const raw = normalizeText(
+    product?.product_type ??
+      product?.type ??
+      product?.category ??
+      product?.main_category ??
+      ''
+  )
+
+  const upper = raw.toUpperCase()
+
+  if (
+    raw.includes('烟弹') ||
+    raw.includes('POD') ||
+    raw.includes('弹')
+  ) {
+    return '烟弹'
+  }
+
+  if (
+    raw.includes('烟杆') ||
+    raw.includes('杆') ||
+    raw.includes('DEVICE') ||
+    raw.includes('KIT')
+  ) {
+    return '烟杆'
+  }
+
+  if (
+    raw.includes('一次性') ||
+    raw.includes('抛弃式') ||
+    raw.includes('DISPOSABLE') ||
+    raw.includes('DISPO')
+  ) {
+    return '一次性'
+  }
+
+  if (!raw) return '未分类'
+  return raw
+}
+
+function cleanProductName(product) {
+  let n = normalizeText(product?.name)
+
+  const brand = normalizeText(product?.brand)
+  const series = normalizeText(product?.series)
+
+  if (brand) {
+    const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    n = n.replace(new RegExp(escaped, 'ig'), ' ')
+  }
+
+  if (series) {
+    const escaped = series.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    n = n.replace(new RegExp(escaped, 'ig'), ' ')
+  }
+
+  n = n
+    .replace(/[_\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return n || normalizeText(product?.name) || '-'
+}
+
+function getVariantLabel(product) {
+  const type = getProductType(product)
+  if (type === '烟杆') return '颜色'
+  return '口味'
+}
+
 export default function Page() {
   const { agent } = useParams()
 
@@ -91,9 +168,9 @@ export default function Page() {
   const [postcode, setPostcode] = useState('')
   const [shipping, setShipping] = useState('')
 
+  const [selectedType, setSelectedType] = useState('')
   const [selectedBrand, setSelectedBrand] = useState('')
-  const [selectedSeries, setSelectedSeries] = useState('')
-  const [selectedFlavor, setSelectedFlavor] = useState('')
+  const [selectedVariant, setSelectedVariant] = useState('')
   const [search, setSearch] = useState('')
 
   const [error, setError] = useState('')
@@ -162,36 +239,36 @@ export default function Page() {
   }
 
   function getAgentPrice(product) {
-  const level = getAgentLevel()
+    const level = getAgentLevel()
 
-  const p1 = Number(
-    product.price_1 ??
-      product.price1 ??
-      product.price_level_1 ??
-      product.retail_price ??
-      0
-  )
+    const p1 = Number(
+      product.price_1 ??
+        product.price1 ??
+        product.price_level_1 ??
+        product.retail_price ??
+        0
+    )
 
-  const p2 = Number(
-    product.price_2 ??
-      product.price2 ??
-      product.price_level_2 ??
-      product.agent_price ??
-      0
-  )
+    const p2 = Number(
+      product.price_2 ??
+        product.price2 ??
+        product.price_level_2 ??
+        product.agent_price ??
+        0
+    )
 
-  const p3 = Number(
-    product.price_3 ??
-      product.price3 ??
-      product.price_level_3 ??
-      product.vip_price ??
-      0
-  )
+    const p3 = Number(
+      product.price_3 ??
+        product.price3 ??
+        product.price_level_3 ??
+        product.vip_price ??
+        0
+    )
 
-  if (level === 3) return p3
-  if (level === 2) return p2
-  return p1
-}
+    if (level === 3) return p3
+    if (level === 2) return p2
+    return p1
+  }
 
   function add(p) {
     const lockedPrice = getAgentPrice(p)
@@ -227,58 +304,76 @@ export default function Page() {
     setCart((prev) => prev.filter((i) => i.id !== id))
   }
 
-  const brands = useMemo(() => {
-    return [...new Set(products.map((p) => p.brand).filter(Boolean))]
+  const typeOptions = useMemo(() => {
+    const preferredOrder = ['烟弹', '烟杆', '一次性']
+    const all = [...new Set(products.map((p) => getProductType(p)).filter(Boolean))]
+    const ordered = preferredOrder.filter((x) => all.includes(x))
+    const rest = all.filter((x) => !preferredOrder.includes(x)).sort()
+    return [...ordered, ...rest]
   }, [products])
 
-  const seriesOptions = useMemo(() => {
-    if (!selectedBrand) return []
+  const brandOptions = useMemo(() => {
+    if (!selectedType) return []
     return [
       ...new Set(
         products
-          .filter((p) => p.brand === selectedBrand)
-          .map((p) => p.series)
+          .filter((p) => getProductType(p) === selectedType)
+          .map((p) => p.brand)
           .filter(Boolean)
       ),
     ]
-  }, [products, selectedBrand])
+  }, [products, selectedType])
 
-  const flavorOptions = useMemo(() => {
-    if (!selectedBrand || !selectedSeries) return []
+  const variantOptions = useMemo(() => {
+    if (!selectedType || !selectedBrand) return []
     return [
       ...new Set(
         products
-          .filter((p) => p.brand === selectedBrand && p.series === selectedSeries)
-          .map((p) => p.name)
+          .filter(
+            (p) =>
+              getProductType(p) === selectedType &&
+              p.brand === selectedBrand
+          )
+          .map((p) => cleanProductName(p))
           .filter(Boolean)
       ),
     ]
-  }, [products, selectedBrand, selectedSeries])
+  }, [products, selectedType, selectedBrand])
+
+  const currentVariantLabel = useMemo(() => {
+    if (!selectedType) return '口味 / 颜色'
+    if (selectedType === '烟杆') return '颜色'
+    return '口味'
+  }, [selectedType])
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase()
 
+    if (!selectedType) return []
     if (!selectedBrand) return []
-    if (!selectedSeries) return []
-    if (!selectedFlavor) return []
+    if (!selectedVariant) return []
 
     return products.filter((p) => {
+      const displayName = cleanProductName(p)
+      const joined = [
+        getProductType(p),
+        p.brand,
+        p.series,
+        p.name,
+        displayName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
+      if (getProductType(p) !== selectedType) return false
       if (p.brand !== selectedBrand) return false
-      if (p.series !== selectedSeries) return false
-      if (p.name !== selectedFlavor) return false
-
-      if (q) {
-        const joined = [p.name, p.brand, p.series]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-
-        if (!joined.includes(q)) return false
-      }
+      if (displayName !== selectedVariant) return false
+      if (q && !joined.includes(q)) return false
 
       return true
     })
-  }, [products, selectedBrand, selectedSeries, selectedFlavor, search])
+  }, [products, selectedType, selectedBrand, selectedVariant, search])
 
   const bundleProducts = useMemo(() => {
     if (!selectedBundle) return []
@@ -396,9 +491,10 @@ export default function Page() {
     cart.forEach((item) => {
       const price = Number(item.price || 0)
       const subtotal = Number(item.qty || 0) * price
+      const displayName = cleanProductName(item)
 
-      itemLines.push(`${item.brand || item.name}（RM${money(price)}）`)
-      itemLines.push(`${item.name} - ${item.qty}`)
+      itemLines.push(`${item.brand || displayName}${item.series ? ` ${item.series}` : ''}（RM${money(price)}）`)
+      itemLines.push(`${displayName} - ${item.qty}`)
       itemLines.push(`【TOTAL ${item.qty}*RM${money(price)}=RM${money(subtotal)}】`)
       itemLines.push('')
     })
@@ -408,7 +504,7 @@ export default function Page() {
       Object.entries(bundleSelect).forEach(([pid, qty]) => {
         const p = products.find((x) => String(x.id) === String(pid))
         if (!p || !qty) return
-        itemLines.push(`${p.name} - ${qty}`)
+        itemLines.push(`${cleanProductName(p)} - ${qty}`)
       })
       itemLines.push(`【BUNDLE TOTAL = RM${money(bundleTotal)}】`)
       itemLines.push('')
@@ -628,7 +724,7 @@ export default function Page() {
         items.push({
           order_id: order.id,
           product_id: i.id,
-          product_name: i.name,
+          product_name: cleanProductName(i),
           qty: i.qty,
           unit_price: i.price,
           subtotal: Number(i.qty || 0) * Number(i.price || 0),
@@ -643,7 +739,7 @@ export default function Page() {
           items.push({
             order_id: order.id,
             product_id: p.id,
-            product_name: p.name,
+            product_name: cleanProductName(p),
             qty,
             unit_price: 0,
             subtotal: 0,
@@ -743,7 +839,7 @@ export default function Page() {
                 </h1>
 
                 <p className="mt-2 text-sm text-[#9b7b63]">
-                  奶咖可爱风代理下单页 · Brand / Series / Flavour 清楚筛选
+                  奶咖可爱风代理下单页 · 分类 / 品牌 / 口味或颜色
                 </p>
               </div>
 
@@ -792,7 +888,7 @@ export default function Page() {
                 <div className="w-full md:w-[320px]">
                   <input
                     type="text"
-                    placeholder="Search brand / series / flavour"
+                    placeholder="Search 分类 / 品牌 / 口味 / 颜色"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#5c4333] outline-none placeholder:text-[#b29a88] focus:border-[#d7bda5]"
@@ -803,65 +899,58 @@ export default function Page() {
               <div className="space-y-4">
                 <div>
                   <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
-                    1. Brand
+                    1. 分类
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {brands.map((b) => (
+                    {typeOptions.map((t) => (
                       <FilterButton
-                        key={b}
-                        active={selectedBrand === b}
+                        key={t}
+                        active={selectedType === t}
                         onClick={() => {
-                          setSelectedBrand(b)
-                          setSelectedSeries('')
-                          setSelectedFlavor('')
+                          setSelectedType(t)
+                          setSelectedBrand('')
+                          setSelectedVariant('')
                         }}
                       >
-                        {b}
+                        {t}
                       </FilterButton>
                     ))}
                   </div>
                 </div>
 
-                {selectedBrand ? (
+                {selectedType ? (
                   <div>
                     <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
-                      2. Series
+                      2. 品牌
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {seriesOptions.map((s) => (
+                      {brandOptions.map((b) => (
                         <FilterButton
-                          key={s}
-                          active={selectedSeries === s}
+                          key={b}
+                          active={selectedBrand === b}
                           onClick={() => {
-                            setSelectedSeries(s)
-                            setSelectedFlavor('')
+                            setSelectedBrand(b)
+                            setSelectedVariant('')
                           }}
                         >
-                          {s}
+                          {b}
                         </FilterButton>
                       ))}
                     </div>
                   </div>
                 ) : null}
 
-                {selectedBrand && selectedSeries ? (
+                {selectedType && selectedBrand ? (
                   <div>
                     <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
-                      3. Flavour
+                      3. {currentVariantLabel}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <FilterButton
-                        active={!selectedFlavor}
-                        onClick={() => setSelectedFlavor('')}
-                      >
-                        全部口味
-                      </FilterButton>
-
-                      {flavorOptions.map((f) => (
+                      {variantOptions.map((f) => (
                         <FilterButton
                           key={f}
-                          active={selectedFlavor === f}
-                          onClick={() => setSelectedFlavor(f)}
+                          active={selectedVariant === f}
+                          onClick={() => setSelectedVariant(f)}
                         >
                           {f}
                         </FilterButton>
@@ -872,15 +961,16 @@ export default function Page() {
               </div>
 
               <div className="mt-5 mb-4 text-sm text-[#a08874]">
-                {selectedFlavor
+                {selectedVariant
                   ? `Showing ${filteredProducts.length} product${filteredProducts.length === 1 ? '' : 's'}`
-                  : '请选择口味后显示产品'}
+                  : `请选择${currentVariantLabel}后显示产品`}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredProducts.map((p) => {
                   const stockInfo = stockLabel(p.stock)
                   const displayPrice = getAgentPrice(p)
+                  const displayName = cleanProductName(p)
 
                   return (
                     <div
@@ -892,18 +982,21 @@ export default function Page() {
                       <div className="mb-2">
                         <div className="min-w-0">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
-                            {p.brand || 'NO BRAND'}
+                            {getProductType(p)} · {p.brand || 'NO BRAND'}
                           </div>
                           <div className="mt-2 line-clamp-2 text-base font-bold text-[#5f4432]">
-                            {p.name}
+                            {displayName}
                           </div>
-                          <div className="mt-1 text-xs text-[#a88b77]">{p.series || '-'}</div>
+                          <div className="mt-1 text-xs text-[#a88b77]">
+                            {p.series || '-'} · {getVariantLabel(p)}
+                          </div>
                         </div>
 
                         <div className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
                           {stockInfo.text}
                         </div>
                       </div>
+
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
                           <div className="text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
@@ -994,6 +1087,7 @@ export default function Page() {
                   <div className="grid gap-3">
                     {bundleProducts.map((p) => {
                       const stockInfo = stockLabel(p.stock)
+                      const displayName = cleanProductName(p)
 
                       return (
                         <div
@@ -1005,7 +1099,7 @@ export default function Page() {
                               <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
                                 {p.brand || 'NO BRAND'} {p.series ? `• ${p.series}` : ''}
                               </div>
-                              <div className="mt-2 text-base font-bold text-[#5f4432]">{p.name}</div>
+                              <div className="mt-2 text-base font-bold text-[#5f4432]">{displayName}</div>
                               <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
                                 {stockInfo.text}
                               </div>
@@ -1280,9 +1374,9 @@ export default function Page() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
-                            {item.brand || 'NO BRAND'} {item.series ? `• ${item.series}` : ''}
+                            {getProductType(item)} · {item.brand || 'NO BRAND'} {item.series ? `• ${item.series}` : ''}
                           </div>
-                          <div className="mt-2 text-base font-bold text-[#5f4432]">{item.name}</div>
+                          <div className="mt-2 text-base font-bold text-[#5f4432]">{cleanProductName(item)}</div>
                           <div className="mt-2 text-sm text-[#7b5740]">RM {money(item.price)}</div>
                         </div>
 
