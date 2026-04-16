@@ -71,8 +71,12 @@ function normalizeText(v) {
     .replace(/\s+/g, ' ')
 }
 
+function eqText(a, b) {
+  return normalizeText(a).toLowerCase() === normalizeText(b).toLowerCase()
+}
+
 function getProductType(product) {
-  const raw = normalizeText(
+  const rawOriginal = normalizeText(
     product?.product_type ??
       product?.type ??
       product?.category ??
@@ -80,11 +84,9 @@ function getProductType(product) {
       ''
   )
 
-  if (
-    raw.includes('烟弹') ||
-    raw.includes('POD') ||
-    raw.includes('弹')
-  ) {
+  const raw = rawOriginal.toUpperCase()
+
+  if (raw.includes('烟弹') || raw.includes('POD') || raw.includes('弹')) {
     return '烟弹'
   }
 
@@ -106,8 +108,8 @@ function getProductType(product) {
     return '一次性'
   }
 
-  if (!raw) return '未分类'
-  return raw
+  if (!rawOriginal) return '未分类'
+  return rawOriginal
 }
 
 function cleanProductName(product) {
@@ -145,7 +147,6 @@ export default function Page() {
 
   const [products, setProducts] = useState([])
   const [bundles, setBundles] = useState([])
-  const [bundleMap, setBundleMap] = useState({})
 
   const [cart, setCart] = useState([])
   const [bundleSelect, setBundleSelect] = useState({})
@@ -218,27 +219,13 @@ export default function Page() {
         .from('bundle_rules')
         .select('*')
         .eq('is_active', true)
+        .order('created_at', { ascending: true })
 
       if (bundlesError) {
         console.error('BUNDLES ERROR:', bundlesError)
       }
 
       setBundles(b || [])
-
-      const { data: map, error: mapError } = await supabase
-        .from('bundle_rule_products')
-        .select('*')
-
-      if (mapError) {
-        console.error('BUNDLE MAP ERROR:', mapError)
-      }
-
-      const obj = {}
-      map?.forEach((x) => {
-        if (!obj[x.bundle_rule_id]) obj[x.bundle_rule_id] = []
-        obj[x.bundle_rule_id].push(x.product_id)
-      })
-      setBundleMap(obj)
     } catch (err) {
       console.error('INIT ERROR:', err)
     }
@@ -246,7 +233,11 @@ export default function Page() {
 
   useEffect(() => {
     if (!agentInfo) return
-    const prefix = agentInfo.code || agentInfo.agent_name
+    const prefix =
+      agentInfo.code ||
+      agentInfo.agent_name ||
+      agentInfo.name ||
+      'ORDER'
     const count = agentInfo.order_counter || 1
     setOrderId(`${prefix}-${String(count).padStart(4, '0')}`)
     setCart([])
@@ -264,26 +255,27 @@ export default function Page() {
 
     const p1 = Number(
       product.price_1 ??
-      product.price1 ??
-      product.price_level_1 ??
-      product.retail_price ??
-      0
+        product.price1 ??
+        product.price_level_1 ??
+        product.retail_price ??
+        product.price ??
+        0
     )
 
     const p2 = Number(
       product.price_2 ??
-      product.price2 ??
-      product.price_level_2 ??
-      product.agent_price ??
-      0
+        product.price2 ??
+        product.price_level_2 ??
+        product.agent_price ??
+        0
     )
 
     const p3 = Number(
       product.price_3 ??
-      product.price3 ??
-      product.price_level_3 ??
-      product.vip_price ??
-      0
+        product.price3 ??
+        product.price_level_3 ??
+        product.vip_price ??
+        0
     )
 
     if (level === 3) return p3 || p2 || p1
@@ -353,7 +345,7 @@ export default function Page() {
           .filter(
             (p) =>
               getProductType(p) === selectedType &&
-              p.brand === selectedBrand
+              eqText(p.brand, selectedBrand)
           )
           .map((p) => cleanProductName(p))
           .filter(Boolean)
@@ -388,9 +380,11 @@ export default function Page() {
         .toLowerCase()
 
       if (getProductType(p) !== selectedType) return false
-      if (p.brand !== selectedBrand) return false
+      if (!eqText(p.brand, selectedBrand)) return false
       if (displayName !== selectedVariant) return false
       if (q && !joined.includes(q)) return false
+      if (Number(p.stock || 0) <= 0) return false
+      if (p.is_active === false) return false
 
       return true
     })
@@ -398,16 +392,16 @@ export default function Page() {
 
   const bundleProducts = useMemo(() => {
     if (!selectedBundle) return []
-    const ids = bundleMap[selectedBundle.id] || []
 
-    if (ids.length > 0) {
-      return products.filter((p) => ids.includes(p.id))
-    }
+    const bundleBrand = normalizeText(selectedBundle.brand)
+    if (!bundleBrand) return []
 
     return products.filter((p) => {
-      return p.brand === selectedBundle.brand && p.series === selectedBundle.series
+      if (p.is_active === false) return false
+      if (Number(p.stock || 0) <= 0) return false
+      return eqText(p.brand, bundleBrand)
     })
-  }, [selectedBundle, products, bundleMap])
+  }, [selectedBundle, products])
 
   const bundleLimit = Number(selectedBundle?.min_select_qty || 0)
 
@@ -418,12 +412,14 @@ export default function Page() {
   function setBundleQty(pid, qty) {
     const currentMap = { ...bundleSelect }
     const next = Math.max(0, Number(qty || 0))
-
     currentMap[pid] = next
-    const totalAfter = Object.values(currentMap).reduce((s, v) => s + Number(v || 0), 0)
 
-    if (selectedBundle && totalAfter > bundleLimit) return
+    const totalAfter = Object.values(currentMap).reduce(
+      (s, v) => s + Number(v || 0),
+      0
+    )
 
+    if (selectedBundle && bundleLimit > 0 && totalAfter > bundleLimit) return
     setBundleSelect(currentMap)
   }
 
@@ -441,11 +437,16 @@ export default function Page() {
 
   const region = useMemo(() => {
     if (!state) return '-'
-    return EAST.includes((state || '').toUpperCase()) ? 'East Malaysia' : 'West Malaysia'
+    return EAST.includes((state || '').toUpperCase())
+      ? 'East Malaysia'
+      : 'West Malaysia'
   }, [state])
 
   const normalTotal = useMemo(() => {
-    return cart.reduce((s, i) => s + Number(i.qty || 0) * Number(i.price || 0), 0)
+    return cart.reduce(
+      (s, i) => s + Number(i.qty || 0) * Number(i.price || 0),
+      0
+    )
   }, [cart])
 
   const bundleTotal = useMemo(() => {
@@ -466,7 +467,6 @@ export default function Page() {
       if (EAST.includes((state || '').toUpperCase())) return 15
       return 10
     }
-
     return Number(shipping || 0)
   }, [delivery, postageItemCount, state, shipping])
 
@@ -480,7 +480,9 @@ export default function Page() {
   }, [products])
 
   const lowStockCount = useMemo(() => {
-    return products.filter((p) => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 50).length
+    return products.filter(
+      (p) => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 50
+    ).length
   }, [products])
 
   const outStockCount = useMemo(() => {
@@ -514,7 +516,9 @@ export default function Page() {
       const subtotal = Number(item.qty || 0) * price
       const displayName = cleanProductName(item)
 
-      itemLines.push(`${item.brand || displayName}${item.series ? ` ${item.series}` : ''}（RM${money(price)}）`)
+      itemLines.push(
+        `${item.brand || displayName}${item.series ? ` ${item.series}` : ''}（RM${money(price)}）`
+      )
       itemLines.push(`${displayName} - ${item.qty}`)
       itemLines.push(`【TOTAL ${item.qty}*RM${money(price)}=RM${money(subtotal)}】`)
       itemLines.push('')
@@ -696,8 +700,13 @@ export default function Page() {
     }
 
     if (selectedBundle) {
-      if (bundleCount !== bundleLimit) {
+      if (bundleLimit > 0 && bundleCount !== bundleLimit) {
         setError('bundle 数量不正确')
+        return
+      }
+
+      if (bundleProducts.length === 0) {
+        setError('该 bundle 没有可选产品，请检查 bundle 的 brand 是否与 products.brand 一致')
         return
       }
     }
@@ -707,7 +716,11 @@ export default function Page() {
       setError('')
       setSuccess('')
 
-      const prefix = agentInfo.code || agentInfo.agent_name
+      const prefix =
+        agentInfo.code ||
+        agentInfo.agent_name ||
+        agentInfo.name ||
+        'ORDER'
       const count = agentInfo.order_counter || 1
       const oid = `${prefix}-${String(count).padStart(4, '0')}`
 
@@ -749,6 +762,7 @@ export default function Page() {
           qty: i.qty,
           unit_price: i.price,
           subtotal: Number(i.qty || 0) * Number(i.price || 0),
+          item_type: 'NORMAL',
         })
       })
 
@@ -761,7 +775,7 @@ export default function Page() {
             order_id: order.id,
             product_id: p.id,
             product_name: cleanProductName(p),
-            qty,
+            qty: Number(qty || 0),
             unit_price: 0,
             subtotal: 0,
             item_type: 'BUNDLE_ITEM',
@@ -771,7 +785,10 @@ export default function Page() {
         })
       }
 
-      const { error: itemError } = await supabase.from('order_items').insert(items)
+      const { error: itemError } = await supabase
+        .from('order_items')
+        .insert(items)
+
       if (itemError) throw itemError
 
       for (const i of cart) {
@@ -856,7 +873,7 @@ export default function Page() {
                 </div>
 
                 <h1 className="mt-2 text-2xl font-black tracking-wide text-[#5f4432] md:text-4xl">
-                  {agentInfo?.agent_name || agentInfo?.code || '欢迎下单'}
+                  {agentInfo?.agent_name || agentInfo?.name || agentInfo?.code || '欢迎下单'}
                 </h1>
 
                 <p className="mt-2 text-sm text-[#9b7b63]">
@@ -1093,6 +1110,9 @@ export default function Page() {
                           Need Select: <span className="font-bold text-[#5f4432]">{bundleLimit}</span> | Selected:{' '}
                           <span className="font-bold text-[#5f4432]">{bundleCount}</span>
                         </div>
+                        <div className="mt-1 text-xs text-[#a18673]">
+                          Bind Brand: <span className="font-bold text-[#5f4432]">{selectedBundle.brand || '-'}</span>
+                        </div>
                       </div>
 
                       <button
@@ -1105,58 +1125,64 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3">
-                    {bundleProducts.map((p) => {
-                      const stockInfo = stockLabel(p.stock)
-                      const displayName = cleanProductName(p)
+                  {bundleProducts.length === 0 ? (
+                    <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">
+                      这个 Bundle 目前没有匹配到产品。请检查 <strong>bundle_rules.brand</strong> 是否和 <strong>products.brand</strong> 完全对应。
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {bundleProducts.map((p) => {
+                        const stockInfo = stockLabel(p.stock)
+                        const displayName = cleanProductName(p)
 
-                      return (
-                        <div
-                          key={p.id}
-                          className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
-                        >
-                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                            <div className="min-w-0">
-                              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
-                                {p.brand || 'NO BRAND'} {p.series ? `• ${p.series}` : ''}
+                        return (
+                          <div
+                            key={p.id}
+                            className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
+                          >
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                              <div className="min-w-0">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
+                                  {p.brand || 'NO BRAND'} {p.series ? `• ${p.series}` : ''}
+                                </div>
+                                <div className="mt-2 text-base font-bold text-[#5f4432]">{displayName}</div>
+                                <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
+                                  {stockInfo.text}
+                                </div>
+                                <div className="mt-2 text-xs text-[#a88b77]">Stock: {p.stock}</div>
                               </div>
-                              <div className="mt-2 text-base font-bold text-[#5f4432]">{displayName}</div>
-                              <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
-                                {stockInfo.text}
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => changeBundleQty(p.id, -1, p.stock)}
+                                  className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] transition hover:bg-[#f8efe6]"
+                                >
+                                  -
+                                </button>
+
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={bundleSelect[p.id] || 0}
+                                  onChange={(e) => setBundleQty(p.id, e.target.value)}
+                                  className="h-11 w-24 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() => changeBundleQty(p.id, 1, p.stock)}
+                                  className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] transition hover:bg-[#f8efe6]"
+                                >
+                                  +
+                                </button>
                               </div>
-                              <div className="mt-2 text-xs text-[#a88b77]">Stock: {p.stock}</div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => changeBundleQty(p.id, -1, p.stock)}
-                                className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] transition hover:bg-[#f8efe6]"
-                              >
-                                -
-                              </button>
-
-                              <input
-                                type="number"
-                                min="0"
-                                value={bundleSelect[p.id] || 0}
-                                onChange={(e) => setBundleQty(p.id, e.target.value)}
-                                className="h-11 w-24 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
-                              />
-
-                              <button
-                                type="button"
-                                onClick={() => changeBundleQty(p.id, 1, p.stock)}
-                                className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] transition hover:bg-[#f8efe6]"
-                              >
-                                +
-                              </button>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : null}
             </section>
