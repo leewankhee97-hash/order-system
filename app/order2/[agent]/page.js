@@ -80,8 +80,6 @@ function getProductType(product) {
       ''
   )
 
-  const upper = raw.toUpperCase()
-
   if (
     raw.includes('烟弹') ||
     raw.includes('POD') ||
@@ -183,44 +181,67 @@ export default function Page() {
 
   useEffect(() => {
     init()
-  }, [])
+  }, [agent])
 
   async function init() {
-    const { data: a } = await supabase
-      .from('agents')
-      .select('*')
-      .or(`agent_slug.eq.${agent},slug.eq.${agent}`)
-      .single()
+    try {
+      const slug = String(agent || '').trim().toLowerCase()
 
-    setAgentInfo(a || null)
+      const { data: a, error: agentError } = await supabase
+        .from('agents')
+        .select('*')
+        .or(`agent_slug.eq.${slug},slug.eq.${slug}`)
+        .single()
 
-    const { data: p } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .order('brand', { ascending: true })
-      .order('series', { ascending: true })
-      .order('name', { ascending: true })
+      console.log('AGENT PARAM:', agent)
+      console.log('NORMALIZED SLUG:', slug)
+      console.log('AGENT INFO:', a)
+      console.log('AGENT ERROR:', agentError)
 
-    setProducts(p || [])
+      setAgentInfo(a || null)
 
-    const { data: b } = await supabase
-      .from('bundle_rules')
-      .select('*')
-      .eq('is_active', true)
+      const { data: p, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('brand', { ascending: true })
+        .order('series', { ascending: true })
+        .order('name', { ascending: true })
 
-    setBundles(b || [])
+      if (productsError) {
+        console.error('PRODUCTS ERROR:', productsError)
+      }
 
-    const { data: map } = await supabase
-      .from('bundle_rule_products')
-      .select('*')
+      setProducts(p || [])
 
-    const obj = {}
-    map?.forEach((x) => {
-      if (!obj[x.bundle_rule_id]) obj[x.bundle_rule_id] = []
-      obj[x.bundle_rule_id].push(x.product_id)
-    })
-    setBundleMap(obj)
+      const { data: b, error: bundlesError } = await supabase
+        .from('bundle_rules')
+        .select('*')
+        .eq('is_active', true)
+
+      if (bundlesError) {
+        console.error('BUNDLES ERROR:', bundlesError)
+      }
+
+      setBundles(b || [])
+
+      const { data: map, error: mapError } = await supabase
+        .from('bundle_rule_products')
+        .select('*')
+
+      if (mapError) {
+        console.error('BUNDLE MAP ERROR:', mapError)
+      }
+
+      const obj = {}
+      map?.forEach((x) => {
+        if (!obj[x.bundle_rule_id]) obj[x.bundle_rule_id] = []
+        obj[x.bundle_rule_id].push(x.product_id)
+      })
+      setBundleMap(obj)
+    } catch (err) {
+      console.error('INIT ERROR:', err)
+    }
   }
 
   useEffect(() => {
@@ -232,44 +253,43 @@ export default function Page() {
   }, [agentInfo])
 
   function getAgentLevel() {
-    const raw = String(agentInfo?.level ?? '1').trim()
-    if (raw === '3') return 3
-    if (raw === '2') return 2
+    const raw = String(agentInfo?.level ?? '').trim().toLowerCase()
+    if (raw.includes('3')) return 3
+    if (raw.includes('2')) return 2
     return 1
   }
 
   function getAgentPrice(product) {
-  const level = getAgentLevel()
+    const level = getAgentLevel()
 
-  const p1 = Number(
-    product.price_1 ??
-    product.price1 ??
-    product.price_level_1 ??
-    product.retail_price ??
-    0
-  )
+    const p1 = Number(
+      product.price_1 ??
+      product.price1 ??
+      product.price_level_1 ??
+      product.retail_price ??
+      0
+    )
 
-  const p2 = Number(
-    product.price_2 ??
-    product.price2 ??
-    product.price_level_2 ??
-    product.agent_price ??
-    0
-  )
+    const p2 = Number(
+      product.price_2 ??
+      product.price2 ??
+      product.price_level_2 ??
+      product.agent_price ??
+      0
+    )
 
-  const p3 = Number(
-    product.price_3 ??
-    product.price3 ??
-    product.price_level_3 ??
-    product.vip_price ??
-    0
-  )
+    const p3 = Number(
+      product.price_3 ??
+      product.price3 ??
+      product.price_level_3 ??
+      product.vip_price ??
+      0
+    )
 
-  // 🔥 核心修复（fallback）
-  if (level === 3) return p3 || p2 || p1
-  if (level === 2) return p2 || p1
-  return p1
-}
+    if (level === 3) return p3 || p2 || p1
+    if (level === 2) return p2 || p1
+    return p1
+  }
 
   function add(p) {
     const lockedPrice = getAgentPrice(p)
