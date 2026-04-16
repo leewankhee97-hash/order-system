@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const ADMIN_EMAIL = 'leewankhee97@gmail.com' // 改成你自己的邮箱
+const ADMIN_EMAIL = 'prolee97@hotmail.com' // 改成你自己的邮箱
 
 export default function LoginPage() {
   const router = useRouter()
