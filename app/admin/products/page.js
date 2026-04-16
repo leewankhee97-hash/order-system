@@ -269,7 +269,6 @@ export default function AdminProductsPage() {
         price_1: Number(form.price_1 || 0),
         price_2: Number(form.price_2 || 0),
         price_3: Number(form.price_3 || 0),
-        price: Number(form.price_1 || 0),
         stock: Number(form.stock || 0),
       }
 
@@ -330,7 +329,6 @@ export default function AdminProductsPage() {
         price_1: price1,
         price_2: price2,
         price_3: price3,
-        price: price1,
         stock,
       }))
 
@@ -393,7 +391,6 @@ export default function AdminProductsPage() {
           price_1: price1,
           price_2: price2,
           price_3: price3,
-          price: price1,
         })
         .eq('brand', brand)
         .eq('series', series)
@@ -533,13 +530,13 @@ export default function AdminProductsPage() {
 
             <div
               style={{
-  background: '#fffaf5',
-  border: '1px solid #ead7c4',
-  borderRadius: 20,
-  padding: 20,
-  overflowX: 'auto',
-  maxWidth: '380',
-}}
+                background: '#fffaf5',
+                border: '1px solid #ead7c4',
+                borderRadius: 20,
+                padding: 20,
+                overflowX: 'auto',
+                maxWidth: '380',
+              }}
             >
               {loading ? (
                 <div>读取中...</div>
