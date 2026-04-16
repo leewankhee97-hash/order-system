@@ -1,0 +1,1 @@
+const ADMIN_EMAIL = 'yourmail@gmail.com'
