@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+const PRODUCT_TYPES = ['烟弹', '烟杆', '一次性']
+
 const emptyForm = {
+  product_type: '烟弹',
   brand: '',
   series: '',
   flavor: '',
@@ -16,6 +19,7 @@ const emptyForm = {
 }
 
 const emptyBulkForm = {
+  product_type: '烟弹',
   brand: '',
   series: '',
   price_1: '',
@@ -41,8 +45,12 @@ function makeSku(brand, series, flavor) {
     .toUpperCase()
 }
 
-function makeName(brand, series, flavor) {
-  return [brand, series, flavor].filter(Boolean).join(' ').trim()
+function makeName(flavor) {
+  return String(flavor || '').trim()
+}
+
+function getVariantLabel(productType) {
+  return productType === '烟杆' ? '颜色' : '口味'
 }
 
 export default function AdminProductsPage() {
@@ -68,7 +76,10 @@ export default function AdminProductsPage() {
     const { data, error } = await supabase
       .from('products')
       .select('*')
+      .order('product_type', { ascending: true })
       .order('brand', { ascending: true })
+      .order('series', { ascending: true })
+      .order('name', { ascending: true })
 
     if (error) {
       setMessage(error.message)
@@ -80,7 +91,15 @@ export default function AdminProductsPage() {
   }
 
   function handleChange(key, value) {
-    setForm((prev) => ({ ...prev, [key]: value }))
+    setForm((prev) => {
+      const next = { ...prev, [key]: value }
+
+      if (key === 'product_type' && next.name.trim() === '') {
+        next.name = ''
+      }
+
+      return next
+    })
   }
 
   function handleBulkChange(key, value) {
@@ -94,6 +113,7 @@ export default function AdminProductsPage() {
   function handleEdit(product) {
     setEditingId(product.id)
     setForm({
+      product_type: product.product_type || '烟弹',
       brand: product.brand || '',
       series: product.series || '',
       flavor: product.flavor || '',
@@ -129,12 +149,23 @@ export default function AdminProductsPage() {
     setMessage('')
 
     try {
+      const productType = form.product_type.trim()
+      const brand = form.brand.trim()
+      const series = form.series.trim()
+      const flavor = form.flavor.trim()
+
+      if (!productType) throw new Error('请选择分类')
+      if (!brand) throw new Error('请填写品牌')
+      if (!series) throw new Error('请填写系列')
+      if (!flavor) throw new Error(`请填写${getVariantLabel(productType)}`)
+
       const payload = {
-        brand: form.brand.trim(),
-        series: form.series.trim(),
-        flavor: form.flavor.trim(),
-        name: form.name.trim() || makeName(form.brand, form.series, form.flavor),
-        sku: form.sku.trim() || makeSku(form.brand, form.series, form.flavor),
+        product_type: productType,
+        brand,
+        series,
+        flavor,
+        name: form.name.trim() || makeName(flavor),
+        sku: form.sku.trim() || makeSku(brand, series, flavor),
         price_1: Number(form.price_1 || 0),
         price_2: Number(form.price_2 || 0),
         price_3: Number(form.price_3 || 0),
@@ -167,6 +198,7 @@ export default function AdminProductsPage() {
     setMessage('')
 
     try {
+      const productType = bulkForm.product_type.trim()
       const brand = bulkForm.brand.trim()
       const series = bulkForm.series.trim()
       const price1 = Number(bulkForm.price_1 || 0)
@@ -174,22 +206,26 @@ export default function AdminProductsPage() {
       const price3 = Number(bulkForm.price_3 || 0)
       const stock = Number(bulkForm.stock || 0)
 
+      if (!productType) throw new Error('请选择分类')
       if (!brand) throw new Error('请填写品牌')
       if (!series) throw new Error('请填写系列')
-      if (!bulkForm.flavorsText.trim()) throw new Error('请填写口味内容')
+      if (!bulkForm.flavorsText.trim()) {
+        throw new Error(`请填写${getVariantLabel(productType)}内容`)
+      }
 
       const flavors = bulkForm.flavorsText
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean)
 
-      if (flavors.length === 0) throw new Error('没有可新增的口味')
+      if (flavors.length === 0) throw new Error(`没有可新增的${getVariantLabel(productType)}`)
 
       const rows = flavors.map((flavor) => ({
+        product_type: productType,
         brand,
         series,
         flavor,
-        name: makeName(brand, series, flavor),
+        name: makeName(flavor),
         sku: makeSku(brand, series, flavor),
         price_1: price1,
         price_2: price2,
@@ -328,60 +364,88 @@ export default function AdminProductsPage() {
                 gap: 12,
               }}
             >
+              <select
+                value={form.product_type}
+                onChange={(e) => handleChange('product_type', e.target.value)}
+                style={inputStyle}
+              >
+                {PRODUCT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+
               <input
                 placeholder="Brand"
                 value={form.brand}
                 onChange={(e) => handleChange('brand', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="Series"
                 value={form.series}
                 onChange={(e) => handleChange('series', e.target.value)}
                 style={inputStyle}
               />
+
               <input
-                placeholder="Flavor"
+                placeholder={form.product_type === '烟杆' ? '颜色' : '口味'}
                 value={form.flavor}
                 onChange={(e) => handleChange('flavor', e.target.value)}
                 style={inputStyle}
               />
+
               <input
-                placeholder="Name（可留空自动生成）"
+                placeholder="Name（可留空，默认只用口味/颜色）"
                 value={form.name}
                 onChange={(e) => handleChange('name', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="SKU（可留空自动生成）"
                 value={form.sku}
                 onChange={(e) => handleChange('sku', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="LV1 Price"
                 value={form.price_1}
                 onChange={(e) => handleChange('price_1', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="LV2 Price"
                 value={form.price_2}
                 onChange={(e) => handleChange('price_2', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="LV3 Price"
                 value={form.price_3}
                 onChange={(e) => handleChange('price_3', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="Stock"
                 value={form.stock}
                 onChange={(e) => handleChange('stock', e.target.value)}
                 style={inputStyle}
               />
+            </div>
+
+            <div style={tipBoxStyle}>
+              自动生成规则：
+              <br />
+              Name = {getVariantLabel(form.product_type)}
+              <br />
+              SKU = 品牌-系列-{getVariantLabel(form.product_type)}
             </div>
 
             <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
@@ -415,36 +479,53 @@ export default function AdminProductsPage() {
                 marginBottom: 12,
               }}
             >
+              <select
+                value={bulkForm.product_type}
+                onChange={(e) => handleBulkChange('product_type', e.target.value)}
+                style={inputStyle}
+              >
+                {PRODUCT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+
               <input
                 placeholder="品牌，例如 LANA"
                 value={bulkForm.brand}
                 onChange={(e) => handleBulkChange('brand', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="系列，例如 1代"
                 value={bulkForm.series}
                 onChange={(e) => handleBulkChange('series', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="LV1 默认价格，例如 14.8"
                 value={bulkForm.price_1}
                 onChange={(e) => handleBulkChange('price_1', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="LV2 默认价格，例如 15.5"
                 value={bulkForm.price_2}
                 onChange={(e) => handleBulkChange('price_2', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="LV3 默认价格，例如 16"
                 value={bulkForm.price_3}
                 onChange={(e) => handleBulkChange('price_3', e.target.value)}
                 style={inputStyle}
               />
+
               <input
                 placeholder="默认库存，例如 100"
                 value={bulkForm.stock}
@@ -454,7 +535,7 @@ export default function AdminProductsPage() {
             </div>
 
             <textarea
-              placeholder={`每行一个口味，例如：
+              placeholder={`每行一个${getVariantLabel(bulkForm.product_type)}，例如：
 LUSH ICE
 MINERAL WATER
 COLA
@@ -470,22 +551,12 @@ STRAWBERRY`}
               }}
             />
 
-            <div
-              style={{
-                marginTop: 12,
-                padding: 12,
-                borderRadius: 14,
-                background: '#f8f0e8',
-                border: '1px dashed #d8b99d',
-                fontSize: 14,
-                lineHeight: 1.8,
-              }}
-            >
+            <div style={tipBoxStyle}>
               自动生成规则：
               <br />
-              Name = 品牌 + 系列 + 口味
+              Name = {getVariantLabel(bulkForm.product_type)}
               <br />
-              SKU = 品牌-系列-口味
+              SKU = 品牌-系列-{getVariantLabel(bulkForm.product_type)}
               <br />
               LV1 / LV2 / LV3 会套用你上面填写的默认值
             </div>
@@ -554,17 +625,7 @@ STRAWBERRY`}
             />
           </div>
 
-          <div
-            style={{
-              marginTop: 12,
-              padding: 12,
-              borderRadius: 14,
-              background: '#f8f0e8',
-              border: '1px dashed #d8b99d',
-              fontSize: 14,
-              lineHeight: 1.8,
-            }}
-          >
+          <div style={tipBoxStyle}>
             这个功能会把所有 <b>Brand + Series 完全相同</b> 的产品一起更新成同一套代理价格。
           </div>
 
@@ -592,13 +653,14 @@ STRAWBERRY`}
           {loading ? (
             <div>读取中...</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1500 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1650 }}>
               <thead>
                 <tr>
                   {[
+                    '分类',
                     'Brand',
                     'Series',
-                    'Flavor',
+                    '口味/颜色',
                     'Name',
                     'SKU',
                     'LV1',
@@ -614,6 +676,7 @@ STRAWBERRY`}
               <tbody>
                 {products.map((p) => (
                   <tr key={p.id}>
+                    <td style={tdStyle}>{p.product_type || '-'}</td>
                     <td style={tdStyle}>{p.brand}</td>
                     <td style={tdStyle}>{p.series}</td>
                     <td style={tdStyle}>{p.flavor}</td>
@@ -638,7 +701,7 @@ STRAWBERRY`}
 
                 {products.length === 0 && (
                   <tr>
-                    <td colSpan={10} style={tdStyle}>还没有产品资料</td>
+                    <td colSpan={11} style={tdStyle}>还没有产品资料</td>
                   </tr>
                 )}
               </tbody>
@@ -723,4 +786,14 @@ const messageStyle = {
   borderRadius: 14,
   background: '#f8f0e8',
   border: '1px solid #d8b99d',
+}
+
+const tipBoxStyle = {
+  marginTop: 12,
+  padding: 12,
+  borderRadius: 14,
+  background: '#f8f0e8',
+  border: '1px dashed #d8b99d',
+  fontSize: 14,
+  lineHeight: 1.8,
 }
