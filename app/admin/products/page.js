@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const PRODUCT_TYPES = ['烟弹', '烟杆', '一次性']
@@ -37,6 +37,13 @@ const emptySeriesPriceForm = {
   price_3: '',
 }
 
+const emptyFilters = {
+  product_type: '',
+  brand: '',
+  series: '',
+  flavor: '',
+}
+
 function makeSku(brand, series, flavor) {
   return `${brand || ''}-${series || ''}-${flavor || ''}`
     .trim()
@@ -53,11 +60,18 @@ function getVariantLabel(productType) {
   return productType === '烟杆' ? '颜色' : '口味'
 }
 
+function uniqueSorted(arr) {
+  return [...new Set((arr || []).filter(Boolean))].sort((a, b) =>
+    String(a).localeCompare(String(b), 'zh-Hans-CN', { sensitivity: 'base' })
+  )
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [bulkForm, setBulkForm] = useState(emptyBulkForm)
   const [seriesPriceForm, setSeriesPriceForm] = useState(emptySeriesPriceForm)
+  const [filters, setFilters] = useState(emptyFilters)
   const [editingId, setEditingId] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -90,6 +104,47 @@ export default function AdminProductsPage() {
     setLoading(false)
   }
 
+  const filterProductTypeOptions = useMemo(() => {
+    return uniqueSorted(products.map((p) => p.product_type))
+  }, [products])
+
+  const filterBrandOptions = useMemo(() => {
+    return uniqueSorted(
+      products
+        .filter((p) => !filters.product_type || p.product_type === filters.product_type)
+        .map((p) => p.brand)
+    )
+  }, [products, filters.product_type])
+
+  const filterSeriesOptions = useMemo(() => {
+    return uniqueSorted(
+      products
+        .filter((p) => !filters.product_type || p.product_type === filters.product_type)
+        .filter((p) => !filters.brand || p.brand === filters.brand)
+        .map((p) => p.series)
+    )
+  }, [products, filters.product_type, filters.brand])
+
+  const filterFlavorOptions = useMemo(() => {
+    return uniqueSorted(
+      products
+        .filter((p) => !filters.product_type || p.product_type === filters.product_type)
+        .filter((p) => !filters.brand || p.brand === filters.brand)
+        .filter((p) => !filters.series || p.series === filters.series)
+        .map((p) => p.flavor)
+    )
+  }, [products, filters.product_type, filters.brand, filters.series])
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (filters.product_type && p.product_type !== filters.product_type) return false
+      if (filters.brand && p.brand !== filters.brand) return false
+      if (filters.series && p.series !== filters.series) return false
+      if (filters.flavor && p.flavor !== filters.flavor) return false
+      return true
+    })
+  }, [products, filters])
+
   function handleChange(key, value) {
     setForm((prev) => {
       const next = { ...prev, [key]: value }
@@ -108,6 +163,29 @@ export default function AdminProductsPage() {
 
   function handleSeriesPriceChange(key, value) {
     setSeriesPriceForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function handleFilterChange(key, value) {
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value }
+
+      if (key === 'product_type') {
+        next.brand = ''
+        next.series = ''
+        next.flavor = ''
+      }
+
+      if (key === 'brand') {
+        next.series = ''
+        next.flavor = ''
+      }
+
+      if (key === 'series') {
+        next.flavor = ''
+      }
+
+      return next
+    })
   }
 
   function handleEdit(product) {
@@ -141,6 +219,10 @@ export default function AdminProductsPage() {
   function handleSeriesPriceReset() {
     setSeriesPriceForm(emptySeriesPriceForm)
     setMessage('')
+  }
+
+  function handleFilterReset() {
+    setFilters(emptyFilters)
   }
 
   async function handleSubmit(e) {
@@ -319,6 +401,9 @@ export default function AdminProductsPage() {
     if (error) {
       setMessage(error.message)
     } else {
+      if (editingId === id) {
+        handleReset()
+      }
       setMessage('产品已删除')
       fetchProducts()
     }
@@ -354,8 +439,14 @@ export default function AdminProductsPage() {
             }}
           >
             <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
-              单个新增 / 编辑产品
+              {editingId ? '单个编辑产品' : '单个新增 / 编辑产品'}
             </h2>
+
+            {editingId ? (
+              <div style={editingTipStyle}>
+                当前已选中产品，修改后点击【更新产品】即可保存
+              </div>
+            ) : null}
 
             <div
               style={{
@@ -448,12 +539,13 @@ export default function AdminProductsPage() {
               SKU = 品牌-系列-{getVariantLabel(form.product_type)}
             </div>
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
               <button type="submit" style={primaryButton} disabled={saving}>
                 {saving ? '保存中...' : editingId ? '更新产品' : '新增产品'}
               </button>
+
               <button type="button" style={secondaryButton} onClick={handleReset}>
-                清空
+                {editingId ? '取消编辑' : '清空'}
               </button>
             </div>
           </form>
@@ -639,6 +731,85 @@ STRAWBERRY`}
           </div>
         </form>
 
+        <div
+          style={{
+            background: '#fffaf5',
+            border: '1px solid #ead7c4',
+            borderRadius: 20,
+            padding: 20,
+            marginBottom: 20,
+          }}
+        >
+          <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>快速查找 / 编辑产品</h2>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              gap: 12,
+            }}
+          >
+            <select
+              value={filters.product_type}
+              onChange={(e) => handleFilterChange('product_type', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">全部分类</option>
+              {filterProductTypeOptions.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.brand}
+              onChange={(e) => handleFilterChange('brand', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">全部 Brand</option>
+              {filterBrandOptions.map((brand) => (
+                <option key={brand} value={brand}>
+                  {brand}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.series}
+              onChange={(e) => handleFilterChange('series', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">全部 Series</option>
+              {filterSeriesOptions.map((series) => (
+                <option key={series} value={series}>
+                  {series}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.flavor}
+              onChange={(e) => handleFilterChange('flavor', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">全部{getVariantLabel(filters.product_type || '烟弹')}</option>
+              {filterFlavorOptions.map((flavor) => (
+                <option key={flavor} value={flavor}>
+                  {flavor}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+            <button type="button" style={secondaryButton} onClick={handleFilterReset}>
+              清空筛选
+            </button>
+            <div style={filterResultStyle}>当前找到 {filteredProducts.length} 个产品</div>
+          </div>
+        </div>
+
         {message && <div style={messageStyle}>{message}</div>}
 
         <div
@@ -669,39 +840,68 @@ STRAWBERRY`}
                     'Stock',
                     '操作',
                   ].map((h) => (
-                    <th key={h} style={thStyle}>{h}</th>
+                    <th key={h} style={thStyle}>
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => (
-                  <tr key={p.id}>
-                    <td style={tdStyle}>{p.product_type || '-'}</td>
-                    <td style={tdStyle}>{p.brand}</td>
-                    <td style={tdStyle}>{p.series}</td>
-                    <td style={tdStyle}>{p.flavor}</td>
-                    <td style={tdStyle}>{p.name}</td>
-                    <td style={tdStyle}>{p.sku}</td>
-                    <td style={tdStyle}>{p.price_1 ?? 0}</td>
-                    <td style={tdStyle}>{p.price_2 ?? 0}</td>
-                    <td style={tdStyle}>{p.price_3 ?? 0}</td>
-                    <td style={tdStyle}>{p.stock ?? 0}</td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button type="button" style={smallPrimaryButton} onClick={() => handleEdit(p)}>
-                          编辑
-                        </button>
-                        <button type="button" style={smallDangerButton} onClick={() => handleDelete(p.id)}>
-                          删除
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredProducts.map((p) => {
+                  const isEditing = editingId === p.id
 
-                {products.length === 0 && (
+                  return (
+                    <tr
+                      key={p.id}
+                      onClick={() => handleEdit(p)}
+                      style={{
+                        cursor: 'pointer',
+                        background: isEditing ? '#f5e6d7' : 'transparent',
+                      }}
+                    >
+                      <td style={tdStyle}>{p.product_type || '-'}</td>
+                      <td style={tdStyle}>{p.brand}</td>
+                      <td style={tdStyle}>{p.series}</td>
+                      <td style={tdStyle}>{p.flavor}</td>
+                      <td style={tdStyle}>{p.name}</td>
+                      <td style={tdStyle}>{p.sku}</td>
+                      <td style={tdStyle}>{p.price_1 ?? 0}</td>
+                      <td style={tdStyle}>{p.price_2 ?? 0}</td>
+                      <td style={tdStyle}>{p.price_3 ?? 0}</td>
+                      <td style={tdStyle}>{p.stock ?? 0}</td>
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            style={smallPrimaryButton}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEdit(p)
+                            }}
+                          >
+                            编辑
+                          </button>
+                          <button
+                            type="button"
+                            style={smallDangerButton}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(p.id)
+                            }}
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+
+                {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={11} style={tdStyle}>还没有产品资料</td>
+                    <td colSpan={11} style={tdStyle}>
+                      没有找到符合筛选条件的产品
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -796,4 +996,25 @@ const tipBoxStyle = {
   border: '1px dashed #d8b99d',
   fontSize: 14,
   lineHeight: 1.8,
+}
+
+const editingTipStyle = {
+  marginBottom: 12,
+  padding: 12,
+  borderRadius: 14,
+  background: '#fff4e8',
+  border: '1px solid #dfbf99',
+  fontSize: 14,
+  lineHeight: 1.6,
+}
+
+const filterResultStyle = {
+  height: 46,
+  display: 'flex',
+  alignItems: 'center',
+  padding: '0 14px',
+  borderRadius: 14,
+  background: '#f8f0e8',
+  border: '1px solid #ead7c4',
+  fontWeight: 700,
 }
