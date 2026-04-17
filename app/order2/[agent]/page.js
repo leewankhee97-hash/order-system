@@ -128,10 +128,7 @@ function cleanProductName(product) {
     n = n.replace(new RegExp(escaped, 'ig'), ' ')
   }
 
-  n = n
-    .replace(/[_\-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  n = n.replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim()
 
   return n || normalizeText(product?.name) || '-'
 }
@@ -240,10 +237,7 @@ export default function Page() {
 
   useEffect(() => {
     if (!agentInfo) return
-    const prefix =
-      agentInfo.code ||
-      agentInfo.name ||
-      'ORDER'
+    const prefix = agentInfo.code || agentInfo.name || 'ORDER'
     const count = agentInfo.order_counter || 1
     setOrderId(`${prefix}-${String(count).padStart(4, '0')}`)
     setCart([])
@@ -308,9 +302,7 @@ export default function Page() {
       if (found) {
         const nextQty = found.qty + 1
         if (nextQty > Number(p.stock || 0)) return prev
-        return prev.map((i) =>
-          i.id === p.id ? { ...i, qty: nextQty } : i
-        )
+        return prev.map((i) => (i.id === p.id ? { ...i, qty: nextQty } : i))
       }
       return [...prev, { ...p, qty: 1, price: lockedPrice }]
     })
@@ -421,22 +413,81 @@ export default function Page() {
   }, [selectedBundle, products])
 
   const bundleLimit = Number(selectedBundle?.min_select_qty || 0)
+  const bundleBuyQty = Number(selectedBundle?.buy_qty || 0)
+  const bundleFreeQty = Number(selectedBundle?.free_qty || 0)
+  const bundleGroupSize = bundleBuyQty > 0 || bundleFreeQty > 0
+    ? bundleBuyQty + bundleFreeQty
+    : 0
 
   const bundleCount = useMemo(() => {
     return Object.values(bundleSelect).reduce((s, v) => s + Number(v || 0), 0)
   }, [bundleSelect])
 
+  const bundleGroupCount = useMemo(() => {
+    if (bundleGroupSize > 0) {
+      return Math.floor(bundleCount / bundleGroupSize)
+    }
+
+    if (bundleLimit > 0) {
+      return Math.floor(bundleCount / bundleLimit)
+    }
+
+    return selectedBundle && bundleCount > 0 ? 1 : 0
+  }, [bundleCount, bundleGroupSize, bundleLimit, selectedBundle])
+
+  const bundleSinglePrice = useMemo(() => {
+    return selectedBundle ? getBundlePrice(selectedBundle) : 0
+  }, [selectedBundle, agentInfo])
+
+  const bundleTotal = useMemo(() => {
+    if (!selectedBundle) return 0
+
+    if (bundleGroupSize > 0) {
+      return bundleGroupCount * bundleSinglePrice
+    }
+
+    if (bundleLimit > 0) {
+      return bundleGroupCount * bundleSinglePrice
+    }
+
+    return bundleCount > 0 ? bundleSinglePrice : 0
+  }, [
+    selectedBundle,
+    bundleGroupSize,
+    bundleGroupCount,
+    bundleSinglePrice,
+    bundleLimit,
+    bundleCount,
+  ])
+
+  const bundleRequirementText = useMemo(() => {
+    if (!selectedBundle) return ''
+
+    if (bundleGroupSize > 0) {
+      return `每组 ${bundleBuyQty}送${bundleFreeQty}，共 ${bundleGroupSize} 个`
+    }
+
+    if (bundleLimit > 0) {
+      return `每组固定 ${bundleLimit} 个`
+    }
+
+    return ''
+  }, [selectedBundle, bundleGroupSize, bundleBuyQty, bundleFreeQty, bundleLimit])
+
   function setBundleQty(pid, qty) {
     const currentMap = { ...bundleSelect }
-    const next = Math.max(0, Number(qty || 0))
-    currentMap[pid] = next
+    let next = Number(qty || 0)
 
-    const totalAfter = Object.values(currentMap).reduce(
-      (s, v) => s + Number(v || 0),
-      0
+    if (Number.isNaN(next) || next < 0) next = 0
+
+    const targetProduct = bundleProducts.find(
+      (p) => String(p.id) === String(pid)
     )
+    const maxStock = Number(targetProduct?.stock || 0)
 
-    if (selectedBundle && bundleLimit > 0 && totalAfter > bundleLimit) return
+    if (next > maxStock) next = maxStock
+
+    currentMap[pid] = next
     setBundleSelect(currentMap)
   }
 
@@ -466,16 +517,12 @@ export default function Page() {
     )
   }, [cart])
 
-  const bundleTotal = useMemo(() => {
-    return selectedBundle ? getBundlePrice(selectedBundle) : 0
-  }, [selectedBundle, agentInfo])
-
   const postageItemCount = useMemo(() => {
     const normalQty = cart.reduce((s, i) => s + Number(i.qty || 0), 0)
-    const bundleQty = selectedBundle
+    const selectedBundleQty = selectedBundle
       ? Object.values(bundleSelect).reduce((s, v) => s + Number(v || 0), 0)
       : 0
-    return normalQty + bundleQty
+    return normalQty + selectedBundleQty
   }, [cart, selectedBundle, bundleSelect])
 
   const shippingFee = useMemo(() => {
@@ -542,13 +589,31 @@ export default function Page() {
     })
 
     if (selectedBundle) {
-      itemLines.push(`${selectedBundle.name}（BUNDLE）`)
+      const bundleTitle =
+        bundleGroupCount > 0
+          ? `${selectedBundle.name}（BUNDLE x${bundleGroupCount}）`
+          : `${selectedBundle.name}（BUNDLE）`
+
+      itemLines.push(bundleTitle)
+
+      if (bundleRequirementText) {
+        itemLines.push(`规则：${bundleRequirementText}`)
+      }
+
       Object.entries(bundleSelect).forEach(([pid, qty]) => {
         const p = products.find((x) => String(x.id) === String(pid))
         if (!p || !qty) return
         itemLines.push(`${cleanProductName(p)} - ${qty}`)
       })
-      itemLines.push(`【BUNDLE TOTAL = RM${money(bundleTotal)}】`)
+
+      if (bundleGroupCount > 0) {
+        itemLines.push(
+          `【BUNDLE TOTAL ${bundleGroupCount}组 * RM${money(bundleSinglePrice)} = RM${money(bundleTotal)}】`
+        )
+      } else {
+        itemLines.push(`【BUNDLE TOTAL = RM${money(bundleTotal)}】`)
+      }
+
       itemLines.push('')
     }
 
@@ -627,6 +692,9 @@ export default function Page() {
     shippingFee,
     region,
     products,
+    bundleGroupCount,
+    bundleSinglePrice,
+    bundleRequirementText,
   ])
 
   async function copyText(text) {
@@ -717,14 +785,36 @@ export default function Page() {
     }
 
     if (selectedBundle) {
-      if (bundleLimit > 0 && bundleCount !== bundleLimit) {
-        setError('bundle 数量不正确')
-        return
-      }
-
       if (bundleProducts.length === 0) {
         setError('该 bundle 没有可选产品，请检查 bundle 的 brand 是否与 products.brand 一致')
         return
+      }
+
+      if (bundleCount <= 0) {
+        setError('请选择 bundle 产品')
+        return
+      }
+
+      if (bundleGroupSize > 0) {
+        if (bundleCount < bundleGroupSize) {
+          setError(`bundle 数量不足，至少需要 ${bundleGroupSize} 个`)
+          return
+        }
+
+        if (bundleCount % bundleGroupSize !== 0) {
+          setError(`bundle 数量必须是 ${bundleGroupSize} 的倍数（例如 ${bundleGroupSize} / ${bundleGroupSize * 2} / ${bundleGroupSize * 3}）`)
+          return
+        }
+      } else if (bundleLimit > 0) {
+        if (bundleCount < bundleLimit) {
+          setError(`bundle 数量不足，至少需要 ${bundleLimit} 个`)
+          return
+        }
+
+        if (bundleCount % bundleLimit !== 0) {
+          setError(`bundle 数量必须是 ${bundleLimit} 的倍数`)
+          return
+        }
       }
     }
 
@@ -733,10 +823,7 @@ export default function Page() {
       setError('')
       setSuccess('')
 
-      const prefix =
-        agentInfo.code ||
-        agentInfo.name ||
-        'ORDER'
+      const prefix = agentInfo.code || agentInfo.name || 'ORDER'
       const count = agentInfo.order_counter || 1
       const oid = `${prefix}-${String(count).padStart(4, '0')}`
 
@@ -801,9 +888,7 @@ export default function Page() {
         })
       }
 
-      const { error: itemError } = await supabase
-        .from('order_items')
-        .insert(items)
+      const { error: itemError } = await supabase.from('order_items').insert(items)
 
       if (itemError) throw itemError
 
@@ -1120,15 +1205,41 @@ export default function Page() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="text-sm text-[#8c654a]">
-                          Bundle Price: <span className="font-bold">RM {money(bundleTotal)}</span>
+                          Bundle Price Per Group:{' '}
+                          <span className="font-bold">RM {money(bundleSinglePrice)}</span>
                         </div>
+
+                        {bundleRequirementText ? (
+                          <div className="mt-1 text-sm text-[#a18673]">
+                            规则：<span className="font-bold text-[#5f4432]">{bundleRequirementText}</span>
+                          </div>
+                        ) : null}
+
                         <div className="mt-1 text-sm text-[#a18673]">
-                          Need Select: <span className="font-bold text-[#5f4432]">{bundleLimit}</span> | Selected:{' '}
+                          Selected:{' '}
                           <span className="font-bold text-[#5f4432]">{bundleCount}</span>
+                          {' '}| Full Group:{' '}
+                          <span className="font-bold text-[#5f4432]">{bundleGroupCount}</span>
                         </div>
+
+                        <div className="mt-1 text-sm text-[#a18673]">
+                          Bundle Total:{' '}
+                          <span className="font-bold text-[#5f4432]">RM {money(bundleTotal)}</span>
+                        </div>
+
                         <div className="mt-1 text-xs text-[#a18673]">
                           Bind Brand: <span className="font-bold text-[#5f4432]">{selectedBundle.brand || '-'}</span>
                         </div>
+
+                        {bundleGroupSize > 0 ? (
+                          <div className="mt-2 text-xs text-[#8a6d59]">
+                            例子：{bundleGroupSize} / {bundleGroupSize * 2} / {bundleGroupSize * 3}
+                          </div>
+                        ) : bundleLimit > 0 ? (
+                          <div className="mt-2 text-xs text-[#8a6d59]">
+                            例子：{bundleLimit} / {bundleLimit * 2} / {bundleLimit * 3}
+                          </div>
+                        ) : null}
                       </div>
 
                       <button
@@ -1180,6 +1291,7 @@ export default function Page() {
                                 <input
                                   type="number"
                                   min="0"
+                                  max={Number(p.stock || 0)}
                                   value={bundleSelect[p.id] || 0}
                                   onChange={(e) => setBundleQty(p.id, e.target.value)}
                                   className="h-11 w-24 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
@@ -1512,7 +1624,10 @@ export default function Page() {
 
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Bundle</span>
-                  <span className="font-bold text-[#5f4432]">RM {money(bundleTotal)}</span>
+                  <span className="font-bold text-[#5f4432]">
+                    RM {money(bundleTotal)}
+                    {selectedBundle && bundleGroupCount > 0 ? ` (${bundleGroupCount}组)` : ''}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
