@@ -174,8 +174,8 @@ export default function Page() {
   const [submitting, setSubmitting] = useState(false)
   const [copiedPreview, setCopiedPreview] = useState('')
 
-  const [previewCopied, setPreviewCopied] = useState(false)
   const [summaryCopied, setSummaryCopied] = useState(false)
+  const [showSummaryModal, setShowSummaryModal] = useState(false)
 
   useEffect(() => {
     init()
@@ -669,34 +669,6 @@ export default function Page() {
     ].join('\n')
   }
 
-  const livePreview = useMemo(() => {
-    if (cart.length === 0 && !selectedBundle) return ''
-    return buildCopiedSummary(orderId || 'PREVIEW')
-  }, [
-    cart,
-    selectedBundle,
-    bundleSelect,
-    delivery,
-    orderId,
-    date,
-    time,
-    name,
-    phone,
-    address,
-    state,
-    postcode,
-    shipping,
-    normalTotal,
-    bundleTotal,
-    total,
-    shippingFee,
-    region,
-    products,
-    bundleGroupCount,
-    bundleSinglePrice,
-    bundleRequirementText,
-  ])
-
   async function copyText(text) {
     if (!text || !String(text).trim()) {
       throw new Error('没有可复制的内容')
@@ -721,17 +693,6 @@ export default function Page() {
 
     if (!ok) {
       throw new Error('复制失败')
-    }
-  }
-
-  async function handleCopyPreview() {
-    try {
-      await copyText(livePreview || '')
-      setPreviewCopied(true)
-      setTimeout(() => setPreviewCopied(false), 1500)
-    } catch (err) {
-      console.error(err)
-      alert('没有可复制的预览内容')
     }
   }
 
@@ -822,6 +783,7 @@ export default function Page() {
       setSubmitting(true)
       setError('')
       setSuccess('')
+      setSummaryCopied(false)
 
       const prefix = agentInfo.code || agentInfo.name || 'ORDER'
       const count = agentInfo.order_counter || 1
@@ -917,13 +879,8 @@ export default function Page() {
 
       const copiedSummary = buildCopiedSummary(oid)
       setCopiedPreview(copiedSummary)
-
-      try {
-        await copyText(copiedSummary)
-        setSuccess(`成功：${oid}（订单摘要已复制）`)
-      } catch {
-        setSuccess(`成功：${oid}`)
-      }
+      setShowSummaryModal(true)
+      setSuccess(`成功：${oid}`)
 
       resetFormAfterSubmit()
       await init()
@@ -1648,64 +1605,56 @@ export default function Page() {
                   {submitting ? 'Submitting...' : 'Submit Order'}
                 </button>
               </div>
-
-              <div className="mt-4">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
-                    Order Summary Preview
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleCopyPreview}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
-                      previewCopied
-                        ? 'border-green-200 bg-green-50 text-green-600'
-                        : 'border-[#d9c2af] bg-[#fffaf5] text-[#7a5a45] hover:bg-[#f8efe6]'
-                    }`}
-                  >
-                    {previewCopied ? '已复制' : '一键复制'}
-                  </button>
-                </div>
-
-                <textarea
-                  value={livePreview || '请选择产品后，这里会自动显示订单预览'}
-                  readOnly
-                  className="min-h-[260px] w-full rounded-3xl border border-[#b6e07b] bg-[#97e067] px-4 py-3 text-sm text-[#17320d] outline-none"
-                />
-              </div>
-
-              {copiedPreview ? (
-                <div className="mt-4">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
-                      Copied Summary
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleCopySummary}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
-                        summaryCopied
-                          ? 'border-green-200 bg-green-50 text-green-600'
-                          : 'border-[#d9c2af] bg-[#fffaf5] text-[#7a5a45] hover:bg-[#f8efe6]'
-                      }`}
-                    >
-                      {summaryCopied ? '已复制' : '一键复制'}
-                    </button>
-                  </div>
-
-                  <textarea
-                    value={copiedPreview}
-                    readOnly
-                    className="min-h-[220px] w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-xs text-[#6f5746] outline-none"
-                  />
-                </div>
-              ) : null}
             </section>
           </div>
         </form>
       </div>
+
+      {showSummaryModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowSummaryModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-xl rounded-[28px] border border-[#eadacb] bg-white p-5 shadow-2xl"
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-black text-[#5f4432]">
+                ORDER SUMMARY
+              </h3>
+
+              <button
+                type="button"
+                onClick={() => setShowSummaryModal(false)}
+                className="rounded-full border border-[#eadacb] px-3 py-1 text-xs text-[#7a5b47] hover:bg-[#f8efe6]"
+              >
+                关闭
+              </button>
+            </div>
+
+            <textarea
+              value={copiedPreview}
+              readOnly
+              className="min-h-[280px] w-full rounded-3xl border border-[#b6e07b] bg-[#97e067] px-4 py-3 text-sm text-[#17320d] outline-none"
+            />
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={handleCopySummary}
+                className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
+                  summaryCopied
+                    ? 'border-green-200 bg-green-50 text-green-600'
+                    : 'border-[#d2b49c] bg-[#dcc0a8] text-white hover:bg-[#cfaf93]'
+                }`}
+              >
+                {summaryCopied ? '已复制' : '复制'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

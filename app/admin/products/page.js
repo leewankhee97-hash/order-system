@@ -248,6 +248,25 @@ export default function AdminProductsPage() {
     }, 120)
   }
 
+  function handleEditSeriesPrice(product) {
+    setSeriesPriceForm({
+      brand: product.brand || '',
+      series: product.series || '',
+      price_1: product.price_1 ?? '',
+      price_2: product.price_2 ?? '',
+      price_3: product.price_3 ?? '',
+    })
+    setMessage('')
+    setActiveTab('bulk')
+
+    setTimeout(() => {
+      const el = document.getElementById('series-price-panel')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 120)
+  }
+
   function handleReset() {
     setEditingId('')
     setForm(emptyForm)
@@ -602,7 +621,7 @@ export default function AdminProductsPage() {
           <div>读取中...</div>
         ) : (
           <div style={{ maxHeight: 'calc(100vh - 260px)', overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1200 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1320 }}>
               <thead
                 style={{
                   position: 'sticky',
@@ -672,6 +691,16 @@ export default function AdminProductsPage() {
                             }}
                           >
                             编辑
+                          </button>
+                          <button
+                            type="button"
+                            style={smallSecondaryButton}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditSeriesPrice(p)
+                            }}
+                          >
+                            整组价格
                           </button>
                           <button
                             type="button"
@@ -949,6 +978,7 @@ STRAWBERRY`}
         </form>
 
         <form
+          id="series-price-panel"
           onSubmit={handleSeriesPriceSubmit}
           style={{
             background: '#fffaf5',
@@ -1103,6 +1133,17 @@ const smallPrimaryButton = {
   border: '1px solid #a47c57',
   background: '#a47c57',
   color: '#fff',
+  fontWeight: 700,
+  cursor: 'pointer',
+}
+
+const smallSecondaryButton = {
+  height: 34,
+  padding: '0 12px',
+  borderRadius: 10,
+  border: '1px solid #d7bfa8',
+  background: '#fff8f1',
+  color: '#6f4e37',
   fontWeight: 700,
   cursor: 'pointer',
 }
