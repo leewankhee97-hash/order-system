@@ -79,6 +79,8 @@ export default function AdminProductsPage() {
   const [bulkSaving, setBulkSaving] = useState(false)
   const [seriesSaving, setSeriesSaving] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [activeTab, setActiveTab] = useState('list')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     fetchProducts()
@@ -147,14 +149,36 @@ export default function AdminProductsPage() {
   }, [products, filters.product_type, filters.brand, filters.series])
 
   const filteredProducts = useMemo(() => {
+    const keyword = search.trim().toLowerCase()
+
     return products.filter((p) => {
       if (filters.product_type && p.product_type !== filters.product_type) return false
       if (filters.brand && p.brand !== filters.brand) return false
       if (filters.series && p.series !== filters.series) return false
       if (filters.flavor && p.flavor !== filters.flavor) return false
+
+      if (keyword) {
+        const target = [
+          p.product_type,
+          p.brand,
+          p.series,
+          p.flavor,
+          p.name,
+          p.sku,
+          String(p.price_1 ?? ''),
+          String(p.price_2 ?? ''),
+          String(p.price_3 ?? ''),
+          String(p.stock ?? ''),
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        if (!target.includes(keyword)) return false
+      }
+
       return true
     })
-  }, [products, filters])
+  }, [products, filters, search])
 
   function handleChange(key, value) {
     setForm((prev) => {
@@ -214,10 +238,11 @@ export default function AdminProductsPage() {
       stock: product.stock ?? '',
     })
     setMessage('')
+    setActiveTab('single')
 
     setTimeout(() => {
-      const el = document.getElementById('edit-panel')
-      if (el && isMobile) {
+      const el = document.getElementById('single-form-panel')
+      if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     }, 120)
@@ -241,6 +266,7 @@ export default function AdminProductsPage() {
 
   function handleFilterReset() {
     setFilters(emptyFilters)
+    setSearch('')
   }
 
   async function handleSubmit(e) {
@@ -284,6 +310,7 @@ export default function AdminProductsPage() {
       setMessage(editingId ? '产品已更新' : '产品已新增')
       handleReset()
       fetchProducts()
+      setActiveTab('list')
     } catch (error) {
       setMessage(error.message || '保存失败')
     } finally {
@@ -339,6 +366,7 @@ export default function AdminProductsPage() {
       setMessage(`成功新增 ${rows.length} 个产品`)
       handleBulkReset()
       fetchProducts()
+      setActiveTab('list')
     } catch (error) {
       setMessage(error.message || '批量新增失败')
     } finally {
@@ -400,6 +428,7 @@ export default function AdminProductsPage() {
       setMessage(`品牌 ${brand} / 系列 ${series} 的全部产品价格已更新`)
       handleSeriesPriceReset()
       fetchProducts()
+      setActiveTab('list')
     } catch (error) {
       setMessage(error.message || '批量更新价格失败')
     } finally {
@@ -424,6 +453,570 @@ export default function AdminProductsPage() {
     }
   }
 
+  function renderFilterBar() {
+    return (
+      <div
+        style={{
+          background: '#fffaf5',
+          border: '1px solid #ead7c4',
+          borderRadius: 20,
+          padding: 20,
+          marginBottom: 20,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: isMobile ? 'stretch' : 'center',
+            gap: 12,
+            marginBottom: 16,
+            flexDirection: isMobile ? 'column' : 'row',
+          }}
+        >
+          <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>快速查找 / 编辑产品</h2>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              style={{
+                ...tabButtonStyle,
+                ...(activeTab === 'list' ? activeTabButtonStyle : {}),
+              }}
+              onClick={() => setActiveTab('list')}
+            >
+              产品列表
+            </button>
+            <button
+              type="button"
+              style={{
+                ...tabButtonStyle,
+                ...(activeTab === 'single' ? activeTabButtonStyle : {}),
+              }}
+              onClick={() => setActiveTab('single')}
+            >
+              单个操作
+            </button>
+            <button
+              type="button"
+              style={{
+                ...tabButtonStyle,
+                ...(activeTab === 'bulk' ? activeTabButtonStyle : {}),
+              }}
+              onClick={() => setActiveTab('bulk')}
+            >
+              批量操作
+            </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1.2fr repeat(4, minmax(0, 1fr))',
+            gap: 12,
+          }}
+        >
+          <input
+            placeholder="搜索 SKU / Name / Brand / Series / 口味"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={inputStyle}
+          />
+
+          <select
+            value={filters.product_type}
+            onChange={(e) => handleFilterChange('product_type', e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">全部分类</option>
+            {filterProductTypeOptions.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.brand}
+            onChange={(e) => handleFilterChange('brand', e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">全部 Brand</option>
+            {filterBrandOptions.map((brand) => (
+              <option key={brand} value={brand}>
+                {brand}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.series}
+            onChange={(e) => handleFilterChange('series', e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">全部 Series</option>
+            {filterSeriesOptions.map((series) => (
+              <option key={series} value={series}>
+                {series}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.flavor}
+            onChange={(e) => handleFilterChange('flavor', e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">全部{getVariantLabel(filters.product_type || '烟弹')}</option>
+            {filterFlavorOptions.map((flavor) => (
+              <option key={flavor} value={flavor}>
+                {flavor}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+          <button type="button" style={secondaryButton} onClick={handleFilterReset}>
+            清空筛选
+          </button>
+          <div style={filterResultStyle}>当前找到 {filteredProducts.length} 个产品</div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderListPanel() {
+    return (
+      <div
+        style={{
+          background: '#fffaf5',
+          border: '1px solid #ead7c4',
+          borderRadius: 20,
+          padding: 20,
+          overflowX: 'auto',
+        }}
+      >
+        {loading ? (
+          <div>读取中...</div>
+        ) : (
+          <div style={{ maxHeight: 'calc(100vh - 260px)', overflow: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1200 }}>
+              <thead
+                style={{
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  background: '#fffaf5',
+                }}
+              >
+                <tr>
+                  {[
+                    '分类',
+                    'Brand',
+                    'Series',
+                    '口味/颜色',
+                    'Name',
+                    'SKU',
+                    'LV1',
+                    'LV2',
+                    'LV3',
+                    'Stock',
+                    '操作',
+                  ].map((h) => (
+                    <th key={h} style={thStyle}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((p) => {
+                  const isEditing = editingId === p.id
+
+                  return (
+                    <tr
+                      key={p.id}
+                      onClick={() => handleEdit(p)}
+                      style={{
+                        cursor: 'pointer',
+                        background: isEditing ? '#f5e6d7' : '#fffaf5',
+                        transition: '0.2s',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isEditing) e.currentTarget.style.background = '#fcf3ea'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = isEditing ? '#f5e6d7' : '#fffaf5'
+                      }}
+                    >
+                      <td style={tdStyle}>{p.product_type || '-'}</td>
+                      <td style={tdStyle}>{p.brand}</td>
+                      <td style={tdStyle}>{p.series}</td>
+                      <td style={tdStyle}>{p.flavor}</td>
+                      <td style={tdStyle}>{p.name}</td>
+                      <td style={tdStyle}>{p.sku}</td>
+                      <td style={tdStyle}>{p.price_1 ?? 0}</td>
+                      <td style={tdStyle}>{p.price_2 ?? 0}</td>
+                      <td style={tdStyle}>{p.price_3 ?? 0}</td>
+                      <td style={tdStyle}>{p.stock ?? 0}</td>
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            style={smallPrimaryButton}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEdit(p)
+                            }}
+                          >
+                            编辑
+                          </button>
+                          <button
+                            type="button"
+                            style={smallDangerButton}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(p.id)
+                            }}
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+
+                {filteredProducts.length === 0 && (
+                  <tr>
+                    <td colSpan={11} style={tdStyle}>
+                      没有找到符合筛选条件的产品
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderSingleForm() {
+    return (
+      <form
+        id="single-form-panel"
+        onSubmit={handleSubmit}
+        style={{
+          background: '#fffaf5',
+          border: '1px solid #ead7c4',
+          borderRadius: 20,
+          padding: 20,
+        }}
+      >
+        <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
+          {editingId ? '单个编辑产品' : '单个新增 / 编辑产品'}
+        </h2>
+
+        {editingId ? (
+          <div style={editingTipStyle}>当前已选中产品，修改后点击【更新产品】即可保存</div>
+        ) : null}
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+            gap: 12,
+          }}
+        >
+          <select
+            value={form.product_type}
+            onChange={(e) => handleChange('product_type', e.target.value)}
+            style={inputStyle}
+          >
+            {PRODUCT_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+
+          <input
+            placeholder="Brand"
+            value={form.brand}
+            onChange={(e) => handleChange('brand', e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            placeholder="Series"
+            value={form.series}
+            onChange={(e) => handleChange('series', e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            placeholder={form.product_type === '烟杆' ? '颜色' : '口味'}
+            value={form.flavor}
+            onChange={(e) => handleChange('flavor', e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            placeholder="Name（可留空，默认只用口味/颜色）"
+            value={form.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            placeholder="SKU（可留空自动生成）"
+            value={form.sku}
+            onChange={(e) => handleChange('sku', e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            placeholder="LV1 Price"
+            value={form.price_1}
+            onChange={(e) => handleChange('price_1', e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            placeholder="LV2 Price"
+            value={form.price_2}
+            onChange={(e) => handleChange('price_2', e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            placeholder="LV3 Price"
+            value={form.price_3}
+            onChange={(e) => handleChange('price_3', e.target.value)}
+            style={inputStyle}
+          />
+
+          <input
+            placeholder="Stock"
+            value={form.stock}
+            onChange={(e) => handleChange('stock', e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+
+        <div style={tipBoxStyle}>
+          自动生成规则：
+          <br />
+          Name = {getVariantLabel(form.product_type)}
+          <br />
+          SKU = 品牌-系列-{getVariantLabel(form.product_type)}
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+          <button type="submit" style={primaryButton} disabled={saving}>
+            {saving ? '保存中...' : editingId ? '更新产品' : '新增产品'}
+          </button>
+
+          <button type="button" style={secondaryButton} onClick={handleReset}>
+            {editingId ? '取消编辑' : '清空'}
+          </button>
+        </div>
+      </form>
+    )
+  }
+
+  function renderBulkPanel() {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 20,
+        }}
+      >
+        <form
+          onSubmit={handleBulkSubmit}
+          style={{
+            background: '#fffaf5',
+            border: '1px solid #ead7c4',
+            borderRadius: 20,
+            padding: 20,
+          }}
+        >
+          <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>一键批量新增产品</h2>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <select
+              value={bulkForm.product_type}
+              onChange={(e) => handleBulkChange('product_type', e.target.value)}
+              style={inputStyle}
+            >
+              {PRODUCT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+
+            <input
+              placeholder="品牌，例如 LANA"
+              value={bulkForm.brand}
+              onChange={(e) => handleBulkChange('brand', e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="系列，例如 1代"
+              value={bulkForm.series}
+              onChange={(e) => handleBulkChange('series', e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="LV1 默认价格，例如 14.8"
+              value={bulkForm.price_1}
+              onChange={(e) => handleBulkChange('price_1', e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="LV2 默认价格，例如 15.5"
+              value={bulkForm.price_2}
+              onChange={(e) => handleBulkChange('price_2', e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="LV3 默认价格，例如 16"
+              value={bulkForm.price_3}
+              onChange={(e) => handleBulkChange('price_3', e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="默认库存，例如 100"
+              value={bulkForm.stock}
+              onChange={(e) => handleBulkChange('stock', e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <textarea
+            placeholder={`每行一个${getVariantLabel(bulkForm.product_type)}，例如：
+LUSH ICE
+MINERAL WATER
+COLA
+MANGO
+STRAWBERRY`}
+            value={bulkForm.flavorsText}
+            onChange={(e) => handleBulkChange('flavorsText', e.target.value)}
+            style={{
+              ...inputStyle,
+              height: 220,
+              paddingTop: 12,
+              resize: 'vertical',
+            }}
+          />
+
+          <div style={tipBoxStyle}>
+            自动生成规则：
+            <br />
+            Name = {getVariantLabel(bulkForm.product_type)}
+            <br />
+            SKU = 品牌-系列-{getVariantLabel(bulkForm.product_type)}
+            <br />
+            LV1 / LV2 / LV3 会套用你上面填写的默认值
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+            <button type="submit" style={primaryButton} disabled={bulkSaving}>
+              {bulkSaving ? '上传中...' : '一键新增到 Supabase'}
+            </button>
+            <button type="button" style={secondaryButton} onClick={handleBulkReset}>
+              清空
+            </button>
+          </div>
+        </form>
+
+        <form
+          onSubmit={handleSeriesPriceSubmit}
+          style={{
+            background: '#fffaf5',
+            border: '1px solid #ead7c4',
+            borderRadius: 20,
+            padding: 20,
+          }}
+        >
+          <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
+            按 Brand + Series 一键修改全部价格
+          </h2>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1.2fr 1fr 1fr 1fr',
+              gap: 12,
+            }}
+          >
+            <input
+              placeholder="Brand，例如 LANA"
+              value={seriesPriceForm.brand}
+              onChange={(e) => handleSeriesPriceChange('brand', e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              placeholder="Series，例如 1代"
+              value={seriesPriceForm.series}
+              onChange={(e) => handleSeriesPriceChange('series', e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              placeholder="LV1"
+              value={seriesPriceForm.price_1}
+              onChange={(e) => handleSeriesPriceChange('price_1', e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              placeholder="LV2"
+              value={seriesPriceForm.price_2}
+              onChange={(e) => handleSeriesPriceChange('price_2', e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              placeholder="LV3"
+              value={seriesPriceForm.price_3}
+              onChange={(e) => handleSeriesPriceChange('price_3', e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={tipBoxStyle}>
+            这个功能会把所有 <b>Brand + Series 完全相同</b> 的产品一起更新成同一套代理价格。
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+            <button type="submit" style={primaryButton} disabled={seriesSaving}>
+              {seriesSaving ? '更新中...' : '一键更新该 Brand + Series 全部价格'}
+            </button>
+            <button type="button" style={secondaryButton} onClick={handleSeriesPriceReset}>
+              清空
+            </button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
   return (
     <main
       style={{
@@ -436,508 +1029,34 @@ export default function AdminProductsPage() {
       <div style={{ maxWidth: 1600, margin: '0 auto' }}>
         <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 20 }}>产品管理</h1>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 420px',
-            gap: 20,
-            alignItems: 'start',
-          }}
-        >
-          <div>
-            <div
-              style={{
-                background: '#fffaf5',
-                border: '1px solid #ead7c4',
-                borderRadius: 20,
-                padding: 20,
-                marginBottom: 20,
-              }}
-            >
-              <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
-                快速查找 / 编辑产品
-              </h2>
+        {renderFilterBar()}
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
-                  gap: 12,
-                }}
-              >
-                <select
-                  value={filters.product_type}
-                  onChange={(e) => handleFilterChange('product_type', e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">全部分类</option>
-                  {filterProductTypeOptions.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+        {message && <div style={messageStyle}>{message}</div>}
 
-                <select
-                  value={filters.brand}
-                  onChange={(e) => handleFilterChange('brand', e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">全部 Brand</option>
-                  {filterBrandOptions.map((brand) => (
-                    <option key={brand} value={brand}>
-                      {brand}
-                    </option>
-                  ))}
-                </select>
+        {activeTab === 'list' && renderListPanel()}
 
-                <select
-                  value={filters.series}
-                  onChange={(e) => handleFilterChange('series', e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">全部 Series</option>
-                  {filterSeriesOptions.map((series) => (
-                    <option key={series} value={series}>
-                      {series}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={filters.flavor}
-                  onChange={(e) => handleFilterChange('flavor', e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">全部{getVariantLabel(filters.product_type || '烟弹')}</option>
-                  {filterFlavorOptions.map((flavor) => (
-                    <option key={flavor} value={flavor}>
-                      {flavor}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
-                <button type="button" style={secondaryButton} onClick={handleFilterReset}>
-                  清空筛选
-                </button>
-                <div style={filterResultStyle}>当前找到 {filteredProducts.length} 个产品</div>
-              </div>
-            </div>
-
-            {message && <div style={messageStyle}>{message}</div>}
-
-            <div
-              style={{
-                background: '#fffaf5',
-                border: '1px solid #ead7c4',
-                borderRadius: 20,
-                padding: 20,
-                overflowX: 'auto',
-                maxWidth: '380',
-              }}
-            >
-              {loading ? (
-                <div>读取中...</div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1200 }}>
-                  <thead>
-                    <tr>
-                      {[
-                        '分类',
-                        'Brand',
-                        'Series',
-                        '口味/颜色',
-                        'Name',
-                        'SKU',
-                        'LV1',
-                        'LV2',
-                        'LV3',
-                        'Stock',
-                        '操作',
-                      ].map((h) => (
-                        <th key={h} style={thStyle}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProducts.map((p) => {
-                      const isEditing = editingId === p.id
-
-                      return (
-                        <tr
-                          key={p.id}
-                          onClick={() => handleEdit(p)}
-                          style={{
-                            cursor: 'pointer',
-                            background: isEditing ? '#f5e6d7' : 'transparent',
-                          }}
-                        >
-                          <td style={tdStyle}>{p.product_type || '-'}</td>
-                          <td style={tdStyle}>{p.brand}</td>
-                          <td style={tdStyle}>{p.series}</td>
-                          <td style={tdStyle}>{p.flavor}</td>
-                          <td style={tdStyle}>{p.name}</td>
-                          <td style={tdStyle}>{p.sku}</td>
-                          <td style={tdStyle}>{p.price_1 ?? 0}</td>
-                          <td style={tdStyle}>{p.price_2 ?? 0}</td>
-                          <td style={tdStyle}>{p.price_3 ?? 0}</td>
-                          <td style={tdStyle}>{p.stock ?? 0}</td>
-                          <td style={tdStyle}>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                              <button
-                                type="button"
-                                style={smallPrimaryButton}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleEdit(p)
-                                }}
-                              >
-                                编辑
-                              </button>
-                              <button
-                                type="button"
-                                style={smallDangerButton}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDelete(p.id)
-                                }}
-                              >
-                                删除
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-
-                    {filteredProducts.length === 0 && (
-                      <tr>
-                        <td colSpan={11} style={tdStyle}>
-                          没有找到符合筛选条件的产品
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-
+        {activeTab === 'single' && (
           <div
-            id="edit-panel"
             style={{
-              position: isMobile ? 'static' : 'sticky',
-              top: 20,
-              display: 'flex',
-              flexDirection: 'column',
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.2fr) minmax(320px, 460px)',
               gap: 20,
+              alignItems: 'start',
             }}
           >
-            <form
-              onSubmit={handleSubmit}
+            <div>{renderListPanel()}</div>
+            <div
               style={{
-                background: '#fffaf5',
-                border: '1px solid #ead7c4',
-                borderRadius: 20,
-                padding: 20,
+                position: isMobile ? 'static' : 'sticky',
+                top: 20,
               }}
             >
-              <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
-                {editingId ? '单个编辑产品' : '单个新增 / 编辑产品'}
-              </h2>
-
-              {editingId ? (
-                <div style={editingTipStyle}>
-                  当前已选中产品，修改后点击【更新产品】即可保存
-                </div>
-              ) : null}
-
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-                  gap: 12,
-                }}
-              >
-                <select
-                  value={form.product_type}
-                  onChange={(e) => handleChange('product_type', e.target.value)}
-                  style={inputStyle}
-                >
-                  {PRODUCT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  placeholder="Brand"
-                  value={form.brand}
-                  onChange={(e) => handleChange('brand', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="Series"
-                  value={form.series}
-                  onChange={(e) => handleChange('series', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder={form.product_type === '烟杆' ? '颜色' : '口味'}
-                  value={form.flavor}
-                  onChange={(e) => handleChange('flavor', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="Name（可留空，默认只用口味/颜色）"
-                  value={form.name}
-                  onChange={(e) => handleChange('name', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="SKU（可留空自动生成）"
-                  value={form.sku}
-                  onChange={(e) => handleChange('sku', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="LV1 Price"
-                  value={form.price_1}
-                  onChange={(e) => handleChange('price_1', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="LV2 Price"
-                  value={form.price_2}
-                  onChange={(e) => handleChange('price_2', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="LV3 Price"
-                  value={form.price_3}
-                  onChange={(e) => handleChange('price_3', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="Stock"
-                  value={form.stock}
-                  onChange={(e) => handleChange('stock', e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={tipBoxStyle}>
-                自动生成规则：
-                <br />
-                Name = {getVariantLabel(form.product_type)}
-                <br />
-                SKU = 品牌-系列-{getVariantLabel(form.product_type)}
-              </div>
-
-              <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
-                <button type="submit" style={primaryButton} disabled={saving}>
-                  {saving ? '保存中...' : editingId ? '更新产品' : '新增产品'}
-                </button>
-
-                <button type="button" style={secondaryButton} onClick={handleReset}>
-                  {editingId ? '取消编辑' : '清空'}
-                </button>
-              </div>
-            </form>
-
-            <form
-              onSubmit={handleBulkSubmit}
-              style={{
-                background: '#fffaf5',
-                border: '1px solid #ead7c4',
-                borderRadius: 20,
-                padding: 20,
-              }}
-            >
-              <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
-                一键批量新增产品
-              </h2>
-
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-                  gap: 12,
-                  marginBottom: 12,
-                }}
-              >
-                <select
-                  value={bulkForm.product_type}
-                  onChange={(e) => handleBulkChange('product_type', e.target.value)}
-                  style={inputStyle}
-                >
-                  {PRODUCT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  placeholder="品牌，例如 LANA"
-                  value={bulkForm.brand}
-                  onChange={(e) => handleBulkChange('brand', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="系列，例如 1代"
-                  value={bulkForm.series}
-                  onChange={(e) => handleBulkChange('series', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="LV1 默认价格，例如 14.8"
-                  value={bulkForm.price_1}
-                  onChange={(e) => handleBulkChange('price_1', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="LV2 默认价格，例如 15.5"
-                  value={bulkForm.price_2}
-                  onChange={(e) => handleBulkChange('price_2', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="LV3 默认价格，例如 16"
-                  value={bulkForm.price_3}
-                  onChange={(e) => handleBulkChange('price_3', e.target.value)}
-                  style={inputStyle}
-                />
-
-                <input
-                  placeholder="默认库存，例如 100"
-                  value={bulkForm.stock}
-                  onChange={(e) => handleBulkChange('stock', e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-
-              <textarea
-                placeholder={`每行一个${getVariantLabel(bulkForm.product_type)}，例如：
-LUSH ICE
-MINERAL WATER
-COLA
-MANGO
-STRAWBERRY`}
-                value={bulkForm.flavorsText}
-                onChange={(e) => handleBulkChange('flavorsText', e.target.value)}
-                style={{
-                  ...inputStyle,
-                  height: 220,
-                  paddingTop: 12,
-                  resize: 'vertical',
-                }}
-              />
-
-              <div style={tipBoxStyle}>
-                自动生成规则：
-                <br />
-                Name = {getVariantLabel(bulkForm.product_type)}
-                <br />
-                SKU = 品牌-系列-{getVariantLabel(bulkForm.product_type)}
-                <br />
-                LV1 / LV2 / LV3 会套用你上面填写的默认值
-              </div>
-
-              <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                <button type="submit" style={primaryButton} disabled={bulkSaving}>
-                  {bulkSaving ? '上传中...' : '一键新增到 Supabase'}
-                </button>
-                <button type="button" style={secondaryButton} onClick={handleBulkReset}>
-                  清空
-                </button>
-              </div>
-            </form>
-
-            <form
-              onSubmit={handleSeriesPriceSubmit}
-              style={{
-                background: '#fffaf5',
-                border: '1px solid #ead7c4',
-                borderRadius: 20,
-                padding: 20,
-              }}
-            >
-              <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
-                按 Brand + Series 一键修改全部价格
-              </h2>
-
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1.2fr 1fr 1fr 1fr',
-                  gap: 12,
-                }}
-              >
-                <input
-                  placeholder="Brand，例如 LANA"
-                  value={seriesPriceForm.brand}
-                  onChange={(e) => handleSeriesPriceChange('brand', e.target.value)}
-                  style={inputStyle}
-                />
-                <input
-                  placeholder="Series，例如 1代"
-                  value={seriesPriceForm.series}
-                  onChange={(e) => handleSeriesPriceChange('series', e.target.value)}
-                  style={inputStyle}
-                />
-                <input
-                  placeholder="LV1"
-                  value={seriesPriceForm.price_1}
-                  onChange={(e) => handleSeriesPriceChange('price_1', e.target.value)}
-                  style={inputStyle}
-                />
-                <input
-                  placeholder="LV2"
-                  value={seriesPriceForm.price_2}
-                  onChange={(e) => handleSeriesPriceChange('price_2', e.target.value)}
-                  style={inputStyle}
-                />
-                <input
-                  placeholder="LV3"
-                  value={seriesPriceForm.price_3}
-                  onChange={(e) => handleSeriesPriceChange('price_3', e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={tipBoxStyle}>
-                这个功能会把所有 <b>Brand + Series 完全相同</b> 的产品一起更新成同一套代理价格。
-              </div>
-
-              <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                <button type="submit" style={primaryButton} disabled={seriesSaving}>
-                  {seriesSaving ? '更新中...' : '一键更新该 Brand + Series 全部价格'}
-                </button>
-                <button type="button" style={secondaryButton} onClick={handleSeriesPriceReset}>
-                  清空
-                </button>
-              </div>
-            </form>
+              {renderSingleForm()}
+            </div>
           </div>
-        </div>
+        )}
+
+        {activeTab === 'bulk' && renderBulkPanel()}
       </div>
     </main>
   )
@@ -1001,9 +1120,11 @@ const smallDangerButton = {
 
 const thStyle = {
   textAlign: 'left',
-  padding: '12px',
+  padding: '14px 12px',
   borderBottom: '1px solid #ead7c4',
   whiteSpace: 'nowrap',
+  fontWeight: 800,
+  color: '#6f4e37',
 }
 
 const tdStyle = {
@@ -1049,4 +1170,21 @@ const filterResultStyle = {
   background: '#f8f0e8',
   border: '1px solid #ead7c4',
   fontWeight: 700,
+}
+
+const tabButtonStyle = {
+  height: 42,
+  padding: '0 16px',
+  borderRadius: 12,
+  border: '1px solid #d7bfa8',
+  background: '#fff8f1',
+  color: '#6f4e37',
+  fontWeight: 800,
+  cursor: 'pointer',
+}
+
+const activeTabButtonStyle = {
+  background: '#a47c57',
+  color: '#fff',
+  border: '1px solid #a47c57',
 }
