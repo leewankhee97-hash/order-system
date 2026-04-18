@@ -138,71 +138,70 @@ export default function AdminAgentsPage() {
   }
 
   async function createAgent() {
-    try {
-      const name = String(createName || '').trim()
-      const slug = makeSlug(createSlug)
-      const code = String(createCode || '').trim()
-      const level = Number(createLevel || 1)
+  try {
+    const name = String(createName || '').trim()
+    const slug = makeSlug(createSlug)
+    const code = String(createCode || '').trim()
+    const level = Number(createLevel || 1)
 
-      if (!name) {
-        setMessage('请输入代理名称')
-        return
-      }
-
-      if (!slug) {
-        setMessage('请输入有效的 slug')
-        return
-      }
-
-      if (![1, 2, 3].includes(level)) {
-        setMessage('代理等级只能是 1 / 2 / 3')
-        return
-      }
-
-      setCreating(true)
-      setMessage('')
-
-      // 检查 slug 是否重复（同时检查 agent_slug / slug）
-      const duplicated = agents.find((row) => {
-        const rowSlug = String(getAgentSlug(row) || '').trim().toLowerCase()
-        return rowSlug === slug.toLowerCase()
-      })
-
-      if (duplicated) {
-        setMessage(`slug 已存在：${slug}`)
-        setCreating(false)
-        return
-      }
-
-      const insertPayload = {
-  name,
-  agent_slug: slug,
-  slug,
-  level,
-  code: code || null,
-  is_active: true,
-}
-
-      const { error } = await supabase
-        .from('agents')
-        .insert([insertPayload])
-
-      if (error) throw error
-
-      setMessage(`代理创建成功：${name} / ${slug}`)
-      setCreateName('')
-      setCreateSlug('')
-      setCreateCode('')
-      setCreateLevel(1)
-
-      await fetchAgents()
-    } catch (error) {
-      console.error(error)
-      setMessage(error.message || '创建代理失败')
-    } finally {
-      setCreating(false)
+    if (!name) {
+      setMessage('请输入代理名称')
+      return
     }
+
+    if (!slug) {
+      setMessage('请输入有效的 slug')
+      return
+    }
+
+    if (![1, 2, 3].includes(level)) {
+      setMessage('代理等级只能是 1 / 2 / 3')
+      return
+    }
+
+    setCreating(true)
+    setMessage('')
+
+    const duplicated = agents.find((row) => {
+      const rowSlug = String(getAgentSlug(row) || '').trim().toLowerCase()
+      return rowSlug === slug.toLowerCase()
+    })
+
+    if (duplicated) {
+      setMessage(`slug 已存在：${slug}`)
+      setCreating(false)
+      return
+    }
+
+    const insertPayload = {
+      name,
+      agent_slug: slug,
+      slug,
+      level,
+      code: code || null,
+      is_active: true,
+    }
+
+    const { error } = await supabase
+      .from('agents')
+      .insert([insertPayload])
+
+    if (error) throw error
+
+    setMessage(`代理创建成功：${name} / ${slug}`)
+    setCreateName('')
+    setCreateSlug('')
+    setCreateCode('')
+    setCreateLevel(1)
+
+    await fetchAgents()
+  } catch (error) {
+    console.error(error)
+    setMessage(error.message || '创建代理失败')
+  } finally {
+    setCreating(false)
   }
+}
 
   const filteredAgents = useMemo(() => {
     const keyword = search.trim().toLowerCase()
