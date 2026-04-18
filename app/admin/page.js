@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -101,15 +100,27 @@ export default function AdminPage() {
         monthTotal += sales
       }
 
-      const name = o.agent_name || 'UNKNOWN'
-      if (!agentMap[name]) agentMap[name] = 0
-      agentMap[name] += sales
+      const name = String(o.agent_name || 'UNKNOWN').trim() || 'UNKNOWN'
+
+      if (!agentMap[name]) {
+        agentMap[name] = {
+          name,
+          total: 0,
+          count: 0,
+        }
+      }
+
+      agentMap[name].total += sales
+      agentMap[name].count += 1
     })
 
-    const ranking = Object.entries(agentMap)
-      .map(([name, total]) => ({ name, total }))
+    const ranking = Object.values(agentMap)
+      .map(agent => ({
+        ...agent,
+        avg: agent.count > 0 ? agent.total / agent.count : 0,
+      }))
       .sort((a, b) => b.total - a.total)
-      .slice(0, 5)
+      .slice(0, 10)
 
     const low = products.filter(p => {
       const stock = Number(p.stock || 0)
@@ -203,15 +214,39 @@ export default function AdminPage() {
     return Object.values(brands).reduce((sum, items) => sum + items.length, 0)
   }
 
-  const cardStyle = {
-    display: 'block',
-    padding: '20px',
-    borderRadius: '18px',
-    border: '1px solid #d7bfa8',
-    background: '#fffaf5',
-    color: '#6f4e37',
-    textDecoration: 'none',
-    fontWeight: 800,
+  function getRankBadge(index) {
+    if (index === 0) return '🥇'
+    if (index === 1) return '🥈'
+    if (index === 2) return '🥉'
+    return `#${index + 1}`
+  }
+
+  function getRankCardStyle(index) {
+    if (index === 0) {
+      return {
+        background: '#fff7e6',
+        border: '1px solid #ecd8a6',
+      }
+    }
+
+    if (index === 1) {
+      return {
+        background: '#f8f8f8',
+        border: '1px solid #dddddd',
+      }
+    }
+
+    if (index === 2) {
+      return {
+        background: '#fff4ee',
+        border: '1px solid #e7c7b5',
+      }
+    }
+
+    return {
+      background: '#fff',
+      border: '1px solid #ead8c8',
+    }
   }
 
   const statCard = {
@@ -315,12 +350,12 @@ export default function AdminPage() {
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Link
+              <a
                 href={`/admin/products?stock=${stockParam}&category=${encodeURIComponent(category)}`}
                 style={viewLinkStyle}
               >
                 查看产品
-              </Link>
+              </a>
 
               <button
                 type="button"
@@ -508,25 +543,108 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '16px',
-            marginBottom: 20,
-          }}
-        >
-          <Link href="/admin/products" style={cardStyle}>
-            产品管理
-          </Link>
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+            🏆 Agent 排行榜
+          </h2>
 
-          <Link href="/admin/bundles" style={cardStyle}>
-            Bundle 规则管理
-          </Link>
+          <div style={sectionCard}>
+            {agentRanking.length === 0 && <div>暂无数据</div>}
 
-          <Link href="/admin/orders" style={cardStyle}>
-            订单列表
-          </Link>
+            {agentRanking.length > 0 && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                {agentRanking.map((a, i) => (
+                  <div
+                    key={a.name}
+                    style={{
+                      ...getRankCardStyle(i),
+                      borderRadius: 16,
+                      padding: '16px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 10,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div style={{ fontSize: 22, fontWeight: 900 }}>
+                        {getRankBadge(i)}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 800,
+                          padding: '6px 10px',
+                          borderRadius: 999,
+                          border: '1px solid #d7bfa8',
+                          background: '#fffaf5',
+                        }}
+                      >
+                        第 {i + 1} 名
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 900,
+                        marginBottom: 10,
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {a.name}
+                    </div>
+
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                        }}
+                      >
+                        <span>销售额</span>
+                        <strong>RM {a.total.toFixed(2)}</strong>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                        }}
+                      >
+                        <span>订单数</span>
+                        <strong>{a.count}</strong>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                        }}
+                      >
+                        <span>平均单价</span>
+                        <strong>RM {a.avg.toFixed(2)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ marginBottom: 20 }}>
@@ -546,22 +664,6 @@ export default function AdminPage() {
 
           <div style={{ ...sectionCard, background: '#fffdf8' }}>
             {renderStockGroup(groupedLowStock, 'low')}
-          </div>
-        </div>
-
-        <div style={{ marginTop: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-            🏆 Agent 排行榜
-          </h2>
-
-          <div style={sectionCard}>
-            {agentRanking.length === 0 && <div>暂无数据</div>}
-
-            {agentRanking.map((a, i) => (
-              <div key={i} style={{ marginBottom: 8 }}>
-                {i + 1}. {a.name} - RM {a.total.toFixed(2)}
-              </div>
-            ))}
           </div>
         </div>
       </div>
