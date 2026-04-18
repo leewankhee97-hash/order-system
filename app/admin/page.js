@@ -22,6 +22,9 @@ export default function AdminPage() {
   const [savingId, setSavingId] = useState(null)
   const [saveMsg, setSaveMsg] = useState('')
 
+  const [collapsedOut, setCollapsedOut] = useState({})
+  const [collapsedLow, setCollapsedLow] = useState({})
+
   useEffect(() => {
     init()
   }, [])
@@ -50,8 +53,8 @@ export default function AdminPage() {
     const grouped = {}
 
     items.forEach(p => {
-      const category = (p.category || '未分类').trim()
-      const brand = (p.series || p.brand || '其他').trim()
+      const category = String(p.category || '未分类').trim()
+      const brand = String(p.series || p.brand || '其他').trim()
 
       if (!grouped[category]) grouped[category] = {}
       if (!grouped[category][brand]) grouped[category][brand] = []
@@ -60,6 +63,18 @@ export default function AdminPage() {
     })
 
     return grouped
+  }
+
+  function buildCollapsedState(grouped, prevState = {}) {
+    const next = { ...prevState }
+
+    Object.keys(grouped).forEach(category => {
+      if (typeof next[category] === 'undefined') {
+        next[category] = false
+      }
+    })
+
+    return next
   }
 
   function calculateStats(orders, products) {
@@ -103,13 +118,19 @@ export default function AdminPage() {
 
     const out = products.filter(p => Number(p.stock || 0) === 0)
 
+    const groupedOut = groupProducts(out)
+    const groupedLow = groupProducts(low)
+
     setTodaySales(todayTotal)
     setMonthSales(monthTotal)
     setAgentRanking(ranking)
     setLowStock(low)
     setOutStock(out)
-    setGroupedOutStock(groupProducts(out))
-    setGroupedLowStock(groupProducts(low))
+    setGroupedOutStock(groupedOut)
+    setGroupedLowStock(groupedLow)
+
+    setCollapsedOut(prev => buildCollapsedState(groupedOut, prev))
+    setCollapsedLow(prev => buildCollapsedState(groupedLow, prev))
   }
 
   function handleStockInput(productId, value) {
@@ -163,6 +184,25 @@ export default function AdminPage() {
     }))
   }
 
+  function toggleCollapse(type, category) {
+    if (type === 'out') {
+      setCollapsedOut(prev => ({
+        ...prev,
+        [category]: !prev[category],
+      }))
+      return
+    }
+
+    setCollapsedLow(prev => ({
+      ...prev,
+      [category]: !prev[category],
+    }))
+  }
+
+  function getCategoryCount(brands) {
+    return Object.values(brands).reduce((sum, items) => sum + items.length, 0)
+  }
+
   const cardStyle = {
     display: 'block',
     padding: '20px',
@@ -208,122 +248,198 @@ export default function AdminPage() {
     fontWeight: 800,
   }
 
+  const categoryHeaderBtn = {
+    border: '1px solid #d7bfa8',
+    background: '#fff',
+    color: '#6f4e37',
+    padding: '8px 12px',
+    borderRadius: 10,
+    fontWeight: 800,
+    cursor: 'pointer',
+  }
+
+  const viewLinkStyle = {
+    display: 'inline-block',
+    padding: '8px 12px',
+    borderRadius: 10,
+    border: '1px solid #d7bfa8',
+    background: '#fffaf5',
+    color: '#6f4e37',
+    textDecoration: 'none',
+    fontWeight: 800,
+  }
+
   function renderStockGroup(grouped, type = 'low') {
     const isOut = type === 'out'
+    const collapsedMap = isOut ? collapsedOut : collapsedLow
+    const stockParam = isOut ? 'out' : 'low'
 
     if (Object.keys(grouped).length === 0) {
       return <div>{isOut ? '暂无缺货' : '暂无低库存产品'}</div>
     }
 
-    return Object.entries(grouped).map(([category, brands]) => (
-      <div key={category} style={{ marginBottom: 22 }}>
+    return Object.entries(grouped).map(([category, brands]) => {
+      const totalCount = getCategoryCount(brands)
+      const isCollapsed = !!collapsedMap[category]
+
+      return (
         <div
+          key={category}
           style={{
-            fontSize: 18,
-            fontWeight: 900,
-            marginBottom: 10,
-            color: '#6f4e37',
+            marginBottom: 20,
+            border: '1px solid #ead8c8',
+            borderRadius: 16,
+            overflow: 'hidden',
+            background: '#fff',
           }}
         >
-          {category}
-        </div>
-
-        {Object.entries(brands).map(([brand, items]) => (
           <div
-            key={brand}
             style={{
-              marginBottom: 12,
-              padding: '12px',
-              borderRadius: '14px',
-              background: isOut ? '#fff2f2' : '#fffaf0',
-              border: '1px solid #ead8c8',
+              padding: '14px 16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+              background: isOut ? '#fff1f1' : '#fff8ea',
+              borderBottom: isCollapsed ? 'none' : '1px solid #f0e0d3',
             }}
           >
-            <div
-              style={{
-                fontWeight: 900,
-                marginBottom: 10,
-                color: '#6f4e37',
-              }}
-            >
-              {brand}
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900 }}>
+                {category}
+              </div>
+              <div style={{ fontSize: 14, opacity: 0.8, marginTop: 4 }}>
+                共 {totalCount} 个产品
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gap: 10 }}>
-              {items.map(p => (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Link
+                href={`/admin/products?stock=${stockParam}&category=${encodeURIComponent(category)}`}
+                style={viewLinkStyle}
+              >
+                查看产品
+              </Link>
+
+              <button
+                type="button"
+                style={categoryHeaderBtn}
+                onClick={() => toggleCollapse(type, category)}
+              >
+                {isCollapsed ? '展开' : '收起'}
+              </button>
+            </div>
+          </div>
+
+          {!isCollapsed && (
+            <div style={{ padding: 14 }}>
+              {Object.entries(brands).map(([brand, items]) => (
                 <div
-                  key={p.id}
+                  key={brand}
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(180px, 1fr) 110px minmax(140px, 180px) auto',
-                    gap: 10,
-                    alignItems: 'center',
-                    padding: '10px 12px',
-                    borderRadius: '12px',
-                    background: '#fff',
-                    border: '1px solid #f0e0d3',
+                    marginBottom: 12,
+                    padding: '12px',
+                    borderRadius: '14px',
+                    background: isOut ? '#fff8f8' : '#fffdf6',
+                    border: '1px solid #ead8c8',
                   }}
                 >
-                  <div style={{ fontWeight: 700 }}>
-                    {p.name}
-                  </div>
-
                   <div
                     style={{
-                      fontWeight: 800,
-                      color: isOut ? '#c0392b' : '#b9770e',
+                      fontWeight: 900,
+                      marginBottom: 10,
+                      color: '#6f4e37',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      flexWrap: 'wrap',
                     }}
                   >
-                    stock: {Number(p.stock || 0)}
+                    <span>{brand}</span>
+                    <span style={{ fontSize: 13, opacity: 0.8 }}>
+                      {items.length} 个产品
+                    </span>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="输入库存"
-                      value={stockInputs[p.id] ?? ''}
-                      onChange={e => handleStockInput(p.id, e.target.value)}
-                      style={{
-                        width: 100,
-                        padding: '8px 10px',
-                        borderRadius: 10,
-                        border: '1px solid #d7bfa8',
-                        outline: 'none',
-                      }}
-                    />
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {items.map(p => (
+                      <div
+                        key={p.id}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'minmax(180px, 1fr) 110px minmax(140px, 220px) auto',
+                          gap: 10,
+                          alignItems: 'center',
+                          padding: '10px 12px',
+                          borderRadius: '12px',
+                          background: '#fff',
+                          border: '1px solid #f0e0d3',
+                        }}
+                      >
+                        <div style={{ fontWeight: 700 }}>
+                          {p.name}
+                        </div>
 
-                    <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 10)}>
-                      10
-                    </button>
-                    <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 20)}>
-                      20
-                    </button>
-                    <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 50)}>
-                      50
-                    </button>
-                  </div>
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            color: isOut ? '#c0392b' : '#b9770e',
+                          }}
+                        >
+                          stock: {Number(p.stock || 0)}
+                        </div>
 
-                  <div>
-                    <button
-                      type="button"
-                      style={{
-                        ...saveBtn,
-                        opacity: savingId === p.id ? 0.7 : 1,
-                      }}
-                      disabled={savingId === p.id}
-                      onClick={() => saveStock(p.id)}
-                    >
-                      {savingId === p.id ? '保存中...' : '保存'}
-                    </button>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="输入库存"
+                            value={stockInputs[p.id] ?? ''}
+                            onChange={e => handleStockInput(p.id, e.target.value)}
+                            style={{
+                              width: 100,
+                              padding: '8px 10px',
+                              borderRadius: 10,
+                              border: '1px solid #d7bfa8',
+                              outline: 'none',
+                            }}
+                          />
+
+                          <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 10)}>
+                            10
+                          </button>
+                          <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 20)}>
+                            20
+                          </button>
+                          <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 50)}>
+                            50
+                          </button>
+                        </div>
+
+                        <div>
+                          <button
+                            type="button"
+                            style={{
+                              ...saveBtn,
+                              opacity: savingId === p.id ? 0.7 : 1,
+                            }}
+                            disabled={savingId === p.id}
+                            onClick={() => saveStock(p.id)}
+                          >
+                            {savingId === p.id ? '保存中...' : '保存'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        ))}
-      </div>
-    ))
+          )}
+        </div>
+      )
+    })
   }
 
   return (
@@ -430,6 +546,22 @@ export default function AdminPage() {
 
           <div style={{ ...sectionCard, background: '#fffdf8' }}>
             {renderStockGroup(groupedLowStock, 'low')}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 20 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+            🏆 Agent 排行榜
+          </h2>
+
+          <div style={sectionCard}>
+            {agentRanking.length === 0 && <div>暂无数据</div>}
+
+            {agentRanking.map((a, i) => (
+              <div key={i} style={{ marginBottom: 8 }}>
+                {i + 1}. {a.name} - RM {a.total.toFixed(2)}
+              </div>
+            ))}
           </div>
         </div>
       </div>
