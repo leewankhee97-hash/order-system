@@ -137,7 +137,7 @@ export default function AdminAgentsPage() {
     }
   }
 
-  async function createAgent() {
+ async function createAgent() {
   try {
     const name = String(createName || '').trim()
     const slug = makeSlug(createSlug)
@@ -175,7 +175,6 @@ export default function AdminAgentsPage() {
 
     const insertPayload = {
       name,
-      agent_slug: slug,
       slug,
       level,
       code: code || null,
