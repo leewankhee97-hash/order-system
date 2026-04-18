@@ -186,27 +186,69 @@ export default function Page() {
 
   async function init() {
     try {
-      const agentId = Number(agent)
+      const rawAgent = String(agent || '').trim()
+      const agentSlug = rawAgent.toLowerCase()
 
-      if (!agentId || Number.isNaN(agentId)) {
+      if (!agentSlug) {
         setAgentInfo(null)
         setProducts([])
         setBundles([])
         return
       }
 
-      const { data: a, error: agentError } = await supabase
+      let foundAgent = null
+      let foundAgentError = null
+
+      // 新逻辑：优先按 slug 读取
+      const { data: bySlug, error: bySlugError } = await supabase
         .from('agents')
         .select('*')
-        .eq('id', agentId)
-        .single()
+        .eq('slug', agentSlug)
+        .maybeSingle()
+
+      if (bySlugError) {
+        console.error('AGENT BY SLUG ERROR:', bySlugError)
+      }
+
+      if (bySlug) {
+        foundAgent = bySlug
+      } else {
+        // 兼容旧逻辑：如果传进来是纯数字，再尝试按 id
+        const agentId = Number(rawAgent)
+
+        if (!Number.isNaN(agentId) && rawAgent !== '') {
+          const { data: byId, error: byIdError } = await supabase
+            .from('agents')
+            .select('*')
+            .eq('id', agentId)
+            .maybeSingle()
+
+          if (byIdError) {
+            console.error('AGENT BY ID ERROR:', byIdError)
+            foundAgentError = byIdError
+          }
+
+          if (byId) {
+            foundAgent = byId
+          }
+        }
+      }
 
       console.log('AGENT PARAM:', agent)
-      console.log('AGENT ID:', agentId)
-      console.log('AGENT INFO:', a)
-      console.log('AGENT ERROR:', agentError)
+      console.log('AGENT SLUG:', agentSlug)
+      console.log('AGENT INFO:', foundAgent)
+      console.log('AGENT ERROR:', foundAgentError)
 
-      setAgentInfo(a || null)
+      if (!foundAgent) {
+        setAgentInfo(null)
+        setProducts([])
+        setBundles([])
+        setError('代理链接无效')
+        return
+      }
+
+      setError('')
+      setAgentInfo(foundAgent)
 
       const { data: p, error: productsError } = await supabase
         .from('products')
@@ -235,6 +277,7 @@ export default function Page() {
       setBundles(b || [])
     } catch (err) {
       console.error('INIT ERROR:', err)
+      setError('读取代理资料失败')
     }
   }
 
