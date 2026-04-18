@@ -13,6 +13,8 @@ export default function AdminPage() {
   const [agentRanking, setAgentRanking] = useState([])
 
   const [lowStock, setLowStock] = useState([])
+  const [outStock, setOutStock] = useState([])
+  const [groupedOutStock, setGroupedOutStock] = useState({})
 
   useEffect(() => {
     init()
@@ -54,18 +56,15 @@ export default function AdminPage() {
     orders.forEach(o => {
       const sales = getNetSales(o)
 
-      // 今日
       if (o.created_at?.slice(0, 10) === today) {
         todayTotal += sales
       }
 
-      // 本月
       const d = new Date(o.created_at)
       if (d.getMonth() === month && d.getFullYear() === year) {
         monthTotal += sales
       }
 
-      // Agent
       const name = o.agent_name || 'UNKNOWN'
       if (!agentMap[name]) agentMap[name] = 0
       agentMap[name] += sales
@@ -76,13 +75,31 @@ export default function AdminPage() {
       .sort((a, b) => b.total - a.total)
       .slice(0, 5)
 
-    // 低库存
-    const low = products.filter(p => Number(p.stock || 0) <= 50)
+    // 🔥 低库存
+    const low = products.filter(p => Number(p.stock || 0) <= 50 && Number(p.stock || 0) > 0)
+
+    // 🔥 OUT OF STOCK
+    const out = products.filter(p => Number(p.stock || 0) === 0)
+
+    // 🔥 分组（分类 + 品牌）
+    const grouped = {}
+
+    out.forEach(p => {
+      const category = p.category || '未分类'
+      const brand = p.series || p.brand || '其他'
+
+      if (!grouped[category]) grouped[category] = {}
+      if (!grouped[category][brand]) grouped[category][brand] = []
+
+      grouped[category][brand].push(p.name)
+    })
 
     setTodaySales(todayTotal)
     setMonthSales(monthTotal)
     setAgentRanking(ranking)
     setLowStock(low)
+    setOutStock(out)
+    setGroupedOutStock(grouped)
   }
 
   const cardStyle = {
@@ -146,6 +163,14 @@ export default function AdminPage() {
               {lowStock.length}
             </div>
           </div>
+
+          {/* 🔥 NEW */}
+          <div style={{ ...statCard, background: '#ffe5e5' }}>
+            <div>❌ 缺货产品</div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>
+              {outStock.length}
+            </div>
+          </div>
         </div>
 
         {/* 🔥 功能入口 */}
@@ -170,24 +195,36 @@ export default function AdminPage() {
           </Link>
         </div>
 
-        {/* 🔥 Agent 排行榜 */}
+        {/* 🔥 OUT OF STOCK 分组 */}
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-            🏆 Agent 排行榜
+            ❌ OUT OF STOCK 分类总览
           </h2>
 
           <div style={statCard}>
-            {agentRanking.length === 0 && <div>暂无数据</div>}
+            {Object.keys(groupedOutStock).length === 0 && <div>暂无缺货</div>}
 
-            {agentRanking.map((a, i) => (
-              <div key={i} style={{ marginBottom: 8 }}>
-                {i + 1}. {a.name} - RM {a.total.toFixed(2)}
+            {Object.entries(groupedOutStock).map(([category, brands]) => (
+              <div key={category} style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 900 }}>{category}</div>
+
+                {Object.entries(brands).map(([brand, items]) => (
+                  <div key={brand} style={{ marginLeft: 10 }}>
+                    <div style={{ fontWeight: 700 }}>{brand}</div>
+
+                    {items.map((name, i) => (
+                      <div key={i} style={{ marginLeft: 10 }}>
+                        - {name}
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
         </div>
 
-        {/* 🔥 低库存列表 */}
+        {/* 🔥 低库存 */}
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
             ⚠️ 低库存产品
