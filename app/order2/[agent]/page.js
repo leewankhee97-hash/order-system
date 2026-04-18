@@ -169,6 +169,9 @@ export default function Page() {
   const [selectedVariant, setSelectedVariant] = useState('')
   const [search, setSearch] = useState('')
 
+  const [backupSelections, setBackupSelections] = useState({})
+  const [noBackup, setNoBackup] = useState(false)
+
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -241,6 +244,10 @@ export default function Page() {
     const count = agentInfo.order_counter || 1
     setOrderId(`${prefix}-${String(count).padStart(4, '0')}`)
     setCart([])
+    setBundleSelect({})
+    setSelectedBundle(null)
+    setBackupSelections({})
+    setNoBackup(false)
   }, [agentInfo])
 
   function getAgentLevel() {
@@ -415,9 +422,8 @@ export default function Page() {
   const bundleLimit = Number(selectedBundle?.min_select_qty || 0)
   const bundleBuyQty = Number(selectedBundle?.buy_qty || 0)
   const bundleFreeQty = Number(selectedBundle?.free_qty || 0)
-  const bundleGroupSize = bundleBuyQty > 0 || bundleFreeQty > 0
-    ? bundleBuyQty + bundleFreeQty
-    : 0
+  const bundleGroupSize =
+    bundleBuyQty > 0 || bundleFreeQty > 0 ? bundleBuyQty + bundleFreeQty : 0
 
   const bundleCount = useMemo(() => {
     return Object.values(bundleSelect).reduce((s, v) => s + Number(v || 0), 0)
@@ -553,6 +559,102 @@ export default function Page() {
     return products.filter((p) => Number(p.stock || 0) <= 0).length
   }, [products])
 
+  const orderedBrands = useMemo(() => {
+    const brands = new Set()
+
+    cart.forEach((i) => {
+      const brand = normalizeText(i.brand)
+      if (brand) brands.add(brand)
+    })
+
+    if (selectedBundle) {
+      const bundleBrand = normalizeText(selectedBundle.brand)
+      if (bundleBrand) brands.add(bundleBrand)
+    }
+
+    return Array.from(brands)
+  }, [cart, selectedBundle])
+
+  const backupOptions = useMemo(() => {
+    const map = {}
+
+    orderedBrands.forEach((brand) => {
+      const list = products
+        .filter((p) => eqText(p.brand, brand))
+        .map((p) => cleanProductName(p))
+        .filter(Boolean)
+
+      map[brand] = [...new Set(list)]
+    })
+
+    return map
+  }, [orderedBrands, products])
+
+  const hasAnyBackupSelected = useMemo(() => {
+    return Object.values(backupSelections).some(
+      (arr) => Array.isArray(arr) && arr.length > 0
+    )
+  }, [backupSelections])
+
+  useEffect(() => {
+    setBackupSelections((prev) => {
+      const next = {}
+
+      orderedBrands.forEach((brand) => {
+        const validOptions = new Set(backupOptions[brand] || [])
+        const kept = (prev[brand] || []).filter((item) => validOptions.has(item))
+        if (kept.length > 0) {
+          next[brand] = kept
+        }
+      })
+
+      return next
+    })
+  }, [orderedBrands, backupOptions])
+
+  useEffect(() => {
+    if (orderedBrands.length === 0) {
+      setBackupSelections({})
+      setNoBackup(false)
+    }
+  }, [orderedBrands])
+
+  function toggleNoBackup() {
+    setNoBackup((prev) => {
+      const next = !prev
+      if (next) {
+        setBackupSelections({})
+      }
+      return next
+    })
+  }
+
+  function toggleBackup(brand, flavor) {
+    setNoBackup(false)
+
+    setBackupSelections((prev) => {
+      const current = prev[brand] || []
+
+      if (current.includes(flavor)) {
+        const filtered = current.filter((f) => f !== flavor)
+        const next = { ...prev }
+
+        if (filtered.length > 0) {
+          next[brand] = filtered
+        } else {
+          delete next[brand]
+        }
+
+        return next
+      }
+
+      return {
+        ...prev,
+        [brand]: [...current, flavor],
+      }
+    })
+  }
+
   function resetFormAfterSubmit() {
     setCart([])
     setSelectedBundle(null)
@@ -565,6 +667,8 @@ export default function Page() {
     setState('')
     setPostcode('')
     setShipping('')
+    setBackupSelections({})
+    setNoBackup(false)
   }
 
   function shippingText() {
@@ -617,6 +721,21 @@ export default function Page() {
       itemLines.push('')
     }
 
+    const backupLines = []
+
+    Object.entries(backupSelections).forEach(([brand, flavors]) => {
+      if (!flavors || flavors.length === 0) return
+      backupLines.push(brand)
+      flavors.forEach((f) => backupLines.push(f))
+      backupLines.push('')
+    })
+
+    const remarkLines = noBackup
+      ? ['备注：', '不选择备选', '下一单扣', '']
+      : backupLines.length > 0
+        ? ['备注：', '备选', ...backupLines]
+        : []
+
     if (delivery === '邮寄') {
       return [
         `配送方式：邮寄`,
@@ -632,6 +751,7 @@ export default function Page() {
         ``,
         `物品：`,
         ...itemLines,
+        ...remarkLines,
         `货品总额：RM ${money(normalTotal + bundleTotal)}`,
         `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM ${money(shippingFee)}`}`,
         `总数：RM ${money(total)}`,
@@ -651,6 +771,7 @@ export default function Page() {
         ``,
         `物品：`,
         ...itemLines,
+        ...remarkLines,
         `货品总额：RM ${money(normalTotal + bundleTotal)}`,
         `运费：RM ${money(shippingFee)}`,
         `总数：RM ${money(total)}`,
@@ -665,6 +786,7 @@ export default function Page() {
       ``,
       `物品：`,
       ...itemLines,
+      ...remarkLines,
       `总额：RM ${money(total)}`,
     ].join('\n')
   }
@@ -777,6 +899,11 @@ export default function Page() {
           return
         }
       }
+    }
+
+    if (orderedBrands.length > 0 && !noBackup && !hasAnyBackupSelected) {
+      setError('请选择备选口味，或勾选【不选择备选】')
+      return
     }
 
     try {
@@ -1563,6 +1690,77 @@ export default function Page() {
               <div className="mb-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#b08867]">
                   <PawPrint />
+                  Backup
+                </div>
+                <h2 className="mt-2 text-xl font-black text-[#5f4432]">备选口味</h2>
+              </div>
+
+              {orderedBrands.length === 0 ? (
+                <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-4 text-sm text-[#a08874]">
+                  下单后才会出现备选选项
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-500">
+                    此项必选：请勾选【不选择备选】或选择至少一个备选口味
+                  </div>
+
+                  <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-4">
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={noBackup}
+                        onChange={toggleNoBackup}
+                        className="h-4 w-4"
+                      />
+                      <span className="font-semibold text-[#5f4432]">不选择备选</span>
+                    </label>
+
+                    <div className="mt-2 text-sm text-[#8a6d59]">
+                      勾选后将自动备注：下一单扣
+                    </div>
+                  </div>
+
+                  {orderedBrands.map((brand) => (
+                    <div
+                      key={brand}
+                      className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
+                    >
+                      <div className="mb-3 text-base font-black text-[#5f4432]">
+                        {brand}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {(backupOptions[brand] || []).map((flavor) => {
+                          const active = backupSelections[brand]?.includes(flavor)
+
+                          return (
+                            <button
+                              key={flavor}
+                              type="button"
+                              disabled={noBackup}
+                              onClick={() => toggleBackup(brand, flavor)}
+                              className={`rounded-3xl border px-4 py-2 text-sm font-semibold transition ${
+                                active
+                                  ? 'border-[#cba98a] bg-[#dcc0a8] text-white shadow-sm'
+                                  : 'border-[#eadacb] bg-[#fffaf6] text-[#7a5b47] hover:bg-[#f8efe6]'
+                              } ${noBackup ? 'cursor-not-allowed opacity-50' : ''}`}
+                            >
+                              {flavor}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur">
+              <div className="mb-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#b08867]">
+                  <PawPrint />
                   Checkout
                 </div>
                 <h2 className="mt-2 text-xl font-black text-[#5f4432]">Summary</h2>
@@ -1590,6 +1788,17 @@ export default function Page() {
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Shipping</span>
                   <span className="font-bold text-[#5f4432]">{shippingText()}</span>
+                </div>
+
+                <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
+                  <span className="text-[#8b7260]">Backup Status</span>
+                  <span className="font-bold text-[#5f4432]">
+                    {noBackup
+                      ? '不选择备选'
+                      : hasAnyBackupSelected
+                        ? '已选择备选'
+                        : '未完成'}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between rounded-3xl border border-[#d8c2aa] bg-[linear-gradient(90deg,#f6eadf_0%,#edd8c4_100%)] px-4 py-4">
