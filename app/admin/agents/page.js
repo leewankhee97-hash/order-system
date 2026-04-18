@@ -56,15 +56,47 @@ function getAgentStatus(row) {
   }
 }
 
+function makeSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-_]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 export default function AdminAgentsPage() {
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
 
+  // 新增：创建代理
+  const [createName, setCreateName] = useState('')
+  const [createSlug, setCreateSlug] = useState('')
+  const [createCode, setCreateCode] = useState('')
+  const [createLevel, setCreateLevel] = useState(1)
+  const [creating, setCreating] = useState(false)
+
   useEffect(() => {
     fetchAgents()
   }, [])
+
+  useEffect(() => {
+    setCreateSlug((prev) => {
+      const auto = makeSlug(createName)
+
+      // 用户还没手动改 slug，名称变动时自动同步
+      if (!prev) return auto
+
+      // 如果当前 slug 跟旧规则自动值一致，也继续自动更新
+      const currentFromName = makeSlug(createName)
+      if (prev === currentFromName) return auto
+
+      return prev
+    })
+  }, [createName])
 
   async function fetchAgents() {
     try {
@@ -102,6 +134,74 @@ export default function AdminAgentsPage() {
     } catch (error) {
       console.error(error)
       setMessage(error.message || '复制链接失败')
+    }
+  }
+
+  async function createAgent() {
+    try {
+      const name = String(createName || '').trim()
+      const slug = makeSlug(createSlug)
+      const code = String(createCode || '').trim()
+      const level = Number(createLevel || 1)
+
+      if (!name) {
+        setMessage('请输入代理名称')
+        return
+      }
+
+      if (!slug) {
+        setMessage('请输入有效的 slug')
+        return
+      }
+
+      if (![1, 2, 3].includes(level)) {
+        setMessage('代理等级只能是 1 / 2 / 3')
+        return
+      }
+
+      setCreating(true)
+      setMessage('')
+
+      // 检查 slug 是否重复（同时检查 agent_slug / slug）
+      const duplicated = agents.find((row) => {
+        const rowSlug = String(getAgentSlug(row) || '').trim().toLowerCase()
+        return rowSlug === slug.toLowerCase()
+      })
+
+      if (duplicated) {
+        setMessage(`slug 已存在：${slug}`)
+        setCreating(false)
+        return
+      }
+
+      const insertPayload = {
+        agent_name: name,
+        name,
+        agent_slug: slug,
+        slug,
+        level,
+        code: code || null,
+        is_active: true,
+      }
+
+      const { error } = await supabase
+        .from('agents')
+        .insert([insertPayload])
+
+      if (error) throw error
+
+      setMessage(`代理创建成功：${name} / ${slug}`)
+      setCreateName('')
+      setCreateSlug('')
+      setCreateCode('')
+      setCreateLevel(1)
+
+      await fetchAgents()
+    } catch (error) {
+      console.error(error)
+      setMessage(error.message || '创建代理失败')
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -193,6 +293,103 @@ export default function AdminAgentsPage() {
           <div style={statCardStyle}>
             <div style={statLabelStyle}>停用</div>
             <div style={statValueStyle}>{stats.inactive}</div>
+          </div>
+        </div>
+
+        {/* 新增：创建代理 */}
+        <div style={boxStyle}>
+          <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 14 }}>
+            创建新代理
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <div>
+              <div style={fieldLabelStyle}>代理名称</div>
+              <input
+                placeholder="例如：Maggie"
+                value={createName}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setCreateName(value)
+                  if (!createSlug) {
+                    setCreateSlug(makeSlug(value))
+                  }
+                }}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <div style={fieldLabelStyle}>Slug</div>
+              <input
+                placeholder="例如：maggie"
+                value={createSlug}
+                onChange={(e) => setCreateSlug(makeSlug(e.target.value))}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <div style={fieldLabelStyle}>Code</div>
+              <input
+                placeholder="可留空"
+                value={createCode}
+                onChange={(e) => setCreateCode(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <div style={fieldLabelStyle}>等级</div>
+              <select
+                value={createLevel}
+                onChange={(e) => setCreateLevel(Number(e.target.value))}
+                style={inputStyle}
+              >
+                <option value={1}>1 级</option>
+                <option value={2}>2 级</option>
+                <option value={3}>3 级</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}
+          >
+            <button
+              type="button"
+              onClick={createAgent}
+              style={{
+                ...primaryButton,
+                opacity: creating ? 0.7 : 1,
+                cursor: creating ? 'not-allowed' : 'pointer',
+              }}
+              disabled={creating}
+            >
+              {creating ? '创建中...' : '创建代理'}
+            </button>
+
+            {createSlug ? (
+              <div style={{ color: '#8a6a54', fontWeight: 700 }}>
+                预览链接：/order2/{createSlug}
+              </div>
+            ) : (
+              <div style={{ color: '#8a6a54', fontWeight: 700 }}>
+                请输入代理名称或 slug
+              </div>
+            )}
           </div>
         </div>
 
@@ -346,6 +543,13 @@ const statLabelStyle = {
 const statValueStyle = {
   fontSize: 28,
   fontWeight: 900,
+}
+
+const fieldLabelStyle = {
+  color: '#8a6a54',
+  fontWeight: 800,
+  marginBottom: 8,
+  fontSize: 14,
 }
 
 const inputStyle = {
