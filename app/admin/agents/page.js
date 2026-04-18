@@ -175,14 +175,13 @@ export default function AdminAgentsPage() {
       }
 
       const insertPayload = {
-        agent_name: name,
-        name,
-        agent_slug: slug,
-        slug,
-        level,
-        code: code || null,
-        is_active: true,
-      }
+  name,
+  agent_slug: slug,
+  slug,
+  level,
+  code: code || null,
+  is_active: true,
+}
 
       const { error } = await supabase
         .from('agents')
