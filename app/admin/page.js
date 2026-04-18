@@ -14,7 +14,13 @@ export default function AdminPage() {
 
   const [lowStock, setLowStock] = useState([])
   const [outStock, setOutStock] = useState([])
+
   const [groupedOutStock, setGroupedOutStock] = useState({})
+  const [groupedLowStock, setGroupedLowStock] = useState({})
+
+  const [stockInputs, setStockInputs] = useState({})
+  const [savingId, setSavingId] = useState(null)
+  const [saveMsg, setSaveMsg] = useState('')
 
   useEffect(() => {
     init()
@@ -37,8 +43,23 @@ export default function AdminPage() {
     const total = Number(order.total_amount || 0)
     const shipping = Number(order.shipping_fee || 0)
     const lalamove = Number(order.lalamove_fee || 0)
-
     return total - shipping - lalamove
+  }
+
+  function groupProducts(items) {
+    const grouped = {}
+
+    items.forEach(p => {
+      const category = (p.category || '未分类').trim()
+      const brand = (p.series || p.brand || '其他').trim()
+
+      if (!grouped[category]) grouped[category] = {}
+      if (!grouped[category][brand]) grouped[category][brand] = []
+
+      grouped[category][brand].push(p)
+    })
+
+    return grouped
   }
 
   function calculateStats(orders, products) {
@@ -61,7 +82,7 @@ export default function AdminPage() {
       }
 
       const d = new Date(o.created_at)
-      if (d.getMonth() === month && d.getFullYear() === year) {
+      if (!Number.isNaN(d.getTime()) && d.getMonth() === month && d.getFullYear() === year) {
         monthTotal += sales
       }
 
@@ -75,31 +96,71 @@ export default function AdminPage() {
       .sort((a, b) => b.total - a.total)
       .slice(0, 5)
 
-    // 🔥 低库存
-    const low = products.filter(p => Number(p.stock || 0) <= 50 && Number(p.stock || 0) > 0)
-
-    // 🔥 OUT OF STOCK
-    const out = products.filter(p => Number(p.stock || 0) === 0)
-
-    // 🔥 分组（分类 + 品牌）
-    const grouped = {}
-
-    out.forEach(p => {
-      const category = p.category || '未分类'
-      const brand = p.series || p.brand || '其他'
-
-      if (!grouped[category]) grouped[category] = {}
-      if (!grouped[category][brand]) grouped[category][brand] = []
-
-      grouped[category][brand].push(p.name)
+    const low = products.filter(p => {
+      const stock = Number(p.stock || 0)
+      return stock > 0 && stock <= 50
     })
+
+    const out = products.filter(p => Number(p.stock || 0) === 0)
 
     setTodaySales(todayTotal)
     setMonthSales(monthTotal)
     setAgentRanking(ranking)
     setLowStock(low)
     setOutStock(out)
-    setGroupedOutStock(grouped)
+    setGroupedOutStock(groupProducts(out))
+    setGroupedLowStock(groupProducts(low))
+  }
+
+  function handleStockInput(productId, value) {
+    setStockInputs(prev => ({
+      ...prev,
+      [productId]: value,
+    }))
+  }
+
+  async function saveStock(productId) {
+    const raw = stockInputs[productId]
+    const newStock = Number(raw)
+
+    if (raw === undefined || raw === '' || Number.isNaN(newStock) || newStock < 0) {
+      alert('请输入正确库存')
+      return
+    }
+
+    setSavingId(productId)
+    setSaveMsg('')
+
+    const { error } = await supabase
+      .from('products')
+      .update({ stock: newStock })
+      .eq('id', productId)
+
+    if (error) {
+      alert(`更新失败：${error.message}`)
+      setSavingId(null)
+      return
+    }
+
+    setSaveMsg('库存已更新')
+    setStockInputs(prev => ({
+      ...prev,
+      [productId]: '',
+    }))
+
+    await init()
+    setSavingId(null)
+
+    setTimeout(() => {
+      setSaveMsg('')
+    }, 1800)
+  }
+
+  function quickFill(productId, qty) {
+    setStockInputs(prev => ({
+      ...prev,
+      [productId]: String(qty),
+    }))
   }
 
   const cardStyle = {
@@ -120,6 +181,151 @@ export default function AdminPage() {
     background: '#fff',
   }
 
+  const sectionCard = {
+    padding: '20px',
+    borderRadius: '18px',
+    border: '1px solid #d7bfa8',
+    background: '#fff',
+  }
+
+  const miniBtn = {
+    padding: '6px 10px',
+    borderRadius: '10px',
+    border: '1px solid #d7bfa8',
+    background: '#fffaf5',
+    color: '#6f4e37',
+    cursor: 'pointer',
+    fontWeight: 700,
+  }
+
+  const saveBtn = {
+    padding: '8px 14px',
+    borderRadius: '10px',
+    border: '1px solid #c89f7a',
+    background: '#6f4e37',
+    color: '#fff',
+    cursor: 'pointer',
+    fontWeight: 800,
+  }
+
+  function renderStockGroup(grouped, type = 'low') {
+    const isOut = type === 'out'
+
+    if (Object.keys(grouped).length === 0) {
+      return <div>{isOut ? '暂无缺货' : '暂无低库存产品'}</div>
+    }
+
+    return Object.entries(grouped).map(([category, brands]) => (
+      <div key={category} style={{ marginBottom: 22 }}>
+        <div
+          style={{
+            fontSize: 18,
+            fontWeight: 900,
+            marginBottom: 10,
+            color: '#6f4e37',
+          }}
+        >
+          {category}
+        </div>
+
+        {Object.entries(brands).map(([brand, items]) => (
+          <div
+            key={brand}
+            style={{
+              marginBottom: 12,
+              padding: '12px',
+              borderRadius: '14px',
+              background: isOut ? '#fff2f2' : '#fffaf0',
+              border: '1px solid #ead8c8',
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 900,
+                marginBottom: 10,
+                color: '#6f4e37',
+              }}
+            >
+              {brand}
+            </div>
+
+            <div style={{ display: 'grid', gap: 10 }}>
+              {items.map(p => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(180px, 1fr) 110px minmax(140px, 180px) auto',
+                    gap: 10,
+                    alignItems: 'center',
+                    padding: '10px 12px',
+                    borderRadius: '12px',
+                    background: '#fff',
+                    border: '1px solid #f0e0d3',
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>
+                    {p.name}
+                  </div>
+
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      color: isOut ? '#c0392b' : '#b9770e',
+                    }}
+                  >
+                    stock: {Number(p.stock || 0)}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="输入库存"
+                      value={stockInputs[p.id] ?? ''}
+                      onChange={e => handleStockInput(p.id, e.target.value)}
+                      style={{
+                        width: 100,
+                        padding: '8px 10px',
+                        borderRadius: 10,
+                        border: '1px solid #d7bfa8',
+                        outline: 'none',
+                      }}
+                    />
+
+                    <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 10)}>
+                      10
+                    </button>
+                    <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 20)}>
+                      20
+                    </button>
+                    <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 50)}>
+                      50
+                    </button>
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      style={{
+                        ...saveBtn,
+                        opacity: savingId === p.id ? 0.7 : 1,
+                      }}
+                      disabled={savingId === p.id}
+                      onClick={() => saveStock(p.id)}
+                    >
+                      {savingId === p.id ? '保存中...' : '保存'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    ))
+  }
+
   return (
     <main
       style={{
@@ -134,7 +340,21 @@ export default function AdminPage() {
           后台管理
         </h1>
 
-        {/* 🔥 统计 */}
+        {saveMsg ? (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: '12px 16px',
+              borderRadius: 12,
+              background: '#eefaf0',
+              border: '1px solid #b9dfbe',
+              fontWeight: 800,
+            }}
+          >
+            {saveMsg}
+          </div>
+        ) : null}
+
         <div
           style={{
             display: 'grid',
@@ -164,16 +384,14 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* 🔥 NEW */}
-          <div style={{ ...statCard, background: '#ffe5e5' }}>
-            <div>❌ 缺货产品</div>
+          <div style={{ ...statCard, background: '#ffe9e9' }}>
+            <div>缺货产品</div>
             <div style={{ fontSize: 24, fontWeight: 900 }}>
               {outStock.length}
             </div>
           </div>
         </div>
 
-        {/* 🔥 功能入口 */}
         <div
           style={{
             display: 'grid',
@@ -195,47 +413,23 @@ export default function AdminPage() {
           </Link>
         </div>
 
-        {/* 🔥 OUT OF STOCK 分组 */}
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
             ❌ OUT OF STOCK 分类总览
           </h2>
 
-          <div style={statCard}>
-            {Object.keys(groupedOutStock).length === 0 && <div>暂无缺货</div>}
-
-            {Object.entries(groupedOutStock).map(([category, brands]) => (
-              <div key={category} style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 900 }}>{category}</div>
-
-                {Object.entries(brands).map(([brand, items]) => (
-                  <div key={brand} style={{ marginLeft: 10 }}>
-                    <div style={{ fontWeight: 700 }}>{brand}</div>
-
-                    {items.map((name, i) => (
-                      <div key={i} style={{ marginLeft: 10 }}>
-                        - {name}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ))}
+          <div style={{ ...sectionCard, background: '#fffdfd' }}>
+            {renderStockGroup(groupedOutStock, 'out')}
           </div>
         </div>
 
-        {/* 🔥 低库存 */}
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
             ⚠️ 低库存产品
           </h2>
 
-          <div style={statCard}>
-            {lowStock.slice(0, 5).map(p => (
-              <div key={p.id}>
-                {p.name} - stock: {p.stock}
-              </div>
-            ))}
+          <div style={{ ...sectionCard, background: '#fffdf8' }}>
+            {renderStockGroup(groupedLowStock, 'low')}
           </div>
         </div>
       </div>
