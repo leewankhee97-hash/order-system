@@ -159,6 +159,8 @@ function getVariantLabel(product) {
 export default function Page() {
   const { agent } = useParams()
   const productsGridRef = useRef(null)
+  const bundleSectionRef = useRef(null)
+  const bundleControlRef = useRef(null)
 
   const [products, setProducts] = useState([])
   const [bundles, setBundles] = useState([])
@@ -166,6 +168,7 @@ export default function Page() {
   const [cart, setCart] = useState([])
   const [bundleSelect, setBundleSelect] = useState({})
   const [selectedBundle, setSelectedBundle] = useState(null)
+  const [selectedBundleFlavor, setSelectedBundleFlavor] = useState('')
 
   const [agentInfo, setAgentInfo] = useState(null)
 
@@ -307,6 +310,7 @@ export default function Page() {
     setCart([])
     setBundleSelect({})
     setSelectedBundle(null)
+    setSelectedBundleFlavor('')
     setBackupSelections({})
     setNoBackup(false)
     setDraftQty({})
@@ -406,7 +410,12 @@ export default function Page() {
 
       return [
         ...prev,
-        { ...product, qty: qty > maxStock ? maxStock : qty, price: lockedPrice, is_bundle: false },
+        {
+          ...product,
+          qty: qty > maxStock ? maxStock : qty,
+          price: lockedPrice,
+          is_bundle: false,
+        },
       ]
     })
 
@@ -452,6 +461,7 @@ export default function Page() {
 
     setCart((prev) => [...prev, bundleCartItem])
     setBundleSelect({})
+    setSelectedBundleFlavor('')
   }
 
   function changeCartQty(id, nextQty) {
@@ -572,6 +582,70 @@ export default function Page() {
       return eqText(p.brand, bundleBrand)
     })
   }, [selectedBundle, products])
+
+  const bundleFlavorOptions = useMemo(() => {
+    return bundleProducts
+      .map((p) => cleanProductName(p))
+      .filter(Boolean)
+      .filter((value, index, arr) => arr.indexOf(value) === index)
+  }, [bundleProducts])
+
+  const selectedBundleProduct = useMemo(() => {
+    if (!selectedBundle || !selectedBundleFlavor) return null
+    return (
+      bundleProducts.find((p) => cleanProductName(p) === selectedBundleFlavor) ||
+      null
+    )
+  }, [selectedBundle, selectedBundleFlavor, bundleProducts])
+
+  const bundleSelectedItemsList = useMemo(() => {
+    return Object.entries(bundleSelect)
+      .map(([pid, qty]) => {
+        const product = bundleProducts.find((p) => String(p.id) === String(pid))
+        if (!product || Number(qty || 0) <= 0) return null
+        return {
+          id: product.id,
+          name: cleanProductName(product),
+          qty: Number(qty || 0),
+          stock: Number(product.stock || 0),
+          series: product.series || '',
+          brand: product.brand || '',
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [bundleSelect, bundleProducts])
+
+  useEffect(() => {
+    if (!selectedBundle) return
+    if (bundleFlavorOptions.length === 0) {
+      setSelectedBundleFlavor('')
+      return
+    }
+
+    if (
+      selectedBundleFlavor &&
+      bundleFlavorOptions.includes(selectedBundleFlavor)
+    ) {
+      return
+    }
+
+    setSelectedBundleFlavor(bundleFlavorOptions[0] || '')
+  }, [selectedBundle, bundleFlavorOptions, selectedBundleFlavor])
+
+  useEffect(() => {
+    if (!selectedBundle) return
+    if (!selectedBundleFlavor) return
+
+    const timer = setTimeout(() => {
+      bundleControlRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    }, 120)
+
+    return () => clearTimeout(timer)
+  }, [selectedBundleFlavor])
 
   const bundleLimit = Number(selectedBundle?.min_select_qty || 0)
   const bundleBuyQty = Number(selectedBundle?.buy_qty || 0)
@@ -840,6 +914,7 @@ export default function Page() {
   function resetFormAfterSubmit() {
     setCart([])
     setSelectedBundle(null)
+    setSelectedBundleFlavor('')
     setBundleSelect({})
     setDate('')
     setTime('')
@@ -864,10 +939,12 @@ export default function Page() {
 
     cart.forEach((item) => {
       if (item.is_bundle) {
+        itemLines.push(`${item.bundle_name}（BUNDLE x${item.qty}）`)
         itemLines.push(
-          `${item.bundle_name}（BUNDLE x${item.qty}）`
+          `【BUNDLE TOTAL ${item.qty}组 * RM${money(item.price)} = RM${money(
+            Number(item.qty || 0) * Number(item.price || 0)
+          )}】`
         )
-        itemLines.push(`【BUNDLE TOTAL ${item.qty}组 * RM${money(item.price)} = RM${money(Number(item.qty || 0) * Number(item.price || 0))}】`)
         itemLines.push('内容：')
         ;(item.bundle_items || []).forEach((bi) => {
           itemLines.push(`${bi.product_name} - ${bi.qty}`)
@@ -1429,7 +1506,10 @@ export default function Page() {
               </div>
             </section>
 
-            <section className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur">
+            <section
+              ref={bundleSectionRef}
+              className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur"
+            >
               <div className="mb-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#b08867]">
                   <PawPrint />
@@ -1446,6 +1526,13 @@ export default function Page() {
                     onClick={() => {
                       setSelectedBundle(b)
                       setBundleSelect({})
+                      setSelectedBundleFlavor('')
+                      setTimeout(() => {
+                        bundleSectionRef.current?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'start',
+                        })
+                      }, 120)
                     }}
                     className={`rounded-3xl border px-4 py-3 text-sm font-bold transition ${
                       selectedBundle?.id === b.id
@@ -1470,7 +1557,11 @@ export default function Page() {
 
                         {bundleRequirementText ? (
                           <div className="mt-1 text-sm text-[#a18673]">
-                            规则：<span className="font-bold text-[#5f4432]">{bundleRequirementText}</span>
+                            规则：
+                            <span className="font-bold text-[#5f4432]">
+                              {' '}
+                              {bundleRequirementText}
+                            </span>
                           </div>
                         ) : null}
 
@@ -1496,16 +1587,22 @@ export default function Page() {
 
                         <div className="mt-1 text-sm text-[#a18673]">
                           Draft Bundle Total:{' '}
-                          <span className="font-bold text-[#5f4432]">RM {money(draftBundleTotal)}</span>
+                          <span className="font-bold text-[#5f4432]">
+                            RM {money(draftBundleTotal)}
+                          </span>
                         </div>
 
                         <div className="mt-1 text-xs text-[#a18673]">
-                          Bind Brand: <span className="font-bold text-[#5f4432]">{selectedBundle.brand || '-'}</span>
+                          Bind Brand:{' '}
+                          <span className="font-bold text-[#5f4432]">
+                            {selectedBundle.brand || '-'}
+                          </span>
                         </div>
 
                         {bundleGroupSize > 0 ? (
                           <div className="mt-2 text-xs text-[#8a6d59]">
-                            例子：{bundleGroupSize} / {bundleGroupSize * 2} / {bundleGroupSize * 3}
+                            例子：{bundleGroupSize} / {bundleGroupSize * 2} /{' '}
+                            {bundleGroupSize * 3}
                           </div>
                         ) : bundleLimit > 0 ? (
                           <div className="mt-2 text-xs text-[#8a6d59]">
@@ -1516,7 +1613,10 @@ export default function Page() {
 
                       <button
                         type="button"
-                        onClick={() => setBundleSelect({})}
+                        onClick={() => {
+                          setBundleSelect({})
+                          setSelectedBundleFlavor(bundleFlavorOptions[0] || '')
+                        }}
                         className="rounded-3xl border border-[#eadacb] bg-white px-4 py-2 text-sm text-[#7a5b47] hover:bg-[#f8efe6]"
                       >
                         Clear Bundle
@@ -1535,67 +1635,206 @@ export default function Page() {
 
                   {bundleProducts.length === 0 ? (
                     <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">
-                      这个 Bundle 目前没有匹配到产品。请检查 <strong>bundle_rules.brand</strong> 是否和 <strong>products.brand</strong> 完全对应。
+                      这个 Bundle 目前没有匹配到产品。请检查{' '}
+                      <strong>bundle_rules.brand</strong> 是否和{' '}
+                      <strong>products.brand</strong> 完全对应。
                     </div>
                   ) : (
-                    <div className="grid gap-3">
-                      {bundleProducts.map((p) => {
-                        const stockInfo = stockLabel(p.stock)
-                        const displayName = cleanProductName(p)
+                    <>
+                      <div>
+                        <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
+                          口味选择
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {bundleFlavorOptions.map((flavor) => (
+                            <FilterButton
+                              key={flavor}
+                              active={selectedBundleFlavor === flavor}
+                              onClick={() => setSelectedBundleFlavor(flavor)}
+                            >
+                              {flavor}
+                            </FilterButton>
+                          ))}
+                        </div>
+                      </div>
 
-                        return (
-                          <div
-                            key={p.id}
-                            className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
-                          >
-                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
-                                  {p.brand || 'NO BRAND'} {p.series ? `• ${p.series}` : ''}
-                                </div>
-                                <div
-                                  title={displayName}
-                                  className="mt-2 line-clamp-2 text-sm md:text-base font-bold text-[#5f4432] leading-tight"
-                                >
-                                  {displayName}
-                                </div>
-                                <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
-                                  {stockInfo.text}
-                                </div>
-                                <div className="mt-2 text-xs text-[#a88b77]">Stock: {p.stock}</div>
+                      <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#a08874]">
+                        {selectedBundleFlavor
+                          ? `Showing 1 product`
+                          : `请选择口味后显示产品`}
+                      </div>
+
+                      {selectedBundleProduct ? (
+                        <div
+                          ref={bundleControlRef}
+                          className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
+                              {getProductType(selectedBundleProduct)} ·{' '}
+                              {selectedBundleProduct.brand || 'NO BRAND'}
+                            </div>
+
+                            <div className="mt-2 text-sm md:text-base font-bold text-[#5f4432] leading-tight">
+                              {cleanProductName(selectedBundleProduct)}
+                            </div>
+
+                            <div className="mt-1 text-xs text-[#a88b77]">
+                              {selectedBundleProduct.series || '-'} ·{' '}
+                              {getVariantLabel(selectedBundleProduct)}
+                            </div>
+
+                            <div
+                              className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockLabel(selectedBundleProduct.stock).badge}`}
+                            >
+                              {stockLabel(selectedBundleProduct.stock).text}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-2 gap-3">
+                            <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
+                              <div className="text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
+                                Stock
                               </div>
+                              <div className="mt-2 text-xl font-black text-[#5f4432]">
+                                {Number(selectedBundleProduct.stock || 0)}
+                              </div>
+                            </div>
 
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => changeBundleQty(p.id, -1, p.stock)}
-                                  className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] transition hover:bg-[#f8efe6]"
-                                >
-                                  -
-                                </button>
-
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={Number(p.stock || 0)}
-                                  value={bundleSelect[p.id] || 0}
-                                  onChange={(e) => setBundleQty(p.id, e.target.value)}
-                                  className="h-11 w-24 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
-                                />
-
-                                <button
-                                  type="button"
-                                  onClick={() => changeBundleQty(p.id, 1, p.stock)}
-                                  className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] transition hover:bg-[#f8efe6]"
-                                >
-                                  +
-                                </button>
+                            <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
+                              <div className="text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
+                                Selected
+                              </div>
+                              <div className="mt-2 text-xl font-black text-[#7b5740]">
+                                {Number(bundleSelect[selectedBundleProduct.id] || 0)}
                               </div>
                             </div>
                           </div>
-                        )
-                      })}
-                    </div>
+
+                          <div className="mt-4 rounded-[24px] border border-[#eadacb] bg-[#fffaf6] p-3">
+                            <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
+                              Quantity
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  changeBundleQty(
+                                    selectedBundleProduct.id,
+                                    -1,
+                                    selectedBundleProduct.stock
+                                  )
+                                }
+                                disabled={
+                                  Number(bundleSelect[selectedBundleProduct.id] || 0) <= 0
+                                }
+                                className="h-12 w-12 rounded-3xl border border-[#eadacb] bg-white text-lg font-bold text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                -
+                              </button>
+
+                              <input
+                                type="number"
+                                min="0"
+                                max={Number(selectedBundleProduct.stock || 0)}
+                                value={bundleSelect[selectedBundleProduct.id] || 0}
+                                onChange={(e) =>
+                                  setBundleQty(selectedBundleProduct.id, e.target.value)
+                                }
+                                className="h-12 flex-1 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-base font-bold text-[#5c4333] outline-none focus:border-[#cfae95]"
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  changeBundleQty(
+                                    selectedBundleProduct.id,
+                                    1,
+                                    selectedBundleProduct.stock
+                                  )
+                                }
+                                disabled={
+                                  Number(bundleSelect[selectedBundleProduct.id] || 0) >=
+                                  Number(selectedBundleProduct.stock || 0)
+                                }
+                                className="h-12 w-12 rounded-3xl border border-[#eadacb] bg-white text-lg font-bold text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <div className="mt-2 text-center text-xs text-[#8b7260]">
+                              {Number(bundleSelect[selectedBundleProduct.id] || 0) > 0
+                                ? `当前已选 ${Number(bundleSelect[selectedBundleProduct.id] || 0)} 盒`
+                                : '先选择数量，再继续选择其他口味'}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-base font-black text-[#5f4432]">
+                            Bundle 已选清单
+                          </div>
+                          <div className="text-sm text-[#8a6d59]">
+                            {bundleCount} /{' '}
+                            {bundleGroupSize > 0
+                              ? `${bundleGroupSize} 每组`
+                              : bundleLimit > 0
+                                ? `${bundleLimit} 每组`
+                                : '已选'}
+                          </div>
+                        </div>
+
+                        {bundleSelectedItemsList.length === 0 ? (
+                          <div className="mt-3 rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-4 text-sm text-[#a08874]">
+                            还没有选择 bundle 口味
+                          </div>
+                        ) : (
+                          <div className="mt-3 space-y-2">
+                            {bundleSelectedItemsList.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3"
+                              >
+                                <div className="min-w-0 pr-3">
+                                  <div className="truncate text-sm font-bold text-[#5f4432]">
+                                    {item.name}
+                                  </div>
+                                  <div className="text-xs text-[#a88b77]">
+                                    {item.brand} {item.series ? `· ${item.series}` : ''}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => changeBundleQty(item.id, -1, item.stock)}
+                                    className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
+                                  >
+                                    -
+                                  </button>
+
+                                  <div className="min-w-[28px] text-center text-sm font-bold text-[#5f4432]">
+                                    {item.qty}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => changeBundleQty(item.id, 1, item.stock)}
+                                    className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               ) : null}
