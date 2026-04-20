@@ -5,13 +5,22 @@ import { useParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabase'
 
 const STATES = [
-  'Selangor',
   'Johor',
+  'Kedah',
+  'Kelantan',
+  'Melaka',
+  'Negeri Sembilan',
+  'Pahang',
   'Penang',
   'Perak',
+  'Perlis',
   'Sabah',
   'Sarawak',
+  'Selangor',
+  'Terengganu',
   'WP Kuala Lumpur',
+  'WP Labuan',
+  'Putrajaya',
 ]
 const EAST = ['SABAH', 'SARAWAK']
 
