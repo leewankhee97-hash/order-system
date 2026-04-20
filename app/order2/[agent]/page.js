@@ -525,18 +525,33 @@ export default function Page() {
 
   const variantOptions = useMemo(() => {
     if (!selectedType || !selectedBrand) return []
-    return [
-      ...new Set(
-        products
-          .filter(
-            (p) =>
-              getProductType(p) === selectedType &&
-              eqText(p.brand, selectedBrand)
-          )
-          .map((p) => cleanProductName(p))
-          .filter(Boolean)
-      ),
-    ]
+
+    const grouped = {}
+
+    products
+      .filter(
+        (p) =>
+          getProductType(p) === selectedType &&
+          eqText(p.brand, selectedBrand) &&
+          p.is_active !== false
+      )
+      .forEach((p) => {
+        const name = cleanProductName(p)
+        if (!name) return
+
+        if (!grouped[name]) {
+          grouped[name] = {
+            name,
+            inStock: false,
+          }
+        }
+
+        if (Number(p.stock || 0) > 0) {
+          grouped[name].inStock = true
+        }
+      })
+
+    return Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name))
   }, [products, selectedType, selectedBrand])
 
   const currentVariantLabel = useMemo(() => {
@@ -1398,14 +1413,30 @@ export default function Page() {
                       3. {currentVariantLabel}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {variantOptions.map((f) => (
-                        <FilterButton
-                          key={f}
-                          active={selectedVariant === f}
-                          onClick={() => setSelectedVariant(f)}
+                      {variantOptions.map((item) => (
+                        <button
+                          key={item.name}
+                          type="button"
+                          disabled={!item.inStock}
+                          onClick={() => {
+                            if (!item.inStock) return
+                            setSelectedVariant(item.name)
+                          }}
+                          className={`rounded-3xl border px-4 py-2 text-sm font-semibold transition ${
+                            selectedVariant === item.name && item.inStock
+                              ? 'border-[#cba98a] bg-[#dcc0a8] text-white shadow-sm'
+                              : item.inStock
+                                ? 'border-[#eadacb] bg-[#fffaf6] text-[#7a5b47] hover:bg-[#f8efe6]'
+                                : 'border-[#e5d8cc] bg-[#f5f1ec] text-[#b3a395] cursor-not-allowed'
+                          }`}
                         >
-                          {f}
-                        </FilterButton>
+                          <span>{item.name}</span>
+                          {!item.inStock ? (
+                            <span className="ml-2 text-[11px] font-bold uppercase tracking-wide">
+                              OUT OF STOCK
+                            </span>
+                          ) : null}
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -1417,7 +1448,9 @@ export default function Page() {
                 className="mt-5 mb-4 rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#a08874]"
               >
                 {selectedVariant
-                  ? `Showing ${filteredProducts.length} product${filteredProducts.length === 1 ? '' : 's'}`
+                  ? filteredProducts.length > 0
+                    ? `Showing ${filteredProducts.length} product${filteredProducts.length === 1 ? '' : 's'}`
+                    : 'This option is out of stock'
                   : `请选择${currentVariantLabel}后显示产品`}
               </div>
 
