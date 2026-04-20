@@ -945,7 +945,7 @@ export default function Page() {
             Number(item.qty || 0) * Number(item.price || 0)
           )}】`
         )
-        itemLines.push('内容：')
+        itemLines.push('物品：')
         ;(item.bundle_items || []).forEach((bi) => {
           itemLines.push(`${bi.product_name} - ${bi.qty}`)
         })
