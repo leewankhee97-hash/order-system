@@ -1104,17 +1104,22 @@ export default function Page() {
     }
   }
 
+  function hardRefreshPage() {
+    if (typeof window === 'undefined') return
+    window.location.reload()
+  }
+
   function handleCloseSummaryModal() {
     if (!summaryCopied) {
       const ok = window.confirm('你还没复制订单摘要，确定要关闭吗？')
       if (!ok) return
     }
-    setShowSummaryModal(false)
-  }
 
-  function hardRefreshPage() {
-    if (typeof window === 'undefined') return
-    window.location.reload()
+    setShowSummaryModal(false)
+
+    setTimeout(() => {
+      hardRefreshPage()
+    }, 300)
   }
 
   async function submit(e) {
@@ -1256,14 +1261,12 @@ export default function Page() {
 
       const copiedSummary = buildCopiedSummary(oid)
       setCopiedPreview(copiedSummary)
+      setShowSummaryModal(true)
+      setSummaryCopied(false)
       setSuccess(`成功：${oid}`)
 
       resetFormAfterSubmit()
       await init()
-
-      alert(`✅ 下单成功：${oid}`)
-
-      hardRefreshPage()
     } catch (err) {
       let message = '提交失败'
 
