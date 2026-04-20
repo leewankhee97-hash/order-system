@@ -22,7 +22,7 @@ const STATES = [
   'WP Labuan',
   'Putrajaya',
 ]
-const EAST = ['SABAH', 'SARAWAK']
+const EAST = ['SABAH', 'SARAWAK', 'WP LABUAN']
 
 function money(v) {
   return Number(v || 0).toFixed(2)
@@ -389,20 +389,25 @@ export default function Page() {
     const lockedPrice = getAgentPrice(product)
 
     setCart((prev) => {
-      const found = prev.find((i) => String(i.id) === String(product.id))
+      const found = prev.find(
+        (i) => !i.is_bundle && String(i.id) === String(product.id)
+      )
       const existingQty = Number(found?.qty || 0)
       const nextQty = existingQty + qty
 
       if (found) {
         const finalQty = nextQty > maxStock ? maxStock : nextQty
         return prev.map((i) =>
-          String(i.id) === String(product.id)
+          !i.is_bundle && String(i.id) === String(product.id)
             ? { ...i, qty: finalQty, price: lockedPrice }
             : i
         )
       }
 
-      return [...prev, { ...product, qty: qty > maxStock ? maxStock : qty, price: lockedPrice }]
+      return [
+        ...prev,
+        { ...product, qty: qty > maxStock ? maxStock : qty, price: lockedPrice, is_bundle: false },
+      ]
     })
 
     setDraftQty((prev) => ({
@@ -411,17 +416,56 @@ export default function Page() {
     }))
   }
 
+  function addBundleToCart() {
+    if (!selectedBundle) return
+    if (bundleGroupCount <= 0) return
+    if (bundleCount <= 0) return
+
+    const selectedItems = Object.entries(bundleSelect)
+      .map(([pid, qty]) => {
+        const p = products.find((x) => String(x.id) === String(pid))
+        if (!p || Number(qty || 0) <= 0) return null
+
+        return {
+          product_id: p.id,
+          product_name: cleanProductName(p),
+          brand: p.brand || '',
+          series: p.series || '',
+          qty: Number(qty || 0),
+          stock: Number(p.stock || 0),
+        }
+      })
+      .filter(Boolean)
+
+    if (selectedItems.length === 0) return
+
+    const bundleCartItem = {
+      id: `bundle-${selectedBundle.id}-${Date.now()}`,
+      is_bundle: true,
+      bundle_rule_id: selectedBundle.id,
+      bundle_name: selectedBundle.name,
+      bundle_brand: selectedBundle.brand || '',
+      qty: bundleGroupCount,
+      price: bundleSinglePrice,
+      bundle_items: selectedItems,
+    }
+
+    setCart((prev) => [...prev, bundleCartItem])
+    setBundleSelect({})
+  }
+
   function changeCartQty(id, nextQty) {
     setCart((prev) =>
       prev
         .map((i) => {
+          if (i.is_bundle) return i
           if (i.id !== id) return i
           let qty = Number(nextQty || 0)
           if (qty < 0) qty = 0
           if (qty > Number(i.stock || 0)) qty = Number(i.stock || 0)
           return { ...i, qty }
         })
-        .filter((i) => i.qty > 0)
+        .filter((i) => (i.is_bundle ? true : i.qty > 0))
     )
   }
 
@@ -555,7 +599,7 @@ export default function Page() {
     return selectedBundle ? getBundlePrice(selectedBundle) : 0
   }, [selectedBundle, agentInfo])
 
-  const bundleTotal = useMemo(() => {
+  const draftBundleTotal = useMemo(() => {
     if (!selectedBundle) return 0
 
     if (bundleGroupSize > 0) {
@@ -590,6 +634,13 @@ export default function Page() {
     return ''
   }, [selectedBundle, bundleGroupSize, bundleBuyQty, bundleFreeQty, bundleLimit])
 
+  const bundleRemaining = useMemo(() => {
+    if (!selectedBundle || !bundleGroupSize || bundleCount <= 0) return 0
+    const mod = bundleCount % bundleGroupSize
+    if (mod === 0) return 0
+    return bundleGroupSize - mod
+  }, [selectedBundle, bundleGroupSize, bundleCount])
+
   function setBundleQty(pid, qty) {
     const currentMap = { ...bundleSelect }
     let next = Number(qty || 0)
@@ -616,7 +667,12 @@ export default function Page() {
   }
 
   const cartQty = useMemo(() => {
-    return cart.reduce((s, i) => s + Number(i.qty || 0), 0)
+    return cart.reduce((s, i) => {
+      if (i.is_bundle) {
+        return s + Number(i.qty || 0)
+      }
+      return s + Number(i.qty || 0)
+    }, 0)
   }, [cart])
 
   const region = useMemo(() => {
@@ -627,19 +683,30 @@ export default function Page() {
   }, [state])
 
   const normalTotal = useMemo(() => {
-    return cart.reduce(
-      (s, i) => s + Number(i.qty || 0) * Number(i.price || 0),
-      0
-    )
+    return cart
+      .filter((i) => !i.is_bundle)
+      .reduce((s, i) => s + Number(i.qty || 0) * Number(i.price || 0), 0)
+  }, [cart])
+
+  const bundleCartTotal = useMemo(() => {
+    return cart
+      .filter((i) => i.is_bundle)
+      .reduce((s, i) => s + Number(i.qty || 0) * Number(i.price || 0), 0)
   }, [cart])
 
   const postageItemCount = useMemo(() => {
-    const normalQty = cart.reduce((s, i) => s + Number(i.qty || 0), 0)
-    const selectedBundleQty = selectedBundle
-      ? Object.values(bundleSelect).reduce((s, v) => s + Number(v || 0), 0)
-      : 0
-    return normalQty + selectedBundleQty
-  }, [cart, selectedBundle, bundleSelect])
+    return cart.reduce((s, i) => {
+      if (i.is_bundle) {
+        const bundleItemQty = (i.bundle_items || []).reduce(
+          (sum, bi) => sum + Number(bi.qty || 0),
+          0
+        )
+        return s + bundleItemQty
+      }
+
+      return s + Number(i.qty || 0)
+    }, 0)
+  }, [cart])
 
   const shippingFee = useMemo(() => {
     if (delivery === '邮寄') {
@@ -651,9 +718,9 @@ export default function Page() {
   }, [delivery, postageItemCount, state, shipping])
 
   const total = useMemo(() => {
-    if (shippingFee === 'ASK') return normalTotal + bundleTotal
-    return normalTotal + bundleTotal + Number(shippingFee || 0)
-  }, [normalTotal, bundleTotal, shippingFee])
+    if (shippingFee === 'ASK') return normalTotal + bundleCartTotal
+    return normalTotal + bundleCartTotal + Number(shippingFee || 0)
+  }, [normalTotal, bundleCartTotal, shippingFee])
 
   const inStockCount = useMemo(() => {
     return products.filter((p) => Number(p.stock || 0) > 50).length
@@ -673,8 +740,13 @@ export default function Page() {
     const brands = new Set()
 
     cart.forEach((i) => {
-      const brand = normalizeText(i.brand)
-      if (brand) brands.add(brand)
+      if (i.is_bundle) {
+        const bundleBrand = normalizeText(i.bundle_brand)
+        if (bundleBrand) brands.add(bundleBrand)
+      } else {
+        const brand = normalizeText(i.brand)
+        if (brand) brands.add(brand)
+      }
     })
 
     if (selectedBundle) {
@@ -791,6 +863,19 @@ export default function Page() {
     const itemLines = []
 
     cart.forEach((item) => {
+      if (item.is_bundle) {
+        itemLines.push(
+          `${item.bundle_name}（BUNDLE x${item.qty}）`
+        )
+        itemLines.push(`【BUNDLE TOTAL ${item.qty}组 * RM${money(item.price)} = RM${money(Number(item.qty || 0) * Number(item.price || 0))}】`)
+        itemLines.push('内容：')
+        ;(item.bundle_items || []).forEach((bi) => {
+          itemLines.push(`${bi.product_name} - ${bi.qty}`)
+        })
+        itemLines.push('')
+        return
+      }
+
       const price = Number(item.price || 0)
       const subtotal = Number(item.qty || 0) * price
       const displayName = cleanProductName(item)
@@ -802,35 +887,6 @@ export default function Page() {
       itemLines.push(`【TOTAL ${item.qty}*RM${money(price)}=RM${money(subtotal)}】`)
       itemLines.push('')
     })
-
-    if (selectedBundle) {
-      const bundleTitle =
-        bundleGroupCount > 0
-          ? `${selectedBundle.name}（BUNDLE x${bundleGroupCount}）`
-          : `${selectedBundle.name}（BUNDLE）`
-
-      itemLines.push(bundleTitle)
-
-      if (bundleRequirementText) {
-        itemLines.push(`规则：${bundleRequirementText}`)
-      }
-
-      Object.entries(bundleSelect).forEach(([pid, qty]) => {
-        const p = products.find((x) => String(x.id) === String(pid))
-        if (!p || !qty) return
-        itemLines.push(`${cleanProductName(p)} - ${qty}`)
-      })
-
-      if (bundleGroupCount > 0) {
-        itemLines.push(
-          `【BUNDLE TOTAL ${bundleGroupCount}组 * RM${money(bundleSinglePrice)} = RM${money(bundleTotal)}】`
-        )
-      } else {
-        itemLines.push(`【BUNDLE TOTAL = RM${money(bundleTotal)}】`)
-      }
-
-      itemLines.push('')
-    }
 
     const backupLines = []
 
@@ -863,7 +919,7 @@ export default function Page() {
         `物品：`,
         ...itemLines,
         ...remarkLines,
-        `货品总额：RM ${money(normalTotal + bundleTotal)}`,
+        `货品总额：RM ${money(normalTotal + bundleCartTotal)}`,
         `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM ${money(shippingFee)}`}`,
         `总数：RM ${money(total)}`,
       ].join('\n')
@@ -883,7 +939,7 @@ export default function Page() {
         `物品：`,
         ...itemLines,
         ...remarkLines,
-        `货品总额：RM ${money(normalTotal + bundleTotal)}`,
+        `货品总额：RM ${money(normalTotal + bundleCartTotal)}`,
         `运费：RM ${money(shippingFee)}`,
         `总数：RM ${money(total)}`,
       ].join('\n')
@@ -948,7 +1004,7 @@ export default function Page() {
       return
     }
 
-    if (cart.length === 0 && !selectedBundle) {
+    if (cart.length === 0) {
       setError('请选择产品或bundle')
       return
     }
@@ -975,40 +1031,6 @@ export default function Page() {
       if (!postcode) {
         setError('请输入 postcode')
         return
-      }
-    }
-
-    if (selectedBundle) {
-      if (bundleProducts.length === 0) {
-        setError('该 bundle 没有可选产品，请检查 bundle 的 brand 是否与 products.brand 一致')
-        return
-      }
-
-      if (bundleCount <= 0) {
-        setError('请选择 bundle 产品')
-        return
-      }
-
-      if (bundleGroupSize > 0) {
-        if (bundleCount < bundleGroupSize) {
-          setError(`bundle 数量不足，至少需要 ${bundleGroupSize} 个`)
-          return
-        }
-
-        if (bundleCount % bundleGroupSize !== 0) {
-          setError(`bundle 数量必须是 ${bundleGroupSize} 的倍数（例如 ${bundleGroupSize} / ${bundleGroupSize * 2} / ${bundleGroupSize * 3}）`)
-          return
-        }
-      } else if (bundleLimit > 0) {
-        if (bundleCount < bundleLimit) {
-          setError(`bundle 数量不足，至少需要 ${bundleLimit} 个`)
-          return
-        }
-
-        if (bundleCount % bundleLimit !== 0) {
-          setError(`bundle 数量必须是 ${bundleLimit} 的倍数`)
-          return
-        }
       }
     }
 
@@ -1058,60 +1080,55 @@ export default function Page() {
       const items = []
 
       cart.forEach((i) => {
-        items.push({
-          order_id: order.id,
-          product_id: i.id,
-          product_name: cleanProductName(i),
-          qty: i.qty,
-          unit_price: i.price,
-          subtotal: Number(i.qty || 0) * Number(i.price || 0),
-          item_type: 'NORMAL',
-        })
-      })
-
-      if (selectedBundle) {
-        Object.entries(bundleSelect).forEach(([pid, qty]) => {
-          const p = products.find((x) => String(x.id) === String(pid))
-          if (!p || !qty) return
-
+        if (i.is_bundle) {
+          ;(i.bundle_items || []).forEach((bi) => {
+            items.push({
+              order_id: order.id,
+              product_id: bi.product_id,
+              product_name: bi.product_name,
+              qty: Number(bi.qty || 0),
+              unit_price: 0,
+              subtotal: 0,
+              item_type: 'BUNDLE_ITEM',
+              bundle_rule_id: i.bundle_rule_id,
+              bundle_name: i.bundle_name,
+            })
+          })
+        } else {
           items.push({
             order_id: order.id,
-            product_id: p.id,
-            product_name: cleanProductName(p),
-            qty: Number(qty || 0),
-            unit_price: 0,
-            subtotal: 0,
-            item_type: 'BUNDLE_ITEM',
-            bundle_rule_id: selectedBundle.id,
-            bundle_name: selectedBundle.name,
+            product_id: i.id,
+            product_name: cleanProductName(i),
+            qty: i.qty,
+            unit_price: i.price,
+            subtotal: Number(i.qty || 0) * Number(i.price || 0),
+            item_type: 'NORMAL',
           })
-        })
-      }
+        }
+      })
 
       const { error: itemError } = await supabase.from('order_items').insert(items)
-
       if (itemError) throw itemError
 
       for (const i of cart) {
-        const { error: stockError } = await supabase
-          .from('products')
-          .update({ stock: Number(i.stock || 0) - Number(i.qty || 0) })
-          .eq('id', i.id)
+        if (i.is_bundle) {
+          for (const bi of i.bundle_items || []) {
+            const product = products.find((p) => String(p.id) === String(bi.product_id))
+            const currentStock = Number(product?.stock || 0)
+            const { error: bundleStockError } = await supabase
+              .from('products')
+              .update({ stock: currentStock - Number(bi.qty || 0) })
+              .eq('id', bi.product_id)
 
-        if (stockError) throw stockError
-      }
-
-      if (selectedBundle) {
-        for (const [pid, qty] of Object.entries(bundleSelect)) {
-          const p = products.find((x) => String(x.id) === String(pid))
-          if (!p || !qty) continue
-
-          const { error: bundleStockError } = await supabase
+            if (bundleStockError) throw bundleStockError
+          }
+        } else {
+          const { error: stockError } = await supabase
             .from('products')
-            .update({ stock: Number(p.stock || 0) - Number(qty || 0) })
-            .eq('id', p.id)
+            .update({ stock: Number(i.stock || 0) - Number(i.qty || 0) })
+            .eq('id', i.id)
 
-          if (bundleStockError) throw bundleStockError
+          if (stockError) throw stockError
         }
       }
 
@@ -1322,7 +1339,7 @@ export default function Page() {
                           <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
                             {getProductType(p)} · {p.brand || 'NO BRAND'}
                           </div>
-                          <div className="mt-2 line-clamp-2 text-base font-bold text-[#5f4432]">
+                          <div className="mt-2 line-clamp-2 text-sm md:text-base font-bold text-[#5f4432] leading-tight">
                             {displayName}
                           </div>
                           <div className="mt-1 text-xs text-[#a88b77]">
@@ -1457,16 +1474,29 @@ export default function Page() {
                           </div>
                         ) : null}
 
-                        <div className="mt-1 text-sm text-[#a18673]">
-                          Selected:{' '}
-                          <span className="font-bold text-[#5f4432]">{bundleCount}</span>
-                          {' '}| Full Group:{' '}
-                          <span className="font-bold text-[#5f4432]">{bundleGroupCount}</span>
+                        <div className="mt-2 text-sm text-[#a18673]">
+                          已选：
+                          <span className="font-bold text-[#5f4432]"> {bundleCount} </span>盒
                         </div>
 
                         <div className="mt-1 text-sm text-[#a18673]">
-                          Bundle Total:{' '}
-                          <span className="font-bold text-[#5f4432]">RM {money(bundleTotal)}</span>
+                          已完成：
+                          <span className="font-bold text-[#5f4432]"> {bundleGroupCount} </span>组
+                        </div>
+
+                        {bundleRemaining > 0 ? (
+                          <div className="mt-1 text-sm font-semibold text-red-500">
+                            还差 {bundleRemaining} 盒
+                          </div>
+                        ) : bundleCount > 0 ? (
+                          <div className="mt-1 text-sm font-semibold text-green-600">
+                            已满足 Bundle 条件
+                          </div>
+                        ) : null}
+
+                        <div className="mt-1 text-sm text-[#a18673]">
+                          Draft Bundle Total:{' '}
+                          <span className="font-bold text-[#5f4432]">RM {money(draftBundleTotal)}</span>
                         </div>
 
                         <div className="mt-1 text-xs text-[#a18673]">
@@ -1492,6 +1522,15 @@ export default function Page() {
                         Clear Bundle
                       </button>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={addBundleToCart}
+                      disabled={bundleGroupCount <= 0}
+                      className="mt-4 w-full rounded-3xl border border-[#16a34a] bg-[#22c55e] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#16a34a] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Add Bundle to Cart 🛒
+                    </button>
                   </div>
 
                   {bundleProducts.length === 0 ? (
@@ -1514,7 +1553,12 @@ export default function Page() {
                                 <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
                                   {p.brand || 'NO BRAND'} {p.series ? `• ${p.series}` : ''}
                                 </div>
-                                <div className="mt-2 text-base font-bold text-[#5f4432]">{displayName}</div>
+                                <div
+                                  title={displayName}
+                                  className="mt-2 line-clamp-2 text-sm md:text-base font-bold text-[#5f4432] leading-tight"
+                                >
+                                  {displayName}
+                                </div>
                                 <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
                                   {stockInfo.text}
                                 </div>
@@ -1786,60 +1830,111 @@ export default function Page() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {cart.map((item) => (
-                    <div key={item.id} className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
-                            {getProductType(item)} · {item.brand || 'NO BRAND'} {item.series ? `• ${item.series}` : ''}
+                  {cart.map((item) =>
+                    item.is_bundle ? (
+                      <div
+                        key={item.id}
+                        className="rounded-[26px] border border-[#d6f0d8] bg-[linear-gradient(180deg,#fafffb_0%,#f1fbf2_100%)] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#5d8a60]">
+                              BUNDLE · {item.bundle_brand || 'NO BRAND'}
+                            </div>
+                            <div className="mt-2 text-base font-bold text-[#24502b]">
+                              {item.bundle_name}
+                            </div>
+                            <div className="mt-2 text-sm text-[#3f6a45]">
+                              {item.qty} 组 × RM {money(item.price)}
+                            </div>
                           </div>
-                          <div className="mt-2 text-base font-bold text-[#5f4432]">{cleanProductName(item)}</div>
-                          <div className="mt-2 text-sm text-[#7b5740]">RM {money(item.price)}</div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeCart(item.id)}
+                            className="rounded-3xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-red-500 hover:bg-red-100"
+                          >
+                            Remove
+                          </button>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => removeCart(item.id)}
-                          className="rounded-3xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-red-500 hover:bg-red-100"
-                        >
-                          Remove
-                        </button>
-                      </div>
+                        <div className="mt-3 rounded-3xl border border-[#d8ead9] bg-white/80 p-3">
+                          <div className="text-xs font-bold uppercase tracking-[0.22em] text-[#6d8d70]">
+                            Bundle Items
+                          </div>
+                          <div className="mt-2 space-y-1 text-sm text-[#446148]">
+                            {(item.bundle_items || []).map((bi, idx) => (
+                              <div key={`${item.id}-${bi.product_id}-${idx}`}>
+                                {bi.product_name} - {bi.qty}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
-                      <div className="mt-4 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => changeCartQty(item.id, item.qty - 1)}
-                          className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] hover:bg-[#f8efe6]"
-                        >
-                          -
-                        </button>
-
-                        <input
-                          type="number"
-                          min="0"
-                          value={item.qty}
-                          onChange={(e) => changeCartQty(item.id, e.target.value)}
-                          className="h-11 w-24 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => changeCartQty(item.id, item.qty + 1)}
-                          className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] hover:bg-[#f8efe6]"
-                        >
-                          +
-                        </button>
-
-                        <div className="ml-auto text-sm text-[#8b7260]">
-                          Subtotal:{' '}
-                          <span className="font-bold text-[#5f4432]">
-                            RM {money(Number(item.qty || 0) * Number(item.price || 0))}
-                          </span>
+                        <div className="mt-3 text-right text-sm font-bold text-[#24502b]">
+                          Subtotal: RM {money(Number(item.qty || 0) * Number(item.price || 0))}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ) : (
+                      <div
+                        key={item.id}
+                        className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b0947f]">
+                              {getProductType(item)} · {item.brand || 'NO BRAND'} {item.series ? `• ${item.series}` : ''}
+                            </div>
+                            <div className="mt-2 text-base font-bold text-[#5f4432]">
+                              {cleanProductName(item)}
+                            </div>
+                            <div className="mt-2 text-sm text-[#7b5740]">RM {money(item.price)}</div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeCart(item.id)}
+                            className="rounded-3xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-red-500 hover:bg-red-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="mt-4 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => changeCartQty(item.id, item.qty - 1)}
+                            className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] hover:bg-[#f8efe6]"
+                          >
+                            -
+                          </button>
+
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.qty}
+                            onChange={(e) => changeCartQty(item.id, e.target.value)}
+                            className="h-11 w-24 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => changeCartQty(item.id, item.qty + 1)}
+                            className="h-11 w-11 rounded-3xl border border-[#eadacb] bg-white text-lg text-[#6c513d] hover:bg-[#f8efe6]"
+                          >
+                            +
+                          </button>
+
+                          <div className="ml-auto text-sm text-[#8b7260]">
+                            Subtotal:{' '}
+                            <span className="font-bold text-[#5f4432]">
+                              RM {money(Number(item.qty || 0) * Number(item.price || 0))}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </section>
@@ -1938,8 +2033,7 @@ export default function Page() {
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Bundle</span>
                   <span className="font-bold text-[#5f4432]">
-                    RM {money(bundleTotal)}
-                    {selectedBundle && bundleGroupCount > 0 ? ` (${bundleGroupCount}组)` : ''}
+                    RM {money(bundleCartTotal)}
                   </span>
                 </div>
 
