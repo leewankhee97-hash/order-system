@@ -1850,7 +1850,7 @@ export default function Page() {
                   <PawPrint />
                   Backup
                 </div>
-                <h2 className="mt-2 text-xl font-black text-[#5f4432]">备选口味</h2>
+                <h2 className="mt-2 text-xl font-black text-[#5f4432]">备选口味/颜色</h2>
               </div>
 
               {orderedBrands.length === 0 ? (
