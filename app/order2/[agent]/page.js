@@ -935,21 +935,59 @@ export default function Page() {
   }
 
   function buildCopiedSummary(oid) {
-    const itemLines = []
+    const lines = []
+
+    if (delivery === '邮寄') {
+      lines.push(`配送方式：邮寄`)
+      lines.push(`订单编号：${oid}`)
+      lines.push(`地区：${region}`)
+      lines.push(
+        `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`
+      )
+      lines.push('')
+      lines.push(`收件人资料`)
+      lines.push(`名字：${name || '-'}`)
+      lines.push(`电话：${phone || '-'}`)
+      lines.push(`地址：${address || '-'}`)
+      lines.push(`Postcode：${postcode || '-'}`)
+      lines.push(`州属：${state || '-'}`)
+      lines.push('')
+    } else if (delivery === 'LALAMOVE') {
+      lines.push(`配送方式：LALAMOVE`)
+      lines.push(`订单编号：${oid}`)
+      lines.push(`地区：${state || 'Klang Valley'}`)
+      lines.push(`运费：RM${money(shippingFee)}`)
+      lines.push('')
+      lines.push(`收件人资料`)
+      lines.push(`名字：${name || '-'}`)
+      lines.push(`电话：${phone || '-'}`)
+      lines.push(`地址：${address || '-'}`)
+      lines.push('')
+    } else {
+      lines.push(`配送方式：自取`)
+      lines.push(`订单编号：${oid}`)
+      lines.push(`自取日期：${date || '-'}`)
+      lines.push(`自取时间：${time || '-'}`)
+      lines.push('')
+    }
+
+    lines.push(`订单内容`)
 
     cart.forEach((item) => {
       if (item.is_bundle) {
-        itemLines.push(`${item.bundle_name}（BUNDLE x${item.qty}）`)
-        itemLines.push(
-          `【BUNDLE TOTAL ${item.qty}组 * RM${money(item.price)} = RM${money(
-            Number(item.qty || 0) * Number(item.price || 0)
-          )}】`
-        )
-        itemLines.push('物品：')
+        const subtotal = Number(item.qty || 0) * Number(item.price || 0)
+
+        lines.push(`${item.bundle_name}（BUNDLE）× ${item.qty}组`)
+        lines.push(`每组：RM${money(item.price)}`)
+        lines.push(`小计：RM${money(subtotal)}`)
+        lines.push('')
+        lines.push(`口味明细`)
+
         ;(item.bundle_items || []).forEach((bi) => {
-          itemLines.push(`${bi.product_name} - ${bi.qty}`)
+          lines.push(`${bi.product_name} × ${bi.qty}`)
         })
-        itemLines.push('')
+
+        lines.push('')
         return
       }
 
@@ -957,82 +995,34 @@ export default function Page() {
       const subtotal = Number(item.qty || 0) * price
       const displayName = cleanProductName(item)
 
-      itemLines.push(
-        `${item.brand || displayName}${item.series ? ` ${item.series}` : ''}（RM${money(price)}）`
+      lines.push(
+        `${item.brand || displayName}${item.series ? ` ${item.series}` : ''}`
       )
-      itemLines.push(`${displayName} - ${item.qty}`)
-      itemLines.push(`【TOTAL ${item.qty}*RM${money(price)}=RM${money(subtotal)}】`)
-      itemLines.push('')
+      lines.push(`${displayName} × ${item.qty}`)
+      lines.push(`单价：RM${money(price)}`)
+      lines.push(`小计：RM${money(subtotal)}`)
+      lines.push('')
     })
 
-    const backupLines = []
-
-    Object.entries(backupSelections).forEach(([brand, flavors]) => {
-      if (!flavors || flavors.length === 0) return
-      backupLines.push(brand)
-      flavors.forEach((f) => backupLines.push(f))
-      backupLines.push('')
-    })
-
-    const remarkLines = noBackup
-      ? ['备注：', '不选择备选', '下一单扣', '']
-      : backupLines.length > 0
-        ? ['备注：', '备选', ...backupLines]
-        : []
-
-    if (delivery === '邮寄') {
-      return [
-        `配送方式：邮寄`,
-        `地区：${region}`,
-        `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM ${money(shippingFee)}`}`,
-        ``,
-        `收件人资料：`,
-        `名字：${name || '-'}`,
-        `电话：${phone || '-'}`,
-        `地址：${address || '-'}`,
-        `Postcode：${postcode || '-'}`,
-        `州属：${state || '-'}`,
-        ``,
-        `物品：`,
-        ...itemLines,
-        ...remarkLines,
-        `货品总额：RM ${money(normalTotal + bundleCartTotal)}`,
-        `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM ${money(shippingFee)}`}`,
-        `总数：RM ${money(total)}`,
-      ].join('\n')
+    lines.push(`备注`)
+    if (noBackup) {
+      lines.push(`不选择备选口味`)
+      lines.push(`如遇缺货，下一单补回`)
+    } else if (Object.keys(backupSelections).length > 0) {
+      Object.entries(backupSelections).forEach(([brand, flavors]) => {
+        if (!Array.isArray(flavors) || flavors.length === 0) return
+        lines.push(brand)
+        flavors.forEach((f) => lines.push(f))
+      })
+    } else {
+      lines.push(`-`)
     }
 
-    if (delivery === 'LALAMOVE') {
-      return [
-        `配送方式：LALAMOVE`,
-        `地区：${state || 'Klang Valley'}`,
-        `运费：RM ${money(shippingFee)}`,
-        ``,
-        `收件人资料：`,
-        `名字：${name || '-'}`,
-        `电话：${phone || '-'}`,
-        `地址：${address || '-'}`,
-        ``,
-        `物品：`,
-        ...itemLines,
-        ...remarkLines,
-        `货品总额：RM ${money(normalTotal + bundleCartTotal)}`,
-        `运费：RM ${money(shippingFee)}`,
-        `总数：RM ${money(total)}`,
-      ].join('\n')
-    }
+    lines.push('')
+    lines.push(`总额`)
+    lines.push(`RM${money(total)}`)
 
-    return [
-      `配送方式：自取`,
-      `ORDER ID：${oid}`,
-      `自取日期：${date || '-'}`,
-      `自取时间：${time || '-'}`,
-      ``,
-      `物品：`,
-      ...itemLines,
-      ...remarkLines,
-      `总额：RM ${money(total)}`,
-    ].join('\n')
+    return lines.join('\n')
   }
 
   async function copyText(text) {
@@ -1066,11 +1056,18 @@ export default function Page() {
     try {
       await copyText(copiedPreview || '')
       setSummaryCopied(true)
-      setTimeout(() => setSummaryCopied(false), 1500)
     } catch (err) {
       console.error(err)
       alert('没有可复制的订单摘要')
     }
+  }
+
+  function handleCloseSummaryModal() {
+    if (!summaryCopied) {
+      const ok = window.confirm('你还没复制订单摘要，确定要关闭吗？')
+      if (!ok) return
+    }
+    setShowSummaryModal(false)
   }
 
   async function submit(e) {
@@ -2313,7 +2310,7 @@ export default function Page() {
       {showSummaryModal && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowSummaryModal(false)}
+          onClick={handleCloseSummaryModal}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -2326,7 +2323,7 @@ export default function Page() {
 
               <button
                 type="button"
-                onClick={() => setShowSummaryModal(false)}
+                onClick={handleCloseSummaryModal}
                 className="rounded-full border border-[#eadacb] px-3 py-1 text-xs text-[#7a5b47] hover:bg-[#f8efe6]"
               >
                 关闭
@@ -2339,18 +2336,32 @@ export default function Page() {
               className="min-h-[280px] w-full rounded-3xl border border-[#b6e07b] bg-[#97e067] px-4 py-3 text-sm text-[#17320d] outline-none"
             />
 
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={handleCopySummary}
-                className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
-                  summaryCopied
-                    ? 'border-green-200 bg-green-50 text-green-600'
-                    : 'border-[#d2b49c] bg-[#dcc0a8] text-white hover:bg-[#cfaf93]'
-                }`}
-              >
-                {summaryCopied ? '已复制' : '复制'}
-              </button>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-[#7a5b47]">
+                {summaryCopied ? '已复制，可关闭视窗' : '请先复制订单摘要'}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopySummary}
+                  className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
+                    summaryCopied
+                      ? 'border-green-200 bg-green-50 text-green-600'
+                      : 'border-[#d2b49c] bg-[#dcc0a8] text-white hover:bg-[#cfaf93]'
+                  }`}
+                >
+                  {summaryCopied ? '已复制' : '复制'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCloseSummaryModal}
+                  className="rounded-3xl border border-[#eadacb] bg-white px-4 py-2 text-sm font-bold text-[#7a5b47] hover:bg-[#f8efe6]"
+                >
+                  关闭
+                </button>
+              </div>
             </div>
           </div>
         </div>
