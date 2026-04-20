@@ -66,6 +66,44 @@ function uniqueSorted(arr) {
   )
 }
 
+function stockStatus(stock) {
+  const s = Number(stock || 0)
+
+  if (s <= 0) {
+    return {
+      text: 'OUT',
+      color: '#dc2626',
+      bg: '#fff1f2',
+      border: '#fecdd3',
+    }
+  }
+
+  if (s <= 10) {
+    return {
+      text: 'VERY LOW',
+      color: '#dc2626',
+      bg: '#fff7ed',
+      border: '#fdba74',
+    }
+  }
+
+  if (s <= 30) {
+    return {
+      text: 'LOW',
+      color: '#d97706',
+      bg: '#fffbeb',
+      border: '#fcd34d',
+    }
+  }
+
+  return {
+    text: 'IN',
+    color: '#0891b2',
+    bg: '#ecfeff',
+    border: '#a5f3fc',
+  }
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([])
   const [form, setForm] = useState(emptyForm)
@@ -81,6 +119,9 @@ export default function AdminProductsPage() {
   const [isMobile, setIsMobile] = useState(false)
   const [activeTab, setActiveTab] = useState('list')
   const [search, setSearch] = useState('')
+  const [restockingId, setRestockingId] = useState('')
+  const [stockSavingId, setStockSavingId] = useState('')
+  const [stockInputs, setStockInputs] = useState({})
 
   useEffect(() => {
     fetchProducts()
@@ -169,6 +210,7 @@ export default function AdminProductsPage() {
           String(p.price_2 ?? ''),
           String(p.price_3 ?? ''),
           String(p.stock ?? ''),
+          stockStatus(p.stock).text,
         ]
           .join(' ')
           .toLowerCase()
@@ -179,6 +221,15 @@ export default function AdminProductsPage() {
       return true
     })
   }, [products, filters, search])
+
+  const stockStats = useMemo(() => {
+    const out = products.filter((p) => Number(p.stock || 0) <= 0).length
+    const veryLow = products.filter((p) => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 10).length
+    const low = products.filter((p) => Number(p.stock || 0) > 10 && Number(p.stock || 0) <= 30).length
+    const inStock = products.filter((p) => Number(p.stock || 0) > 30).length
+
+    return { out, veryLow, low, inStock }
+  }, [products])
 
   function handleChange(key, value) {
     setForm((prev) => {
@@ -286,6 +337,70 @@ export default function AdminProductsPage() {
   function handleFilterReset() {
     setFilters(emptyFilters)
     setSearch('')
+  }
+
+  function handleStockInputChange(id, value) {
+    setStockInputs((prev) => ({
+      ...prev,
+      [id]: value,
+    }))
+  }
+
+  async function saveInlineStock(id) {
+    const raw = stockInputs[id]
+    const nextStock = Number(raw)
+
+    if (raw === undefined || raw === '' || Number.isNaN(nextStock) || nextStock < 0) {
+      setMessage('请输入正确库存')
+      return
+    }
+
+    setStockSavingId(id)
+    setMessage('')
+
+    const { error } = await supabase
+      .from('products')
+      .update({ stock: nextStock })
+      .eq('id', id)
+
+    if (error) {
+      setMessage(error.message || '更新库存失败')
+      setStockSavingId('')
+      return
+    }
+
+    setMessage('库存已更新')
+    setStockInputs((prev) => ({
+      ...prev,
+      [id]: '',
+    }))
+
+    await fetchProducts()
+    setStockSavingId('')
+  }
+
+  async function quickRestock(id, addQty) {
+    const p = products.find((x) => x.id === id)
+    if (!p) return
+
+    const newStock = Number(p.stock || 0) + Number(addQty || 0)
+
+    setRestockingId(id)
+    setMessage('')
+
+    const { error } = await supabase
+      .from('products')
+      .update({ stock: newStock })
+      .eq('id', id)
+
+    if (error) {
+      setMessage(error.message || '快速补货失败')
+    } else {
+      setMessage(`已补货 +${addQty}`)
+      await fetchProducts()
+    }
+
+    setRestockingId('')
   }
 
   async function handleSubmit(e) {
@@ -602,6 +717,35 @@ export default function AdminProductsPage() {
           </button>
           <div style={filterResultStyle}>当前找到 {filteredProducts.length} 个产品</div>
         </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, minmax(0, 1fr))',
+            gap: 12,
+            marginTop: 16,
+          }}
+        >
+          <div style={stockStatCardStyle}>
+            <div style={stockStatLabelStyle}>OUT OF STOCK</div>
+            <div style={{ ...stockStatValueStyle, color: '#dc2626' }}>{stockStats.out}</div>
+          </div>
+
+          <div style={stockStatCardStyle}>
+            <div style={stockStatLabelStyle}>VERY LOW</div>
+            <div style={{ ...stockStatValueStyle, color: '#dc2626' }}>{stockStats.veryLow}</div>
+          </div>
+
+          <div style={stockStatCardStyle}>
+            <div style={stockStatLabelStyle}>LOW</div>
+            <div style={{ ...stockStatValueStyle, color: '#d97706' }}>{stockStats.low}</div>
+          </div>
+
+          <div style={stockStatCardStyle}>
+            <div style={stockStatLabelStyle}>IN STOCK</div>
+            <div style={{ ...stockStatValueStyle, color: '#0891b2' }}>{stockStats.inStock}</div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -621,7 +765,7 @@ export default function AdminProductsPage() {
           <div>读取中...</div>
         ) : (
           <div style={{ maxHeight: 'calc(100vh - 260px)', overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1320 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1520 }}>
               <thead
                 style={{
                   position: 'sticky',
@@ -641,7 +785,9 @@ export default function AdminProductsPage() {
                     'LV1',
                     'LV2',
                     'LV3',
-                    'Stock',
+                    '库存状态',
+                    '快速补货',
+                    '手动库存',
                     '操作',
                   ].map((h) => (
                     <th key={h} style={thStyle}>
@@ -653,6 +799,7 @@ export default function AdminProductsPage() {
               <tbody>
                 {filteredProducts.map((p) => {
                   const isEditing = editingId === p.id
+                  const status = stockStatus(p.stock)
 
                   return (
                     <tr
@@ -679,7 +826,118 @@ export default function AdminProductsPage() {
                       <td style={tdStyle}>{p.price_1 ?? 0}</td>
                       <td style={tdStyle}>{p.price_2 ?? 0}</td>
                       <td style={tdStyle}>{p.price_3 ?? 0}</td>
-                      <td style={tdStyle}>{p.stock ?? 0}</td>
+
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ fontWeight: 800 }}>{p.stock ?? 0}</div>
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minHeight: 28,
+                              padding: '0 10px',
+                              borderRadius: 999,
+                              fontSize: 12,
+                              fontWeight: 800,
+                              color: status.color,
+                              background: status.bg,
+                              border: `1px solid ${status.border}`,
+                              width: 'fit-content',
+                            }}
+                          >
+                            {status.text}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            style={miniBtn}
+                            disabled={restockingId === p.id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              quickRestock(p.id, 10)
+                            }}
+                          >
+                            +10
+                          </button>
+
+                          <button
+                            type="button"
+                            style={miniBtn}
+                            disabled={restockingId === p.id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              quickRestock(p.id, 50)
+                            }}
+                          >
+                            +50
+                          </button>
+
+                          <button
+                            type="button"
+                            style={miniBtn}
+                            disabled={restockingId === p.id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              quickRestock(p.id, 100)
+                            }}
+                          >
+                            +100
+                          </button>
+
+                          {Number(p.stock || 0) <= 0 ? (
+                            <button
+                              type="button"
+                              style={dangerMiniBtn}
+                              disabled={restockingId === p.id}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                quickRestock(p.id, 50)
+                              }}
+                            >
+                              RESTOCK
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <input
+                            value={stockInputs[p.id] ?? ''}
+                            placeholder="库存"
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => handleStockInputChange(p.id, e.target.value)}
+                            style={{
+                              width: 90,
+                              height: 34,
+                              borderRadius: 10,
+                              border: '1px solid #d7bfa8',
+                              background: '#fff',
+                              padding: '0 10px',
+                              outline: 'none',
+                              color: '#6f4e37',
+                            }}
+                          />
+
+                          <button
+                            type="button"
+                            style={smallPrimaryButton}
+                            disabled={stockSavingId === p.id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              saveInlineStock(p.id)
+                            }}
+                          >
+                            {stockSavingId === p.id ? '保存中' : '保存'}
+                          </button>
+                        </div>
+                      </td>
+
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button
@@ -720,7 +978,7 @@ export default function AdminProductsPage() {
 
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={11} style={tdStyle}>
+                    <td colSpan={13} style={tdStyle}>
                       没有找到符合筛选条件的产品
                     </td>
                   </tr>
@@ -1159,6 +1417,30 @@ const smallDangerButton = {
   cursor: 'pointer',
 }
 
+const miniBtn = {
+  height: 28,
+  padding: '0 8px',
+  borderRadius: 8,
+  border: '1px solid #d7bfa8',
+  background: '#fff',
+  color: '#6f4e37',
+  fontWeight: 700,
+  fontSize: 12,
+  cursor: 'pointer',
+}
+
+const dangerMiniBtn = {
+  height: 28,
+  padding: '0 8px',
+  borderRadius: 8,
+  border: '1px solid #dc2626',
+  background: '#dc2626',
+  color: '#fff',
+  fontWeight: 700,
+  fontSize: 12,
+  cursor: 'pointer',
+}
+
 const thStyle = {
   textAlign: 'left',
   padding: '14px 12px',
@@ -1172,6 +1454,7 @@ const tdStyle = {
   padding: '12px',
   borderBottom: '1px solid #f0e3d6',
   whiteSpace: 'nowrap',
+  verticalAlign: 'top',
 }
 
 const messageStyle = {
@@ -1228,4 +1511,23 @@ const activeTabButtonStyle = {
   background: '#a47c57',
   color: '#fff',
   border: '1px solid #a47c57',
+}
+
+const stockStatCardStyle = {
+  background: '#fff',
+  border: '1px solid #ead7c4',
+  borderRadius: 16,
+  padding: 16,
+}
+
+const stockStatLabelStyle = {
+  color: '#8a6a54',
+  fontWeight: 800,
+  marginBottom: 8,
+  fontSize: 13,
+}
+
+const stockStatValueStyle = {
+  fontSize: 24,
+  fontWeight: 900,
 }
