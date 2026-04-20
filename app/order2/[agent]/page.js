@@ -1044,7 +1044,7 @@ export default function Page() {
     lines.push(`备注`)
     if (noBackup) {
       lines.push(`不选择备选口味`)
-      lines.push(`如遇缺货，下一单补回`)
+      lines.push(`如遇缺货，下一单扣`)
     } else if (Object.keys(backupSelections).length > 0) {
       Object.entries(backupSelections).forEach(([brand, flavors]) => {
         if (!Array.isArray(flavors) || flavors.length === 0) return
