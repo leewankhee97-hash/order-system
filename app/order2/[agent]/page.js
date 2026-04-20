@@ -173,6 +173,8 @@ export default function Page() {
   const [postcode, setPostcode] = useState('')
   const [shipping, setShipping] = useState('')
 
+  const [draftQty, setDraftQty] = useState({})
+
   const [selectedType, setSelectedType] = useState('')
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedVariant, setSelectedVariant] = useState('')
@@ -298,6 +300,7 @@ export default function Page() {
     setSelectedBundle(null)
     setBackupSelections({})
     setNoBackup(false)
+    setDraftQty({})
   }, [agentInfo])
 
   function getAgentLevel() {
@@ -351,51 +354,52 @@ export default function Page() {
     return p1
   }
 
-  function add(p) {
-    const lockedPrice = getAgentPrice(p)
-
-    setCart((prev) => {
-      const found = prev.find((i) => i.id === p.id)
-      if (found) {
-        const nextQty = found.qty + 1
-        if (nextQty > Number(p.stock || 0)) return prev
-        return prev.map((i) => (i.id === p.id ? { ...i, qty: nextQty } : i))
-      }
-      return [...prev, { ...p, qty: 1, price: lockedPrice }]
-    })
+  function getDraftQty(id) {
+    return Number(draftQty[id] || 0)
   }
 
-  function getCartItemQty(id) {
-    const found = cart.find((i) => String(i.id) === String(id))
-    return Number(found?.qty || 0)
-  }
-
-  function setCartQtyDirect(product, nextQty) {
+  function setDraftQtyValue(product, nextQty) {
     const maxStock = Number(product?.stock || 0)
     let qty = Number(nextQty || 0)
 
     if (Number.isNaN(qty) || qty < 0) qty = 0
     if (qty > maxStock) qty = maxStock
 
+    setDraftQty((prev) => ({
+      ...prev,
+      [product.id]: qty,
+    }))
+  }
+
+  function addDraftToCart(product) {
+    const qty = Number(draftQty[product.id] || 0)
+    const maxStock = Number(product?.stock || 0)
+
+    if (qty <= 0) return
+
     const lockedPrice = getAgentPrice(product)
 
     setCart((prev) => {
       const found = prev.find((i) => String(i.id) === String(product.id))
+      const existingQty = Number(found?.qty || 0)
+      const nextQty = existingQty + qty
 
-      if (!found && qty <= 0) return prev
-
-      if (!found && qty > 0) {
-        return [...prev, { ...product, qty, price: lockedPrice }]
+      if (found) {
+        const finalQty = nextQty > maxStock ? maxStock : nextQty
+        return prev.map((i) =>
+          String(i.id) === String(product.id)
+            ? { ...i, qty: finalQty, price: lockedPrice }
+            : i
+        )
       }
 
-      if (qty <= 0) {
-        return prev.filter((i) => String(i.id) !== String(product.id))
-      }
-
-      return prev.map((i) =>
-        String(i.id) === String(product.id) ? { ...i, qty, price: lockedPrice } : i
-      )
+      return [...prev, { ...product, qty: qty > maxStock ? maxStock : qty, price: lockedPrice }]
     })
+
+    setDraftQty((prev) => ({
+      ...prev,
+      [product.id]: 0,
+    }))
   }
 
   function changeCartQty(id, nextQty) {
@@ -764,6 +768,7 @@ export default function Page() {
     setState('')
     setPostcode('')
     setShipping('')
+    setDraftQty({})
     setBackupSelections({})
     setNoBackup(false)
   }
@@ -1294,7 +1299,7 @@ export default function Page() {
                   const stockInfo = stockLabel(p.stock)
                   const displayPrice = getAgentPrice(p)
                   const displayName = cleanProductName(p)
-                  const qtyInCart = getCartItemQty(p.id)
+                  const qtyDraft = getDraftQty(p.id)
 
                   return (
                     <div
@@ -1349,8 +1354,8 @@ export default function Page() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => setCartQtyDirect(p, qtyInCart - 1)}
-                            disabled={qtyInCart <= 0}
+                            onClick={() => setDraftQtyValue(p, qtyDraft - 1)}
+                            disabled={qtyDraft <= 0}
                             className="h-12 w-12 rounded-3xl border border-[#eadacb] bg-white text-lg font-bold text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             -
@@ -1360,15 +1365,15 @@ export default function Page() {
                             type="number"
                             min="0"
                             max={Number(p.stock || 0)}
-                            value={qtyInCart}
-                            onChange={(e) => setCartQtyDirect(p, e.target.value)}
+                            value={qtyDraft}
+                            onChange={(e) => setDraftQtyValue(p, e.target.value)}
                             className="h-12 flex-1 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-base font-bold text-[#5c4333] outline-none focus:border-[#cfae95]"
                           />
 
                           <button
                             type="button"
-                            onClick={() => setCartQtyDirect(p, qtyInCart + 1)}
-                            disabled={Number(p.stock || 0) <= 0 || qtyInCart >= Number(p.stock || 0)}
+                            onClick={() => setDraftQtyValue(p, qtyDraft + 1)}
+                            disabled={Number(p.stock || 0) <= 0 || qtyDraft >= Number(p.stock || 0)}
                             className="h-12 w-12 rounded-3xl border border-[#eadacb] bg-white text-lg font-bold text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             +
@@ -1376,16 +1381,18 @@ export default function Page() {
                         </div>
 
                         <div className="mt-2 text-center text-xs text-[#8b7260]">
-                          {qtyInCart > 0
-                            ? `已加入 ${qtyInCart} 个`
-                            : '直接在这里调整数量'}
+                          {qtyDraft > 0 ? `准备加入 ${qtyDraft} 个` : '先选择数量，再加入购物车'}
                         </div>
                       </div>
 
                       <button
                         type="button"
-                        onClick={() => add(p)}
-                        disabled={Number(p.stock || 0) <= 0 || Number(displayPrice) <= 0}
+                        onClick={() => addDraftToCart(p)}
+                        disabled={
+                          Number(p.stock || 0) <= 0 ||
+                          Number(displayPrice) <= 0 ||
+                          Number(qtyDraft || 0) <= 0
+                        }
                         className="mt-3 w-full rounded-3xl border border-[#16a34a] bg-[#22c55e] px-4 py-3 text-sm font-bold tracking-wide text-white transition hover:bg-[#16a34a] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Add to Cart 🛒
