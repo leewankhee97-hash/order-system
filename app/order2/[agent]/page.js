@@ -156,6 +156,26 @@ function getVariantLabel(product) {
   return '口味'
 }
 
+function splitBrandFlavor(brand, productName) {
+  const safeBrand = normalizeText(brand)
+  const safeProductName = normalizeText(productName)
+
+  if (!safeBrand) {
+    return {
+      brandLine: '',
+      flavorLine: safeProductName || '-',
+    }
+  }
+
+  const escaped = safeBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const flavor = safeProductName.replace(new RegExp(`^${escaped}\\s*`, 'i'), '').trim()
+
+  return {
+    brandLine: safeBrand,
+    flavorLine: flavor || safeProductName || '-',
+  }
+}
+
 export default function Page() {
   const { agent } = useParams()
   const productsGridRef = useRef(null)
@@ -985,7 +1005,9 @@ export default function Page() {
         lines.push(`口味明细`)
 
         ;(item.bundle_items || []).forEach((bi) => {
-          lines.push(`${bi.product_name} × ${bi.qty}`)
+          const split = splitBrandFlavor(bi.brand, bi.product_name)
+          if (split.brandLine) lines.push(split.brandLine)
+          lines.push(`${split.flavorLine} × ${bi.qty}`)
         })
 
         lines.push('')
@@ -995,9 +1017,10 @@ export default function Page() {
       const price = Number(item.price || 0)
       const subtotal = Number(item.qty || 0) * price
       const displayName = cleanProductName(item)
+      const split = splitBrandFlavor(item.brand, displayName)
 
-      lines.push(`${item.brand || displayName}${item.series ? ` ${item.series}` : ''}`)
-      lines.push(`${displayName} × ${item.qty}`)
+      if (split.brandLine) lines.push(split.brandLine)
+      lines.push(`${split.flavorLine} × ${item.qty}`)
       lines.push(`单价：RM${money(price)}`)
       lines.push(`小计：RM${money(subtotal)}`)
       lines.push('')
