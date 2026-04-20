@@ -635,7 +635,7 @@ export default function Page() {
   const shippingFee = useMemo(() => {
     if (delivery === '邮寄') {
       if (postageItemCount > 19) return 'ASK'
-      if (EAST.includes((state || '').toUpperCase())) return 15
+      if (EAST.includes((state || '').toUpperCase())) return 28
       return 10
     }
     return Number(shipping || 0)
