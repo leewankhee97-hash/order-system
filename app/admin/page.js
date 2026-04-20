@@ -51,8 +51,8 @@ export default function AdminPage() {
   function groupProducts(items) {
     const grouped = {}
 
-    items.forEach(p => {
-      const category = String(p.category || '未分类').trim()
+    items.forEach((p) => {
+      const category = String(p.category || p.product_type || '未分类').trim()
       const brand = String(p.series || p.brand || '其他').trim()
 
       if (!grouped[category]) grouped[category] = {}
@@ -67,7 +67,7 @@ export default function AdminPage() {
   function buildCollapsedState(grouped, prevState = {}) {
     const next = { ...prevState }
 
-    Object.keys(grouped).forEach(category => {
+    Object.keys(grouped).forEach((category) => {
       if (typeof next[category] === 'undefined') {
         next[category] = false
       }
@@ -88,7 +88,7 @@ export default function AdminPage() {
 
     const agentMap = {}
 
-    orders.forEach(o => {
+    orders.forEach((o) => {
       const sales = getNetSales(o)
 
       if (o.created_at?.slice(0, 10) === today) {
@@ -115,19 +115,19 @@ export default function AdminPage() {
     })
 
     const ranking = Object.values(agentMap)
-      .map(agent => ({
+      .map((agent) => ({
         ...agent,
         avg: agent.count > 0 ? agent.total / agent.count : 0,
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 10)
 
-    const low = products.filter(p => {
+    const low = products.filter((p) => {
       const stock = Number(p.stock || 0)
       return stock > 0 && stock <= 50
     })
 
-    const out = products.filter(p => Number(p.stock || 0) === 0)
+    const out = products.filter((p) => Number(p.stock || 0) === 0)
 
     const groupedOut = groupProducts(out)
     const groupedLow = groupProducts(low)
@@ -140,12 +140,12 @@ export default function AdminPage() {
     setGroupedOutStock(groupedOut)
     setGroupedLowStock(groupedLow)
 
-    setCollapsedOut(prev => buildCollapsedState(groupedOut, prev))
-    setCollapsedLow(prev => buildCollapsedState(groupedLow, prev))
+    setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
+    setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
   }
 
   function handleStockInput(productId, value) {
-    setStockInputs(prev => ({
+    setStockInputs((prev) => ({
       ...prev,
       [productId]: value,
     }))
@@ -175,7 +175,7 @@ export default function AdminPage() {
     }
 
     setSaveMsg('库存已更新')
-    setStockInputs(prev => ({
+    setStockInputs((prev) => ({
       ...prev,
       [productId]: '',
     }))
@@ -189,7 +189,7 @@ export default function AdminPage() {
   }
 
   function quickFill(productId, qty) {
-    setStockInputs(prev => ({
+    setStockInputs((prev) => ({
       ...prev,
       [productId]: String(qty),
     }))
@@ -197,14 +197,14 @@ export default function AdminPage() {
 
   function toggleCollapse(type, category) {
     if (type === 'out') {
-      setCollapsedOut(prev => ({
+      setCollapsedOut((prev) => ({
         ...prev,
         [category]: !prev[category],
       }))
       return
     }
 
-    setCollapsedLow(prev => ({
+    setCollapsedLow((prev) => ({
       ...prev,
       [category]: !prev[category],
     }))
@@ -398,7 +398,7 @@ export default function AdminPage() {
                   </div>
 
                   <div style={{ display: 'grid', gap: 10 }}>
-                    {items.map(p => (
+                    {items.map((p) => (
                       <div
                         key={p.id}
                         style={{
@@ -431,7 +431,7 @@ export default function AdminPage() {
                             min="0"
                             placeholder="输入库存"
                             value={stockInputs[p.id] ?? ''}
-                            onChange={e => handleStockInput(p.id, e.target.value)}
+                            onChange={(e) => handleStockInput(p.id, e.target.value)}
                             style={{
                               width: 100,
                               padding: '8px 10px',
@@ -478,195 +478,186 @@ export default function AdminPage() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        background: '#f7efe7',
-        padding: '24px',
-        color: '#6f4e37',
-      }}
-    >
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 20 }}>
-          后台管理
-        </h1>
+    <div style={{ minWidth: 0 }}>
+      <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 20 }}>
+        后台管理
+      </h1>
 
-        {saveMsg ? (
-          <div
-            style={{
-              marginBottom: 16,
-              padding: '12px 16px',
-              borderRadius: 12,
-              background: '#eefaf0',
-              border: '1px solid #b9dfbe',
-              fontWeight: 800,
-            }}
-          >
-            {saveMsg}
-          </div>
-        ) : null}
-
+      {saveMsg ? (
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 16,
-            marginBottom: 20,
+            marginBottom: 16,
+            padding: '12px 16px',
+            borderRadius: 12,
+            background: '#eefaf0',
+            border: '1px solid #b9dfbe',
+            fontWeight: 800,
           }}
         >
-          <div style={statCard}>
-            <div>今日销售</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>
-              RM {todaySales.toFixed(2)}
-            </div>
-          </div>
+          {saveMsg}
+        </div>
+      ) : null}
 
-          <div style={statCard}>
-            <div>本月销售</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>
-              RM {monthSales.toFixed(2)}
-            </div>
-          </div>
-
-          <div style={statCard}>
-            <div>低库存产品</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>
-              {lowStock.length}
-            </div>
-          </div>
-
-          <div style={{ ...statCard, background: '#ffe9e9' }}>
-            <div>缺货产品</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>
-              {outStock.length}
-            </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
+          marginBottom: 20,
+        }}
+      >
+        <div style={statCard}>
+          <div>今日销售</div>
+          <div style={{ fontSize: 24, fontWeight: 900 }}>
+            RM {todaySales.toFixed(2)}
           </div>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-            🏆 Agent 排行榜
-          </h2>
+        <div style={statCard}>
+          <div>本月销售</div>
+          <div style={{ fontSize: 24, fontWeight: 900 }}>
+            RM {monthSales.toFixed(2)}
+          </div>
+        </div>
 
-          <div style={sectionCard}>
-            {agentRanking.length === 0 && <div>暂无数据</div>}
+        <div style={statCard}>
+          <div>低库存产品</div>
+          <div style={{ fontSize: 24, fontWeight: 900 }}>
+            {lowStock.length}
+          </div>
+        </div>
 
-            {agentRanking.length > 0 && (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                  gap: 12,
-                }}
-              >
-                {agentRanking.map((a, i) => (
+        <div style={{ ...statCard, background: '#ffe9e9' }}>
+          <div>缺货产品</div>
+          <div style={{ fontSize: 24, fontWeight: 900 }}>
+            {outStock.length}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+          🏆 Agent 排行榜
+        </h2>
+
+        <div style={sectionCard}>
+          {agentRanking.length === 0 && <div>暂无数据</div>}
+
+          {agentRanking.length > 0 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: 12,
+              }}
+            >
+              {agentRanking.map((a, i) => (
+                <div
+                  key={a.name}
+                  style={{
+                    ...getRankCardStyle(i),
+                    borderRadius: 16,
+                    padding: '16px',
+                  }}
+                >
                   <div
-                    key={a.name}
                     style={{
-                      ...getRankCardStyle(i),
-                      borderRadius: 16,
-                      padding: '16px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 12,
                     }}
                   >
+                    <div style={{ fontSize: 22, fontWeight: 900 }}>
+                      {getRankBadge(i)}
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 800,
+                        padding: '6px 10px',
+                        borderRadius: 999,
+                        border: '1px solid #d7bfa8',
+                        background: '#fffaf5',
+                      }}
+                    >
+                      第 {i + 1} 名
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 900,
+                      marginBottom: 10,
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {a.name}
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8 }}>
                     <div
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
                         gap: 10,
-                        marginBottom: 12,
                       }}
                     >
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>
-                        {getRankBadge(i)}
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 800,
-                          padding: '6px 10px',
-                          borderRadius: 999,
-                          border: '1px solid #d7bfa8',
-                          background: '#fffaf5',
-                        }}
-                      >
-                        第 {i + 1} 名
-                      </div>
+                      <span>销售额</span>
+                      <strong>RM {a.total.toFixed(2)}</strong>
                     </div>
 
                     <div
                       style={{
-                        fontSize: 18,
-                        fontWeight: 900,
-                        marginBottom: 10,
-                        wordBreak: 'break-word',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 10,
                       }}
                     >
-                      {a.name}
+                      <span>订单数</span>
+                      <strong>{a.count}</strong>
                     </div>
 
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                        }}
-                      >
-                        <span>销售额</span>
-                        <strong>RM {a.total.toFixed(2)}</strong>
-                      </div>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                        }}
-                      >
-                        <span>订单数</span>
-                        <strong>{a.count}</strong>
-                      </div>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                        }}
-                      >
-                        <span>平均单价</span>
-                        <strong>RM {a.avg.toFixed(2)}</strong>
-                      </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                      }}
+                    >
+                      <span>平均单价</span>
+                      <strong>RM {a.avg.toFixed(2)}</strong>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-            ❌ OUT OF STOCK 分类总览
-          </h2>
-
-          <div style={{ ...sectionCard, background: '#fffdfd' }}>
-            {renderStockGroup(groupedOutStock, 'out')}
-          </div>
-        </div>
-
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-            ⚠️ 低库存产品
-          </h2>
-
-          <div style={{ ...sectionCard, background: '#fffdf8' }}>
-            {renderStockGroup(groupedLowStock, 'low')}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </main>
+
+      <div style={{ marginBottom: 20 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+          ❌ OUT OF STOCK 分类总览
+        </h2>
+
+        <div style={{ ...sectionCard, background: '#fffdfd' }}>
+          {renderStockGroup(groupedOutStock, 'out')}
+        </div>
+      </div>
+
+      <div>
+        <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+          ⚠️ 低库存产品
+        </h2>
+
+        <div style={{ ...sectionCard, background: '#fffdf8' }}>
+          {renderStockGroup(groupedLowStock, 'low')}
+        </div>
+      </div>
+    </div>
   )
 }

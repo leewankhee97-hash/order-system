@@ -1,171 +1,136 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { usePathname, useRouter } from 'next/navigation'
 
-const ADMIN_EMAIL = 'prolee97@hotmail.com' // 一定要改
+const menuItems = [
+  { label: 'Dashboard', href: '/admin' },
+  { label: 'Products', href: '/admin/products' },
+  { label: 'Orders', href: '/admin/orders' },
+  { label: 'Bundles', href: '/admin/bundles' },
+  { label: 'Agents', href: '/admin/agents' },
+  { label: 'Prices', href: '/admin/prices' },
+]
 
 export default function AdminLayout({ children }) {
+  const pathname = usePathname()
   const router = useRouter()
-  const [checking, setChecking] = useState(true)
-  const [adminEmail, setAdminEmail] = useState('')
 
-  useEffect(() => {
-    checkAdmin()
-  }, [])
-
-  async function checkAdmin() {
-    const { data, error } = await supabase.auth.getUser()
-    const user = data?.user
-
-    if (error || !user) {
-      router.replace('/login')
-      return
-    }
-
-    if (user.email !== ADMIN_EMAIL) {
-      await supabase.auth.signOut()
-      router.replace('/login')
-      return
-    }
-
-    setAdminEmail(user.email || '')
-    setChecking(false)
+  function isActive(href) {
+    if (href === '/admin') return pathname === '/admin'
+    return pathname?.startsWith(href)
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.replace('/login')
-  }
-
-  if (checking) {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: '#f7efe7',
-          color: '#6f4e37',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 16,
-          fontWeight: 700,
-        }}
-      >
-        Checking admin access...
-      </div>
-    )
+  function handleLogout() {
+    router.push('/')
   }
 
   return (
-    <div
+    <main
       style={{
         minHeight: '100vh',
         background: '#f7efe7',
+        padding: 24,
         color: '#6f4e37',
       }}
     >
       <div
         style={{
-          maxWidth: 1400,
+          maxWidth: 1800,
           margin: '0 auto',
-          padding: 24,
+          display: 'grid',
+          gridTemplateColumns: '220px minmax(0, 1fr)',
+          gap: 24,
+          alignItems: 'start',
         }}
       >
-        <div
+        <aside
           style={{
-            display: 'grid',
-            gridTemplateColumns: '220px 1fr',
-            gap: 20,
+            background: '#fffaf5',
+            border: '1px solid #ead7c4',
+            borderRadius: 24,
+            padding: 18,
+            position: 'sticky',
+            top: 24,
           }}
         >
-          <aside
+          <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 18 }}>
+            后台管理
+          </div>
+
+          <div
             style={{
-              background: '#fffaf5',
               border: '1px solid #ead7c4',
-              borderRadius: 20,
-              padding: 20,
-              height: 'fit-content',
+              borderRadius: 18,
+              padding: 14,
+              background: '#fff',
+              marginBottom: 14,
             }}
           >
             <div
               style={{
-                fontSize: 22,
-                fontWeight: 900,
-                marginBottom: 18,
-              }}
-            >
-              后台管理
-            </div>
-
-            <div
-              style={{
-                marginBottom: 16,
-                padding: 12,
-                borderRadius: 12,
-                background: '#fff',
-                border: '1px solid #ead7c4',
                 fontSize: 13,
-                lineHeight: 1.6,
-                wordBreak: 'break-word',
+                color: '#8a6a54',
+                fontWeight: 700,
+                marginBottom: 8,
               }}
             >
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>当前管理员</div>
-              <div>{adminEmail}</div>
+              当前管理员
             </div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>
+              prolee97@hotmail.com
+            </div>
+          </div>
 
-            <div
+          <div style={{ display: 'grid', gap: 12 }}>
+            {menuItems.map((item) => {
+              const active = isActive(item.href)
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    minHeight: 46,
+                    padding: '0 16px',
+                    borderRadius: 16,
+                    border: active ? '1px solid #a47c57' : '1px solid #ead7c4',
+                    background: active ? '#a47c57' : '#fff',
+                    color: active ? '#fff' : '#6f4e37',
+                    textDecoration: 'none',
+                    fontWeight: 800,
+                  }}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+
+            <button
+              type="button"
+              onClick={handleLogout}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
+                marginTop: 4,
+                minHeight: 46,
+                borderRadius: 16,
+                border: '1px solid #e7b9b9',
+                background: '#fff4f4',
+                color: '#b24f4f',
+                fontWeight: 800,
+                cursor: 'pointer',
               }}
             >
-              <Link href="/admin" style={linkStyle}>Dashboard</Link>
-              <Link href="/admin/products" style={linkStyle}>Products</Link>
-              <Link href="/admin/orders" style={linkStyle}>Orders</Link>
-              <Link href="/admin/bundles" style={linkStyle}>Bundles</Link>
-              <Link href="/admin/agents" style={linkStyle}>Agents</Link>
-              <Link href="/admin/prices" style={linkStyle}>Prices</Link>
+              Logout
+            </button>
+          </div>
+        </aside>
 
-              <button
-                type="button"
-                onClick={handleLogout}
-                style={logoutButtonStyle}
-              >
-               Logout
-              </button>
-            </div>
-          </aside>
-
-          <main>{children}</main>
-        </div>
+        <section style={{ minWidth: 0 }}>
+          {children}
+        </section>
       </div>
-    </div>
+    </main>
   )
-}
-
-const linkStyle = {
-  display: 'block',
-  padding: '12px 14px',
-  borderRadius: 12,
-  textDecoration: 'none',
-  color: '#6f4e37',
-  background: '#fff',
-  border: '1px solid #ead7c4',
-  fontWeight: 700,
-}
-
-const logoutButtonStyle = {
-  display: 'block',
-  width: '100%',
-  padding: '12px 14px',
-  borderRadius: 12,
-  color: '#a14f4f',
-  background: '#fff4f4',
-  border: '1px solid #e7bcbc',
-  fontWeight: 700,
-  cursor: 'pointer',
 }

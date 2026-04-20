@@ -1306,47 +1306,38 @@ STRAWBERRY`}
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        background: '#f7efe7',
-        padding: 24,
-        color: '#6f4e37',
-      }}
-    >
-      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 20 }}>产品管理</h1>
+    <div style={{ minWidth: 0 }}>
+      <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 20 }}>产品管理</h1>
 
-        {renderFilterBar()}
+      {renderFilterBar()}
 
-        {message && <div style={messageStyle}>{message}</div>}
+      {message && <div style={messageStyle}>{message}</div>}
 
-        {activeTab === 'list' && renderListPanel()}
+      {activeTab === 'list' && renderListPanel()}
 
-        {activeTab === 'single' && (
+      {activeTab === 'single' && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.2fr) minmax(320px, 460px)',
+            gap: 20,
+            alignItems: 'start',
+          }}
+        >
+          <div>{renderListPanel()}</div>
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.2fr) minmax(320px, 460px)',
-              gap: 20,
-              alignItems: 'start',
+              position: isMobile ? 'static' : 'sticky',
+              top: 20,
             }}
           >
-            <div>{renderListPanel()}</div>
-            <div
-              style={{
-                position: isMobile ? 'static' : 'sticky',
-                top: 20,
-              }}
-            >
-              {renderSingleForm()}
-            </div>
+            {renderSingleForm()}
           </div>
-        )}
+        </div>
+      )}
 
-        {activeTab === 'bulk' && renderBulkPanel()}
-      </div>
-    </main>
+      {activeTab === 'bulk' && renderBulkPanel()}
+    </div>
   )
 }
 
