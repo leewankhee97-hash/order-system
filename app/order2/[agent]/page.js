@@ -173,9 +173,6 @@ export default function Page() {
   const [postcode, setPostcode] = useState('')
   const [shipping, setShipping] = useState('')
 
-  const [rawCustomerText, setRawCustomerText] = useState('')
-  const [parseHint, setParseHint] = useState('')
-
   const [selectedType, setSelectedType] = useState('')
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedVariant, setSelectedVariant] = useState('')
@@ -417,188 +414,6 @@ export default function Page() {
 
   function removeCart(id) {
     setCart((prev) => prev.filter((i) => i.id !== id))
-  }
-
-  function normalizePhone(value) {
-    return String(value || '').replace(/[^\d]/g, '')
-  }
-
-  function cleanParsedValue(value) {
-    return String(value || '')
-      .replace(/^\s+|\s+$/g, '')
-      .replace(/\s+/g, ' ')
-  }
-
-  function detectStateFromText(text) {
-    const raw = String(text || '').toLowerCase()
-
-    const map = [
-      { keywords: ['wp kuala lumpur', 'kuala lumpur'], value: 'WP Kuala Lumpur' },
-      { keywords: ['selangor'], value: 'Selangor' },
-      { keywords: ['johor'], value: 'Johor' },
-      { keywords: ['penang', 'pulau pinang'], value: 'Penang' },
-      { keywords: ['perak'], value: 'Perak' },
-      { keywords: ['sabah'], value: 'Sabah' },
-      { keywords: ['sarawak'], value: 'Sarawak' },
-    ]
-
-    for (const item of map) {
-      if (item.keywords.some((k) => raw.includes(k))) {
-        return item.value
-      }
-    }
-
-    return ''
-  }
-
-  function parseCustomerText(text) {
-    const raw = String(text || '').replace(/\r/g, '').trim()
-
-    setParseHint('')
-
-    if (!raw) {
-      setParseHint('请先粘贴客户资料')
-      return
-    }
-
-    let parsedName = ''
-    let parsedPhone = ''
-    let parsedAddress = ''
-    let parsedPostcode = ''
-    let parsedState = ''
-
-    const lines = raw
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-
-    const joined = lines.join('\n')
-
-    const namePatterns = [
-      /(?:^|\n)\s*(?:姓名|name|收件人|recipient)\s*[:：]?\s*(.+)/i,
-    ]
-    const phonePatterns = [
-      /(?:^|\n)\s*(?:电话|手機|手机|phone|tel|联系电话|联络电话|号码|聯絡電話)\s*[:：]?\s*([0-9+\-\s]{8,20})/i,
-    ]
-    const addressPatterns = [
-      /(?:^|\n)\s*(?:地址|address|收货地址|收件地址)\s*[:：]?\s*([\s\S]+)/i,
-    ]
-
-    for (const pattern of namePatterns) {
-      const match = joined.match(pattern)
-      if (match?.[1]) {
-        parsedName = cleanParsedValue(match[1])
-        break
-      }
-    }
-
-    for (const pattern of phonePatterns) {
-      const match = joined.match(pattern)
-      if (match?.[1]) {
-        parsedPhone = normalizePhone(match[1])
-        break
-      }
-    }
-
-    if (!parsedPhone) {
-      const phoneMatch = joined.match(/(?:\+?6?01\d{8,9}|01\d{8,9})/)
-      if (phoneMatch?.[0]) {
-        parsedPhone = normalizePhone(phoneMatch[0])
-      }
-    }
-
-    for (const pattern of addressPatterns) {
-      const match = joined.match(pattern)
-      if (match?.[1]) {
-        parsedAddress = match[1]
-          .split('\n')
-          .map((x) => x.trim())
-          .filter(Boolean)
-          .join(', ')
-        parsedAddress = cleanParsedValue(parsedAddress)
-        break
-      }
-    }
-
-    if (!parsedName && lines.length > 0) {
-      const firstLine = lines[0]
-      if (
-        !/电话|手機|手机|phone|tel|地址|address|postcode|poskod|邮编|郵編/i.test(
-          firstLine
-        )
-      ) {
-        if (!/(?:\+?6?01\d{8,9}|01\d{8,9})/.test(firstLine)) {
-          parsedName = cleanParsedValue(
-            firstLine.replace(/^(姓名|name|收件人|recipient)\s*[:：]?/i, '')
-          )
-        }
-      }
-    }
-
-    if (!parsedAddress) {
-      const addressLineIndex = lines.findIndex((line) =>
-        /地址|address|收货地址|收件地址/i.test(line)
-      )
-
-      if (addressLineIndex >= 0) {
-        const firstAddressLine = lines[addressLineIndex].replace(
-          /^(地址|address|收货地址|收件地址)\s*[:：]?\s*/i,
-          ''
-        )
-
-        const restLines = lines.slice(addressLineIndex + 1)
-        parsedAddress = [firstAddressLine, ...restLines]
-          .map((x) => x.trim())
-          .filter(Boolean)
-          .join(', ')
-        parsedAddress = cleanParsedValue(parsedAddress)
-      }
-    }
-
-    if (!parsedAddress) {
-      const possibleAddressLines = lines.filter(
-        (line) =>
-          !/^(姓名|name|收件人|recipient|电话|手機|手机|phone|tel|地址|address|postcode|poskod|邮编|郵編)\s*[:：]?/i.test(
-            line
-          ) && !/(?:\+?6?01\d{8,9}|01\d{8,9})/.test(line)
-      )
-
-      if (possibleAddressLines.length >= 2) {
-        parsedAddress = cleanParsedValue(possibleAddressLines.join(', '))
-      } else if (possibleAddressLines.length === 1 && !parsedName) {
-        parsedAddress = cleanParsedValue(possibleAddressLines[0])
-      }
-    }
-
-    const postcodeMatch =
-      joined.match(/(?:postcode|poskod|邮编|郵編)\s*[:：]?\s*(\d{5})/i) ||
-      joined.match(/\b(\d{5})\b/)
-
-    if (postcodeMatch?.[1]) {
-      parsedPostcode = postcodeMatch[1]
-    }
-
-    parsedState = detectStateFromText(parsedAddress || joined)
-
-    if (parsedName) setName(parsedName)
-    if (parsedPhone) setPhone(parsedPhone)
-    if (parsedAddress) setAddress(parsedAddress)
-    if (parsedPostcode) setPostcode(parsedPostcode)
-    if (parsedState) setState(parsedState)
-
-    const filled = [
-      parsedName ? '姓名' : '',
-      parsedPhone ? '电话' : '',
-      parsedAddress ? '地址' : '',
-      parsedPostcode ? 'postcode' : '',
-      parsedState ? '州属' : '',
-    ].filter(Boolean)
-
-    if (filled.length > 0) {
-      setParseHint(`已识别：${filled.join(' / ')}`)
-    } else {
-      setParseHint('未识别到资料，请检查格式')
-    }
   }
 
   const typeOptions = useMemo(() => {
@@ -949,8 +764,6 @@ export default function Page() {
     setState('')
     setPostcode('')
     setShipping('')
-    setRawCustomerText('')
-    setParseHint('')
     setBackupSelections({})
     setNoBackup(false)
   }
@@ -1573,9 +1386,9 @@ export default function Page() {
                         type="button"
                         onClick={() => add(p)}
                         disabled={Number(p.stock || 0) <= 0 || Number(displayPrice) <= 0}
-                        className="mt-3 w-full rounded-3xl border border-[#d2b49c] bg-[#dcc0a8] px-4 py-3 text-sm font-bold tracking-wide text-white transition hover:bg-[#cfaf93] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="mt-3 w-full rounded-3xl border border-[#16a34a] bg-[#22c55e] px-4 py-3 text-sm font-bold tracking-wide text-white transition hover:bg-[#16a34a] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        Quick +1
+                        Add to Cart 🛒
                       </button>
                     </div>
                   )
@@ -1827,49 +1640,6 @@ export default function Page() {
 
                 {delivery !== '自取' && (
                   <>
-                    <div className="rounded-[26px] border border-[#eadacb] bg-[#fbf6f1] p-4">
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
-                        快速识别客户资料
-                      </label>
-
-                      <textarea
-                        placeholder={`可直接粘贴客户完整资料，例如：
-姓名: Xuanni
-电话: 0166937347
-地址: 4, Jalan 13/144A, Taman Bukit Cheras, Cheras, 56000, WP Kuala Lumpur, Malaysia`}
-                        value={rawCustomerText}
-                        onChange={(e) => setRawCustomerText(e.target.value)}
-                        className="min-h-[120px] w-full rounded-3xl border border-[#eadacb] bg-white px-4 py-3 text-[#5c4333] outline-none placeholder:text-[#b29a88] focus:border-[#cfae95]"
-                      />
-
-                      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                        <button
-                          type="button"
-                          onClick={() => parseCustomerText(rawCustomerText)}
-                          className="rounded-3xl border border-[#d2b49c] bg-[#dcc0a8] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#cfaf93]"
-                        >
-                          自动识别
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRawCustomerText('')
-                            setParseHint('')
-                          }}
-                          className="rounded-3xl border border-[#eadacb] bg-white px-4 py-3 text-sm font-bold text-[#7a5b47] transition hover:bg-[#f8efe6]"
-                        >
-                          清空内容
-                        </button>
-                      </div>
-
-                      {parseHint ? (
-                        <div className="mt-3 rounded-3xl border border-[#eadacb] bg-white px-4 py-3 text-sm text-[#7a5b47]">
-                          {parseHint}
-                        </div>
-                      ) : null}
-                    </div>
-
                     <div>
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
                         Recipient Name
