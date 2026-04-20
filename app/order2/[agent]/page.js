@@ -1427,15 +1427,15 @@ export default function Page() {
                               ? 'border-[#cba98a] bg-[#dcc0a8] text-white shadow-sm'
                               : item.inStock
                                 ? 'border-[#eadacb] bg-[#fffaf6] text-[#7a5b47] hover:bg-[#f8efe6]'
-                                : 'border-[#e5d8cc] bg-[#f5f1ec] text-[#b3a395] cursor-not-allowed'
+                                : 'border-red-200 bg-red-50 text-[#b3a395] cursor-not-allowed'
                           }`}
                         >
                           <span>{item.name}</span>
                           {!item.inStock ? (
-                            <span className="ml-2 text-[11px] font-bold uppercase tracking-wide">
-                              OUT OF STOCK
-                            </span>
-                          ) : null}
+  <span className="ml-2 text-[11px] font-black uppercase tracking-wide text-red-500">
+    OUT OF STOCK
+  </span>
+) : null}
                         </button>
                       ))}
                     </div>
