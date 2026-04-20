@@ -1112,6 +1112,11 @@ export default function Page() {
     setShowSummaryModal(false)
   }
 
+  function hardRefreshPage() {
+    if (typeof window === 'undefined') return
+    window.location.reload()
+  }
+
   async function submit(e) {
     e.preventDefault()
 
@@ -1160,6 +1165,7 @@ export default function Page() {
       setError('')
       setSuccess('')
       setSummaryCopied(false)
+      setShowSummaryModal(false)
 
       const prefix = agentInfo.code || agentInfo.name || 'ORDER'
       const count = agentInfo.order_counter || 1
@@ -1250,11 +1256,14 @@ export default function Page() {
 
       const copiedSummary = buildCopiedSummary(oid)
       setCopiedPreview(copiedSummary)
-      setShowSummaryModal(true)
       setSuccess(`成功：${oid}`)
 
       resetFormAfterSubmit()
       await init()
+
+      alert(`✅ 下单成功：${oid}`)
+
+      hardRefreshPage()
     } catch (err) {
       let message = '提交失败'
 
@@ -1432,10 +1441,10 @@ export default function Page() {
                         >
                           <span>{item.name}</span>
                           {!item.inStock ? (
-  <span className="ml-2 text-[11px] font-black uppercase tracking-wide text-red-500">
-    OUT OF STOCK
-  </span>
-) : null}
+                            <span className="ml-2 text-[11px] font-black uppercase tracking-wide text-red-500">
+                              OUT OF STOCK
+                            </span>
+                          ) : null}
                         </button>
                       ))}
                     </div>
