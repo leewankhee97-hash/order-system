@@ -936,6 +936,7 @@ export default function Page() {
 
   function buildCopiedSummary(oid) {
     const lines = []
+    const itemTotal = normalTotal + bundleCartTotal
 
     if (delivery === '邮寄') {
       lines.push(`配送方式：邮寄`)
@@ -995,9 +996,7 @@ export default function Page() {
       const subtotal = Number(item.qty || 0) * price
       const displayName = cleanProductName(item)
 
-      lines.push(
-        `${item.brand || displayName}${item.series ? ` ${item.series}` : ''}`
-      )
+      lines.push(`${item.brand || displayName}${item.series ? ` ${item.series}` : ''}`)
       lines.push(`${displayName} × ${item.qty}`)
       lines.push(`单价：RM${money(price)}`)
       lines.push(`小计：RM${money(subtotal)}`)
@@ -1019,8 +1018,13 @@ export default function Page() {
     }
 
     lines.push('')
-    lines.push(`总额`)
-    lines.push(`RM${money(total)}`)
+    lines.push(`费用明细`)
+    lines.push(`物品总额：RM${money(itemTotal)}`)
+    lines.push(
+      `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`
+    )
+    lines.push('')
+    lines.push(`总额：RM${money(total)}`)
 
     return lines.join('\n')
   }
