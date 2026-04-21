@@ -206,7 +206,6 @@ export default function Page() {
   const bundleSectionRef = useRef(null)
   const bundleControlRef = useRef(null)
   const initRequestRef = useRef(0)
-  const skipInitRef = useRef(false)
 
   const [products, setProducts] = useState([])
   const [bundles, setBundles] = useState([])
@@ -267,18 +266,18 @@ export default function Page() {
 
     if ((versionChanged || urlMismatch) && reloadGuard !== APP_VERSION) {
       window.sessionStorage.setItem(VERSION_RELOAD_GUARD_KEY, APP_VERSION)
-      skipInitRef.current = true
-      window.location.replace(buildCurrentVersionedUrl())
-      return
+
+      const nextUrl = buildCurrentVersionedUrl()
+      if (nextUrl && nextUrl !== window.location.href) {
+        window.location.replace(nextUrl)
+        return
+      }
     }
 
     if (reloadGuard === APP_VERSION) {
       window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
     }
-  }, [])
 
-  useEffect(() => {
-    if (skipInitRef.current) return
     init()
   }, [agent])
 
