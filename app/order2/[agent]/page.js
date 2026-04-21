@@ -24,6 +24,13 @@ const STATES = [
 ]
 const EAST = ['SABAH', 'SARAWAK', 'WP LABUAN']
 
+const APP_VERSION =
+  process.env.NEXT_PUBLIC_APP_VERSION || '2026-04-21-1'
+const VERSION_PARAM = '_v'
+const REFRESH_PARAM = '_r'
+const VERSION_STORAGE_KEY = 'order2_app_version'
+const VERSION_RELOAD_GUARD_KEY = 'order2_app_version_reloaded'
+
 function money(v) {
   return Number(v || 0).toFixed(2)
 }
@@ -176,11 +183,30 @@ function splitBrandFlavor(brand, productName) {
   }
 }
 
+function buildCurrentVersionedUrl(extraParams = {}) {
+  if (typeof window === 'undefined') return ''
+  const url = new URL(window.location.href)
+
+  url.searchParams.set(VERSION_PARAM, APP_VERSION)
+
+  Object.entries(extraParams).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      url.searchParams.delete(key)
+    } else {
+      url.searchParams.set(key, String(value))
+    }
+  })
+
+  return url.toString()
+}
+
 export default function Page() {
   const { agent } = useParams()
   const productsGridRef = useRef(null)
   const bundleSectionRef = useRef(null)
   const bundleControlRef = useRef(null)
+  const initRequestRef = useRef(0)
+  const skipInitRef = useRef(false)
 
   const [products, setProducts] = useState([])
   const [bundles, setBundles] = useState([])
@@ -224,15 +250,77 @@ export default function Page() {
   const [showSummaryModal, setShowSummaryModal] = useState(false)
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const url = new URL(window.location.href)
+    const currentVersion = url.searchParams.get(VERSION_PARAM)
+    const storedVersion = window.localStorage.getItem(VERSION_STORAGE_KEY)
+    const reloadGuard = window.sessionStorage.getItem(VERSION_RELOAD_GUARD_KEY)
+
+    const versionChanged = storedVersion !== APP_VERSION
+    const urlMismatch = currentVersion !== APP_VERSION
+
+    if (versionChanged) {
+      window.localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION)
+      window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
+    }
+
+    if ((versionChanged || urlMismatch) && reloadGuard !== APP_VERSION) {
+      window.sessionStorage.setItem(VERSION_RELOAD_GUARD_KEY, APP_VERSION)
+      skipInitRef.current = true
+      window.location.replace(buildCurrentVersionedUrl())
+      return
+    }
+
+    if (reloadGuard === APP_VERSION) {
+      window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (skipInitRef.current) return
     init()
   }, [agent])
 
-  async function init() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        init({ silent: true })
+      }
+    }
+
+    const handleFocus = () => {
+      init({ silent: true })
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        init({ silent: true })
+      }
+    }
+
+    window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [agent])
+
+  async function init(options = {}) {
+    const requestId = ++initRequestRef.current
+
     try {
       const rawAgent = String(agent || '').trim()
       const agentSlug = rawAgent.toLowerCase()
 
       if (!agentSlug) {
+        if (requestId !== initRequestRef.current) return
         setAgentInfo(null)
         setProducts([])
         setBundles([])
@@ -275,21 +363,20 @@ export default function Page() {
         }
       }
 
+      console.log('APP VERSION:', APP_VERSION)
       console.log('AGENT PARAM:', agent)
       console.log('AGENT SLUG:', agentSlug)
       console.log('AGENT INFO:', foundAgent)
       console.log('AGENT ERROR:', foundAgentError)
 
       if (!foundAgent) {
+        if (requestId !== initRequestRef.current) return
         setAgentInfo(null)
         setProducts([])
         setBundles([])
         setError('代理链接无效')
         return
       }
-
-      setError('')
-      setAgentInfo(foundAgent)
 
       const { data: p, error: productsError } = await supabase
         .from('products')
@@ -303,8 +390,6 @@ export default function Page() {
         console.error('PRODUCTS ERROR:', productsError)
       }
 
-      setProducts(p || [])
-
       const { data: b, error: bundlesError } = await supabase
         .from('bundle_rules')
         .select('*')
@@ -315,10 +400,18 @@ export default function Page() {
         console.error('BUNDLES ERROR:', bundlesError)
       }
 
+      if (requestId !== initRequestRef.current) return
+
+      setError('')
+      setAgentInfo(foundAgent)
+      setProducts(p || [])
       setBundles(b || [])
     } catch (err) {
       console.error('INIT ERROR:', err)
-      setError('读取代理资料失败')
+      if (requestId !== initRequestRef.current) return
+      if (!options?.silent) {
+        setError('读取代理资料失败')
+      }
     }
   }
 
@@ -1106,7 +1199,11 @@ export default function Page() {
 
   function hardRefreshPage() {
     if (typeof window === 'undefined') return
-    window.location.reload()
+    window.location.replace(
+      buildCurrentVersionedUrl({
+        [REFRESH_PARAM]: Date.now(),
+      })
+    )
   }
 
   function handleCloseSummaryModal() {
@@ -1303,6 +1400,11 @@ export default function Page() {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8">
+        <div className="mb-3 flex items-center justify-between gap-3 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9b7b63]">
+          <span>Version</span>
+          <span>{APP_VERSION}</span>
+        </div>
+
         <div className="mb-6 overflow-hidden rounded-[30px] border border-[#eadacb] bg-white/75 shadow-[0_20px_60px_rgba(121,88,63,0.12)] backdrop-blur">
           <div className="border-b border-[#efe3d8] bg-[linear-gradient(90deg,#f8efe6_0%,#f5e7da_45%,#f1dfcf_100%)] px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
