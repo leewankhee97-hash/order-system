@@ -1418,6 +1418,14 @@ export default function Page() {
                   {agentInfo?.name || agentInfo?.code || '欢迎下单'}
                 </h1>
 
+                <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+  <div>agent param: {String(agent || '-')}</div>
+  <div>agentInfo: {agentInfo ? (agentInfo.name || agentInfo.code || 'YES') : 'NO'}</div>
+  <div>products: {products.length}</div>
+  <div>bundles: {bundles.length}</div>
+  <div>error: {error || '-'}</div>
+</div>
+
                 <p className="mt-2 text-sm text-[#9b7b63]">
                   欢迎来到下单系统，看来今天又要发大财了❤️
                 </p>
