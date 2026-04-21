@@ -2542,6 +2542,4 @@ export default function Page() {
       )}
     </main>
   )
-}<p className="mt-2 text-xs text-red-500 break-all">
-  agent param: {String(agent || '-')}
-</p>
+}
