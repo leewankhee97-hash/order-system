@@ -342,6 +342,22 @@ export default function Page() {
       for (let retry = 0; retry < 3 && !foundAgent; retry++) {
         console.log('FETCH AGENT TRY:', retry + 1)
 
+        const { data: byAgentSlug, error: byAgentSlugError } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('agent_slug', agentSlug)
+          .maybeSingle()
+
+        if (byAgentSlugError) {
+          console.error('AGENT BY AGENT_SLUG ERROR:', byAgentSlugError)
+          foundAgentError = byAgentSlugError
+        }
+
+        if (byAgentSlug) {
+          foundAgent = byAgentSlug
+          break
+        }
+
         const { data: bySlug, error: bySlugError } = await supabase
           .from('agents')
           .select('*')
@@ -355,6 +371,22 @@ export default function Page() {
 
         if (bySlug) {
           foundAgent = bySlug
+          break
+        }
+
+        const { data: byCode, error: byCodeError } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('code', rawAgent)
+          .maybeSingle()
+
+        if (byCodeError) {
+          console.error('AGENT BY CODE ERROR:', byCodeError)
+          foundAgentError = byCodeError
+        }
+
+        if (byCode) {
+          foundAgent = byCode
           break
         }
 
