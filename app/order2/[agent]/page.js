@@ -200,6 +200,10 @@ function buildCurrentVersionedUrl(extraParams = {}) {
   return url.toString()
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export default function Page() {
   const { agent } = useParams()
   const productsGridRef = useRef(null)
@@ -279,6 +283,12 @@ export default function Page() {
     }
 
     init()
+
+    const t = setTimeout(() => {
+      init({ silent: true })
+    }, 2000)
+
+    return () => clearTimeout(t)
   }, [agent])
 
   useEffect(() => {
@@ -329,19 +339,25 @@ export default function Page() {
       let foundAgent = null
       let foundAgentError = null
 
-      const { data: bySlug, error: bySlugError } = await supabase
-        .from('agents')
-        .select('*')
-        .eq('slug', agentSlug)
-        .maybeSingle()
+      for (let retry = 0; retry < 3 && !foundAgent; retry++) {
+        console.log('FETCH AGENT TRY:', retry + 1)
 
-      if (bySlugError) {
-        console.error('AGENT BY SLUG ERROR:', bySlugError)
-      }
+        const { data: bySlug, error: bySlugError } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('slug', agentSlug)
+          .maybeSingle()
 
-      if (bySlug) {
-        foundAgent = bySlug
-      } else {
+        if (bySlugError) {
+          console.error('AGENT BY SLUG ERROR:', bySlugError)
+          foundAgentError = bySlugError
+        }
+
+        if (bySlug) {
+          foundAgent = bySlug
+          break
+        }
+
         const agentId = Number(rawAgent)
 
         if (!Number.isNaN(agentId) && rawAgent !== '') {
@@ -358,7 +374,12 @@ export default function Page() {
 
           if (byId) {
             foundAgent = byId
+            break
           }
+        }
+
+        if (!foundAgent && retry < 2) {
+          await sleep(500)
         }
       }
 
@@ -377,34 +398,64 @@ export default function Page() {
         return
       }
 
-      const { data: p, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('brand', { ascending: true })
-        .order('series', { ascending: true })
-        .order('name', { ascending: true })
+      let productsData = null
+      let bundlesData = null
 
-      if (productsError) {
-        console.error('PRODUCTS ERROR:', productsError)
+      for (let retry = 0; retry < 3 && !productsData; retry++) {
+        const { data: p, error: productsError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .order('brand', { ascending: true })
+          .order('series', { ascending: true })
+          .order('name', { ascending: true })
+
+        if (productsError) {
+          console.error('PRODUCTS ERROR:', productsError)
+        }
+
+        if (Array.isArray(p) && p.length > 0) {
+          productsData = p
+          break
+        }
+
+        if (Array.isArray(p) && p.length === 0) {
+          productsData = []
+          break
+        }
+
+        if (retry < 2) {
+          await sleep(500)
+        }
       }
 
-      const { data: b, error: bundlesError } = await supabase
-        .from('bundle_rules')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: true })
+      for (let retry = 0; retry < 3 && !bundlesData; retry++) {
+        const { data: b, error: bundlesError } = await supabase
+          .from('bundle_rules')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: true })
 
-      if (bundlesError) {
-        console.error('BUNDLES ERROR:', bundlesError)
+        if (bundlesError) {
+          console.error('BUNDLES ERROR:', bundlesError)
+        }
+
+        if (Array.isArray(b)) {
+          bundlesData = b
+          break
+        }
+
+        if (retry < 2) {
+          await sleep(500)
+        }
       }
 
       if (requestId !== initRequestRef.current) return
 
       setError('')
       setAgentInfo(foundAgent)
-      setProducts(p || [])
-      setBundles(b || [])
+      setProducts(productsData || [])
+      setBundles(bundlesData || [])
     } catch (err) {
       console.error('INIT ERROR:', err)
       if (requestId !== initRequestRef.current) return
@@ -1419,12 +1470,12 @@ export default function Page() {
                 </h1>
 
                 <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-  <div>agent param: {String(agent || '-')}</div>
-  <div>agentInfo: {agentInfo ? (agentInfo.name || agentInfo.code || 'YES') : 'NO'}</div>
-  <div>products: {products.length}</div>
-  <div>bundles: {bundles.length}</div>
-  <div>error: {error || '-'}</div>
-</div>
+                  <div>agent param: {String(agent || '-')}</div>
+                  <div>agentInfo: {agentInfo ? (agentInfo.name || agentInfo.code || 'YES') : 'NO'}</div>
+                  <div>products: {products.length}</div>
+                  <div>bundles: {bundles.length}</div>
+                  <div>error: {error || '-'}</div>
+                </div>
 
                 <p className="mt-2 text-sm text-[#9b7b63]">
                   欢迎来到下单系统，看来今天又要发大财了❤️
