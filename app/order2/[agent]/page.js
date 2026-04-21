@@ -1144,103 +1144,116 @@ export default function Page() {
     return `RM ${money(shippingFee)}`
   }
 
-  function buildCopiedSummary(oid) {
-    const lines = []
-    const itemTotal = normalTotal + bundleCartTotal
+ function buildCopiedSummary(oid) {
+  const lines = []
+  const itemTotal = normalTotal + bundleCartTotal
 
-    if (delivery === '邮寄') {
-      lines.push(`配送方式：邮寄`)
-      lines.push(`订单编号：${oid}`)
-      lines.push(`地区：${region}`)
-      lines.push(
-        `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`
-      )
-      lines.push('')
-      lines.push(`收件人资料`)
-      lines.push(`名字：${name || '-'}`)
-      lines.push(`电话：${phone || '-'}`)
-      lines.push(`地址：${address || '-'}`)
-      lines.push(`Postcode：${postcode || '-'}`)
-      lines.push(`州属：${state || '-'}`)
-      lines.push('')
-    } else if (delivery === 'LALAMOVE') {
-      lines.push(`配送方式：LALAMOVE`)
-      lines.push(`订单编号：${oid}`)
-      lines.push(`地区：${state || 'Klang Valley'}`)
-      lines.push(`运费：RM${money(shippingFee)}`)
-      lines.push('')
-      lines.push(`收件人资料`)
-      lines.push(`名字：${name || '-'}`)
-      lines.push(`电话：${phone || '-'}`)
-      lines.push(`地址：${address || '-'}`)
-      lines.push('')
-    } else {
-      lines.push(`配送方式：自取`)
-      lines.push(`订单编号：${oid}`)
-      lines.push(`自取日期：${date || '-'}`)
-      lines.push(`自取时间：${time || '-'}`)
-      lines.push('')
-    }
-
-    lines.push(`订单内容`)
-
-    cart.forEach((item) => {
-      if (item.is_bundle) {
-        const subtotal = Number(item.qty || 0) * Number(item.price || 0)
-
-        lines.push(`${item.bundle_name}（BUNDLE）× ${item.qty}组`)
-        lines.push(`每组：RM${money(item.price)}`)
-        lines.push(`小计：RM${money(subtotal)}`)
-        lines.push('')
-        lines.push(`口味明细`)
-
-        ;(item.bundle_items || []).forEach((bi) => {
-          const split = splitBrandFlavor(bi.brand, bi.product_name)
-          if (split.brandLine) lines.push(split.brandLine)
-          lines.push(`${split.flavorLine} × ${bi.qty}`)
-        })
-
-        lines.push('')
-        return
-      }
-
-      const price = Number(item.price || 0)
-      const subtotal = Number(item.qty || 0) * price
-      const displayName = cleanProductName(item)
-      const split = splitBrandFlavor(item.brand, displayName)
-
-      if (split.brandLine) lines.push(split.brandLine)
-      lines.push(`${split.flavorLine} × ${item.qty}`)
-      lines.push(`单价：RM${money(price)}`)
-      lines.push(`小计：RM${money(subtotal)}`)
-      lines.push('')
-    })
-
-    lines.push(`备注`)
-    if (noBackup) {
-      lines.push(`不选择备选口味`)
-      lines.push(`如遇缺货，下一单扣`)
-    } else if (Object.keys(backupSelections).length > 0) {
-      Object.entries(backupSelections).forEach(([brand, flavors]) => {
-        if (!Array.isArray(flavors) || flavors.length === 0) return
-        lines.push(brand)
-        flavors.forEach((f) => lines.push(f))
-      })
-    } else {
-      lines.push(`-`)
-    }
-
-    lines.push('')
-    lines.push(`费用明细`)
-    lines.push(`物品总额：RM${money(itemTotal)}`)
+  if (delivery === '邮寄') {
+    lines.push(`配送方式：邮寄`)
+    lines.push(`订单编号：${oid}`)
+    lines.push(`地区：${region}`)
     lines.push(
       `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`
     )
     lines.push('')
-    lines.push(`总额：RM${money(total)}`)
-
-    return lines.join('\n')
+    lines.push(`收件人资料`)
+    lines.push(`名字：${name || '-'}`)
+    lines.push(`电话：${phone || '-'}`)
+    lines.push(`地址：${address || '-'}`)
+    lines.push(`Postcode：${postcode || '-'}`)
+    lines.push(`州属：${state || '-'}`)
+    lines.push('')
+  } else if (delivery === 'LALAMOVE') {
+    lines.push(`配送方式：LALAMOVE`)
+    lines.push(`订单编号：${oid}`)
+    lines.push(`地区：${state || 'Klang Valley'}`)
+    lines.push(`运费：RM${money(shippingFee)}`)
+    lines.push('')
+    lines.push(`收件人资料`)
+    lines.push(`名字：${name || '-'}`)
+    lines.push(`电话：${phone || '-'}`)
+    lines.push(`地址：${address || '-'}`)
+    lines.push('')
+  } else {
+    lines.push(`配送方式：自取`)
+    lines.push(`订单编号：${oid}`)
+    lines.push(`自取日期：${date || '-'}`)
+    lines.push(`自取时间：${time || '-'}`)
+    lines.push('')
   }
+
+  lines.push(`订单内容`)
+
+  cart.forEach((item) => {
+    if (item.is_bundle) {
+      const subtotal = Number(item.qty || 0) * Number(item.price || 0)
+
+      lines.push(`${item.bundle_name}（BUNDLE）× ${item.qty}组`)
+      lines.push(`每组：RM${money(item.price)}`)
+      lines.push(`小计：RM${money(subtotal)}`)
+      lines.push('')
+      lines.push(`口味明细`)
+
+      ;(item.bundle_items || []).forEach((bi) => {
+        const split = splitBrandFlavor(bi.brand, bi.product_name)
+        if (split.brandLine) lines.push(split.brandLine)
+        lines.push(`${split.flavorLine} × ${bi.qty}`)
+      })
+
+      lines.push('')
+      return
+    }
+
+    const price = Number(item.price || 0)
+    const subtotal = Number(item.qty || 0) * price
+    const displayName = cleanProductName(item)
+    const split = splitBrandFlavor(item.brand, displayName)
+
+    if (split.brandLine) lines.push(split.brandLine)
+    lines.push(`${split.flavorLine} × ${item.qty}`)
+    lines.push(`单价：RM${money(price)}`)
+    lines.push(`小计：RM${money(subtotal)}`)
+    lines.push('')
+  })
+
+  lines.push(`备注`)
+
+  if (noBackup) {
+    lines.push(`【不选择备选】`)
+    lines.push(`如遇缺货，下一单扣`)
+  } else {
+    const backupEntries = Object.entries(backupSelections).filter(
+      ([, flavors]) => Array.isArray(flavors) && flavors.length > 0
+    )
+
+    if (backupEntries.length > 0) {
+      lines.push(`【备选口味】`)
+      lines.push('')
+
+      backupEntries.forEach(([brand, flavors], index) => {
+        lines.push(brand)
+        flavors.forEach((f) => lines.push(`• ${f}`))
+
+        if (index !== backupEntries.length - 1) {
+          lines.push('')
+        }
+      })
+    } else {
+      lines.push(`-`)
+    }
+  }
+
+  lines.push('')
+  lines.push(`费用明细`)
+  lines.push(`物品总额：RM${money(itemTotal)}`)
+  lines.push(
+    `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`
+  )
+  lines.push('')
+  lines.push(`总额：RM${money(total)}`)
+
+  return lines.join('\n')
+}
 
   async function copyText(text) {
     if (!text || !String(text).trim()) {
