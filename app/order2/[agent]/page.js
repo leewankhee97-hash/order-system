@@ -1276,9 +1276,18 @@ lines.push('订单内容')
     lines.push(`【不选择备选】`)
     lines.push(`如遇缺货，下一单扣`)
   } else {
-    const backupEntries = Object.entries(backupSelections).filter(
-      ([, flavors]) => Array.isArray(flavors) && flavors.length > 0
-    )
+    // ✅ 新增：先拿 cart 里面的 brand
+const cartBrands = new Set(
+  cart.map(item => normalizeText(item.brand))
+)
+
+// ✅ 再过滤 backup，只保留购物车里的品牌
+const backupEntries = Object.entries(backupSelections).filter(
+  ([brand, flavors]) =>
+    Array.isArray(flavors) &&
+    flavors.length > 0 &&
+    cartBrands.has(normalizeText(brand))
+)
 
     if (backupEntries.length > 0) {
       lines.push(`【备选口味】`)
