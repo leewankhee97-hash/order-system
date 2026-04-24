@@ -184,14 +184,7 @@ function splitBrandFlavor(brand, productName) {
 }
 
 function getSummaryGroupName(item) {
-  const brand = normalizeText(item?.brand)
-  const series = normalizeText(item?.series)
-  const fallback = normalizeText(item?.product_name) || cleanProductName(item)
-
-  if (brand && series && !eqText(brand, series)) return `${brand} ${series}`
-  if (brand) return brand
-  if (series) return series
-  return fallback || '-'
+  return normalizeText(item?.brand) || cleanProductName(item) || '-'
 }
 
 function getSummaryVariantName(item) {
@@ -1213,31 +1206,10 @@ function buildCopiedSummary(oid) {
   const lines = []
   const itemTotal = normalTotal + bundleCartTotal
 
-  if (delivery === '邮寄') {
-    lines.push(`配送方式：邮寄`)
-    lines.push(`订单编号：${oid}`)
-    lines.push(`地区：${region}`)
-    lines.push(`运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`)
-    lines.push('')
-    lines.push(`收件人资料`)
-    lines.push(`名字：${name || '-'}`)
-    lines.push(`电话：${phone || '-'}`)
-    lines.push(`地址：${address || '-'}`)
-    lines.push(`Postcode：${postcode || '-'}`)
-    lines.push(`州属：${state || '-'}`)
-    lines.push('')
-  } else if (delivery === 'LALAMOVE') {
-    lines.push(`配送方式：LALAMOVE`)
-    lines.push(`订单编号：${oid}`)
-    lines.push(`地区：${state || 'Klang Valley'}`)
-    lines.push(`运费：RM${money(shippingFee)}`)
-    lines.push('')
-    lines.push(`收件人资料`)
-    lines.push(`名字：${name || '-'}`)
-    lines.push(`电话：${phone || '-'}`)
-    lines.push(`地址：${address || '-'}`)
-    lines.push('')
-  } else {
+  lines.push('🧾 ORDER SUMMARY')
+  lines.push('')
+
+  if (delivery === '自取') {
     lines.push(`配送方式：自取`)
     lines.push(`订单编号：${oid}`)
     lines.push(`自取日期：${date || '-'}`)
@@ -1245,18 +1217,76 @@ function buildCopiedSummary(oid) {
     lines.push('')
   }
 
-  lines.push(`订单内容`)
+  lines.push('━━━━━━━━━━━━━━━')
+  lines.push('')
+  lines.push('订单内容')
 
   buildGroupedNormalItems(cart).forEach((group) => {
     lines.push('')
-    lines.push(group.name)
+    lines.push(`【${group.name}】`)
+
+    const priceMap = {}
 
     group.variants.forEach((variant) => {
-      lines.push(`- ${variant.name} × ${variant.qty}（RM${money(variant.price)}）`)
+      const key = money(variant.price)
+      if (!priceMap[key]) priceMap[key] = []
+      priceMap[key].push(variant)
     })
 
-    lines.push(`小计：RM${money(group.subtotal)}`)
+    Object.entries(priceMap).forEach(([price, variants]) => {
+      lines.push('')
+      lines.push(`💰 RM${price}`)
+
+      variants.forEach((v) => {
+        lines.push(`• ${v.name} ×${v.qty}`)
+      })
+    })
+
+    lines.push('')
+    lines.push(`🧮 小计：RM${money(group.subtotal)}`)
   })
+
+  lines.push('')
+  lines.push('━━━━━━━━━━━━━━━')
+  lines.push('')
+  lines.push(`🟢 总额：RM${money(total)}`)
+
+  return lines.join('\n')
+}
+
+  lines.push(`订单内容`)
+  lines.push('')
+lines.push('━━━━━━━━━━━━━━━')
+
+  buildGroupedNormalItems(cart).forEach((group) => {
+  lines.push('')
+  lines.push(`【${group.name}】`)
+
+  // 👉 新增：按 price 分组
+  const priceMap = {}
+
+  group.variants.forEach((variant) => {
+    const priceKey = money(variant.price)
+
+    if (!priceMap[priceKey]) {
+      priceMap[priceKey] = []
+    }
+
+    priceMap[priceKey].push(variant)
+  })
+
+  Object.entries(priceMap).forEach(([price, variants]) => {
+    lines.push('')
+    lines.push(`RM${price}`)
+
+    variants.forEach((variant) => {
+      lines.push(`• ${variant.name} ×${variant.qty}`)
+    })
+  })
+
+  lines.push('')
+  lines.push(`【小计：RM${money(group.subtotal)}】`)
+})
 
   cart
     .filter((item) => item.is_bundle)
@@ -2704,4 +2734,3 @@ function buildCopiedSummary(oid) {
       )}
     </main>
   )
-}
