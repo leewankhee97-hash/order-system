@@ -1221,22 +1221,31 @@ function buildCopiedSummary(oid) {
 lines.push('')
 lines.push('订单内容')
 
-  buildGroupedNormalItems(cart).forEach((group) => {
-  lines.push('')
+  buildGroupedNormalItems(cart).forEach((group, gIndex) => {
+  if (gIndex !== 0) {
+    lines.push('')
+  }
+
   lines.push(`【${group.name}】`)
 
-  // 👉 新增：按 price 分组
   const priceMap = {}
 
   group.variants.forEach((variant) => {
     const priceKey = money(variant.price)
-
-    if (!priceMap[priceKey]) {
-      priceMap[priceKey] = []
-    }
-
+    if (!priceMap[priceKey]) priceMap[priceKey] = []
     priceMap[priceKey].push(variant)
   })
+
+  Object.entries(priceMap).forEach(([price, variants]) => {
+    lines.push(`💰 RM${price}`)
+
+    variants.forEach((variant) => {
+      lines.push(`• ${variant.name} ×${variant.qty}`)
+    })
+  })
+
+  lines.push(`🧮 小计：RM${money(group.subtotal)}`)
+})
 
   Object.entries(priceMap).forEach(([price, variants]) => {
     lines.push('')
@@ -1278,7 +1287,9 @@ lines.push('订单内容')
   } else {
     // ✅ 新增：先拿 cart 里面的 brand
 const cartBrands = new Set(
-  cart.map(item => normalizeText(item.brand))
+  cart.map((item) =>
+    normalizeText(item.is_bundle ? item.bundle_brand : item.brand)
+  )
 )
 
 // ✅ 再过滤 backup，只保留购物车里的品牌
