@@ -1218,45 +1218,8 @@ function buildCopiedSummary(oid) {
   }
 
   lines.push('━━━━━━━━━━━━━━━')
-  lines.push('')
-  lines.push('订单内容')
-
-  buildGroupedNormalItems(cart).forEach((group) => {
-    lines.push('')
-    lines.push(`【${group.name}】`)
-
-    const priceMap = {}
-
-    group.variants.forEach((variant) => {
-      const key = money(variant.price)
-      if (!priceMap[key]) priceMap[key] = []
-      priceMap[key].push(variant)
-    })
-
-    Object.entries(priceMap).forEach(([price, variants]) => {
-      lines.push('')
-      lines.push(`💰 RM${price}`)
-
-      variants.forEach((v) => {
-        lines.push(`• ${v.name} ×${v.qty}`)
-      })
-    })
-
-    lines.push('')
-    lines.push(`🧮 小计：RM${money(group.subtotal)}`)
-  })
-
-  lines.push('')
-  lines.push('━━━━━━━━━━━━━━━')
-  lines.push('')
-  lines.push(`🟢 总额：RM${money(total)}`)
-
-  return lines.join('\n')
-}
-
-  lines.push(`订单内容`)
-  lines.push('')
-lines.push('━━━━━━━━━━━━━━━')
+lines.push('')
+lines.push('订单内容')
 
   buildGroupedNormalItems(cart).forEach((group) => {
   lines.push('')
@@ -1277,7 +1240,7 @@ lines.push('━━━━━━━━━━━━━━━')
 
   Object.entries(priceMap).forEach(([price, variants]) => {
     lines.push('')
-    lines.push(`RM${price}`)
+    lines.push(`💰 RM${price}`)
 
     variants.forEach((variant) => {
       lines.push(`• ${variant.name} ×${variant.qty}`)
@@ -1285,7 +1248,7 @@ lines.push('━━━━━━━━━━━━━━━')
   })
 
   lines.push('')
-  lines.push(`【小计：RM${money(group.subtotal)}】`)
+ lines.push(`🧮 小计：RM${money(group.subtotal)}`)
 })
 
   cart
