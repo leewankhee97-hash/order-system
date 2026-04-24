@@ -1237,17 +1237,6 @@ lines.push('订单内容')
   })
 
   Object.entries(priceMap).forEach(([price, variants]) => {
-    lines.push(`💰 RM${price}`)
-
-    variants.forEach((variant) => {
-      lines.push(`• ${variant.name} ×${variant.qty}`)
-    })
-  })
-
-  lines.push(`🧮 小计：RM${money(group.subtotal)}`)
-})
-
-  Object.entries(priceMap).forEach(([price, variants]) => {
     lines.push('')
     lines.push(`💰 RM${price}`)
 
