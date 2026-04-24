@@ -25,7 +25,7 @@ const STATES = [
 const EAST = ['SABAH', 'SARAWAK', 'WP LABUAN']
 
 const APP_VERSION =
-  process.env.NEXT_PUBLIC_APP_VERSION || '2026-04-21-1'
+  process.env.NEXT_PUBLIC_APP_VERSION || '2026-04-24-1'
 const VERSION_PARAM = '_v'
 const REFRESH_PARAM = '_r'
 const VERSION_STORAGE_KEY = 'order2_app_version'
@@ -181,6 +181,71 @@ function splitBrandFlavor(brand, productName) {
     brandLine: safeBrand,
     flavorLine: flavor || safeProductName || '-',
   }
+}
+
+function getSummaryGroupName(item) {
+  const brand = normalizeText(item?.brand)
+  const series = normalizeText(item?.series)
+  const fallback = normalizeText(item?.product_name) || cleanProductName(item)
+
+  if (brand && series && !eqText(brand, series)) return `${brand} ${series}`
+  if (brand) return brand
+  if (series) return series
+  return fallback || '-'
+}
+
+function getSummaryVariantName(item) {
+  const cleanName = cleanProductName(item)
+  const groupName = getSummaryGroupName(item)
+
+  if (eqText(cleanName, groupName)) return normalizeText(item?.name) || cleanName || '-'
+  return cleanName || normalizeText(item?.name) || '-'
+}
+
+function buildGroupedNormalItems(cartItems = []) {
+  const groupMap = new Map()
+
+  cartItems
+    .filter((item) => !item.is_bundle)
+    .forEach((item) => {
+      const groupName = getSummaryGroupName(item)
+      const groupKey = groupName.toLowerCase()
+      const variantName = getSummaryVariantName(item)
+      const price = Number(item.price || 0)
+      const qty = Number(item.qty || 0)
+      const itemSubtotal = qty * price
+
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {
+          name: groupName,
+          subtotal: 0,
+          variants: new Map(),
+        })
+      }
+
+      const group = groupMap.get(groupKey)
+      group.subtotal += itemSubtotal
+
+      const variantKey = `${variantName.toLowerCase()}__${price}`
+
+      if (!group.variants.has(variantKey)) {
+        group.variants.set(variantKey, {
+          name: variantName,
+          qty: 0,
+          price,
+          subtotal: 0,
+        })
+      }
+
+      const variant = group.variants.get(variantKey)
+      variant.qty += qty
+      variant.subtotal += itemSubtotal
+    })
+
+  return Array.from(groupMap.values()).map((group) => ({
+    ...group,
+    variants: Array.from(group.variants.values()),
+  }))
 }
 
 function buildCurrentVersionedUrl(extraParams = {}) {
@@ -1144,7 +1209,7 @@ export default function Page() {
     return `RM ${money(shippingFee)}`
   }
 
- function buildCopiedSummary(oid) {
+function buildCopiedSummary(oid) {
   const lines = []
   const itemTotal = normalTotal + bundleCartTotal
 
@@ -1152,9 +1217,7 @@ export default function Page() {
     lines.push(`配送方式：邮寄`)
     lines.push(`订单编号：${oid}`)
     lines.push(`地区：${region}`)
-    lines.push(
-      `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`
-    )
+    lines.push(`运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`)
     lines.push('')
     lines.push(`收件人资料`)
     lines.push(`名字：${name || '-'}`)
@@ -1184,38 +1247,36 @@ export default function Page() {
 
   lines.push(`订单内容`)
 
-  cart.forEach((item) => {
-    if (item.is_bundle) {
+  buildGroupedNormalItems(cart).forEach((group) => {
+    lines.push('')
+    lines.push(group.name)
+
+    group.variants.forEach((variant) => {
+      lines.push(`- ${variant.name} × ${variant.qty}（RM${money(variant.price)}）`)
+    })
+
+    lines.push(`小计：RM${money(group.subtotal)}`)
+  })
+
+  cart
+    .filter((item) => item.is_bundle)
+    .forEach((item) => {
       const subtotal = Number(item.qty || 0) * Number(item.price || 0)
 
+      lines.push('')
       lines.push(`${item.bundle_name}（BUNDLE）× ${item.qty}组`)
       lines.push(`每组：RM${money(item.price)}`)
       lines.push(`小计：RM${money(subtotal)}`)
-      lines.push('')
       lines.push(`口味明细`)
 
       ;(item.bundle_items || []).forEach((bi) => {
         const split = splitBrandFlavor(bi.brand, bi.product_name)
         if (split.brandLine) lines.push(split.brandLine)
-        lines.push(`${split.flavorLine} × ${bi.qty}`)
+        lines.push(`- ${split.flavorLine} × ${bi.qty}`)
       })
+    })
 
-      lines.push('')
-      return
-    }
-
-    const price = Number(item.price || 0)
-    const subtotal = Number(item.qty || 0) * price
-    const displayName = cleanProductName(item)
-    const split = splitBrandFlavor(item.brand, displayName)
-
-    if (split.brandLine) lines.push(split.brandLine)
-    lines.push(`${split.flavorLine} × ${item.qty}`)
-    lines.push(`单价：RM${money(price)}`)
-    lines.push(`小计：RM${money(subtotal)}`)
-    lines.push('')
-  })
-
+  lines.push('')
   lines.push(`备注`)
 
   if (noBackup) {
@@ -1246,9 +1307,7 @@ export default function Page() {
   lines.push('')
   lines.push(`费用明细`)
   lines.push(`物品总额：RM${money(itemTotal)}`)
-  lines.push(
-    `运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`
-  )
+  lines.push(`运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`)
   lines.push('')
   lines.push(`总额：RM${money(total)}`)
 
