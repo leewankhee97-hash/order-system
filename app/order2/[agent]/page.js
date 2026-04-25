@@ -1492,15 +1492,15 @@ const backupEntries = Object.entries(backupSelections).filter(
       setError('请选择备选口味，或勾选【不选择备选】')
       return
     }
- 
-    try {
-      setSubmitting(true)
-      setError('')
-      setSuccess('')
-      setSummaryCopied(false)
-      setShowSummaryModal(false)
- 
-      const prefix = agentInfo.code || agentInfo.name || 'ORDER'
+ try {
+  setSubmitting(true)
+  setError('')
+  setSuccess('')
+  setSummaryCopied(false)
+  setShowSummaryModal(false)
+   console.log('SUBMIT agent_id:', agentInfo.id, typeof agentInfo.id)
+
+const prefix = agentInfo.code || agentInfo.name || 'ORDER'
 
 const { data: oid, error: orderIdError } = await supabase.rpc(
   'create_agent_order_id',
@@ -1512,11 +1512,12 @@ const { data: oid, error: orderIdError } = await supabase.rpc(
 if (orderIdError) throw orderIdError
  
       const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          agent_name: prefix,
-          delivery_method: delivery,
-          pickup_order_id: oid,
+  .from('orders')
+  .insert({
+    agent_id: agentInfo.id, // ✅ 关键修复
+    agent_name: prefix,
+    delivery_method: delivery,
+    pickup_order_id: oid,
           pickup_date: delivery === '自取' ? date || null : null,
           pickup_time: delivery === '自取' ? time || null : null,
           recipient_name: name || null,
