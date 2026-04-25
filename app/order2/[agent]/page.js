@@ -308,7 +308,10 @@ export default function Page() {
   const [copiedPreview, setCopiedPreview] = useState('')
  
   const [summaryCopied, setSummaryCopied] = useState(false)
-  const [showSummaryModal, setShowSummaryModal] = useState(false)
+const [showSummaryModal, setShowSummaryModal] = useState(false)
+
+const DRAFT_STORAGE_KEY = `order2_draft_${String(agent || '').trim()}`
+const [draftLoaded, setDraftLoaded] = useState(false)
  
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -345,6 +348,78 @@ export default function Page() {
     // ❌ 不再监听 focus / visibilitychange，避免手机切去复制资料回来导致 cart 和表单被重刷
     init()
   }, [agent])
+  useEffect(() => {
+  if (typeof window === 'undefined') return
+
+  const saved = window.localStorage.getItem(DRAFT_STORAGE_KEY)
+
+  if (!saved) {
+    setDraftLoaded(true)
+    return
+  }
+
+  try {
+    const draft = JSON.parse(saved)
+
+    setCart(Array.isArray(draft.cart) ? draft.cart : [])
+    setDelivery(draft.delivery || '自取')
+    setDate(draft.date || '')
+    setTime(draft.time || '')
+    setName(draft.name || '')
+    setPhone(draft.phone || '')
+    setAddress(draft.address || '')
+    setState(draft.state || '')
+    setPostcode(draft.postcode || '')
+    setShipping(draft.shipping || '')
+    setBackupSelections(draft.backupSelections || {})
+    setNoBackup(Boolean(draft.noBackup))
+  } catch (err) {
+    console.error('LOAD DRAFT ERROR:', err)
+  }
+
+  setDraftLoaded(true)
+}, [DRAFT_STORAGE_KEY])
+useEffect(() => {
+  if (typeof window === 'undefined') return
+  if (!draftLoaded) return
+  if (showSummaryModal) return
+
+  const draft = {
+    cart,
+    delivery,
+    date,
+    time,
+    name,
+    phone,
+    address,
+    state,
+    postcode,
+    shipping,
+    backupSelections,
+    noBackup,
+  }
+
+  window.localStorage.setItem(
+    DRAFT_STORAGE_KEY,
+    JSON.stringify(draft)
+  )
+}, [
+  DRAFT_STORAGE_KEY,
+  draftLoaded,
+  showSummaryModal,
+  cart,
+  delivery,
+  date,
+  time,
+  name,
+  phone,
+  address,
+  state,
+  postcode,
+  shipping,
+  backupSelections,
+  noBackup,
+])
  
   async function init(options = {}) {
     const requestId = ++initRequestRef.current
@@ -523,18 +598,24 @@ export default function Page() {
   }
  
   useEffect(() => {
-    if (!agentInfo) return
-    const prefix = agentInfo.code || agentInfo.name || 'ORDER'
-    const count = agentInfo.order_counter || 1
-    setOrderId(`${prefix}-${String(count).padStart(4, '0')}`)
-    setCart([])
-    setBundleSelect({})
-    setSelectedBundle(null)
-    setSelectedBundleFlavor('')
-    setBackupSelections({})
-    setNoBackup(false)
-    setDraftQty({})
-  }, [agentInfo])
+  if (!agentInfo) return
+
+  const prefix = agentInfo.code || agentInfo.name || 'ORDER'
+  const count = agentInfo.order_counter || 1
+
+  setOrderId(`${prefix}-${String(count).padStart(4, '0')}`)
+
+  // ❌ 不要清 cart / backup / 表单
+  // setCart([])
+  // setBackupSelections({})
+  // setNoBackup(false)
+
+  // ✅ 只清 bundle 相关
+  setBundleSelect({})
+  setSelectedBundle(null)
+  setSelectedBundleFlavor('')
+  setDraftQty({})
+}, [agentInfo])
  
   function getAgentLevel() {
     const raw = String(agentInfo?.level ?? '').trim().toLowerCase()
@@ -1147,22 +1228,27 @@ export default function Page() {
   }
  
   function resetFormAfterSubmit() {
-    setCart([])
-    setSelectedBundle(null)
-    setSelectedBundleFlavor('')
-    setBundleSelect({})
-    setDate('')
-    setTime('')
-    setName('')
-    setPhone('')
-    setAddress('')
-    setState('')
-    setPostcode('')
-    setShipping('')
-    setDraftQty({})
-    setBackupSelections({})
-    setNoBackup(false)
+  setCart([])
+  setSelectedBundle(null)
+  setSelectedBundleFlavor('')
+  setBundleSelect({})
+  setDate('')
+  setTime('')
+  setName('')
+  setPhone('')
+  setAddress('')
+  setState('')
+  setPostcode('')
+  setShipping('')
+  setDraftQty({})
+  setBackupSelections({})
+  setNoBackup(false)
+
+  // ✅ 清除本地草稿（重点）
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(DRAFT_STORAGE_KEY)
   }
+}
  
   function shippingText() {
     if (shippingFee === 'ASK') return '请问我查询运费'
@@ -1202,14 +1288,6 @@ if (delivery === 'LALAMOVE') {
 }
 
 lines.push('')
- 
-  if (delivery === '自取') {
-    lines.push(`配送方式：自取`)
-    lines.push(`订单编号：${oid}`)
-    lines.push(`自取日期：${date || '-'}`)
-    lines.push(`自取时间：${time || '-'}`)
-    lines.push('')
-  }
  
   lines.push('━━━━━━━━━━━━━━━')
 lines.push('')
@@ -1355,17 +1433,22 @@ const backupEntries = Object.entries(backupSelections).filter(
   }
  
   function handleCloseSummaryModal() {
-    if (!summaryCopied) {
-      const ok = window.confirm('你还没复制订单摘要，确定要关闭吗？')
-      if (!ok) return
-    }
- 
-    setShowSummaryModal(false)
- 
+  // ❗ 没复制 → 先确认
+  if (!summaryCopied) {
+    const ok = window.confirm('你还没复制订单摘要，确定要关闭吗？')
+    if (!ok) return
+  }
+
+  // 关闭 modal
+  setShowSummaryModal(false)
+
+  // 已复制 → 才 refresh
+  if (summaryCopied) {
     setTimeout(() => {
       hardRefreshPage()
     }, 300)
   }
+}
  
   async function submit(e) {
     e.preventDefault()
@@ -1418,15 +1501,15 @@ const backupEntries = Object.entries(backupSelections).filter(
       setShowSummaryModal(false)
  
       const prefix = agentInfo.code || agentInfo.name || 'ORDER'
-      const count = agentInfo.order_counter || 1
-      const oid = `${prefix}-${String(count).padStart(4, '0')}`
- 
-      const { error: agentUpdateError } = await supabase
-        .from('agents')
-        .update({ order_counter: count + 1 })
-        .eq('id', agentInfo.id)
- 
-      if (agentUpdateError) throw agentUpdateError
+
+const { data: oid, error: orderIdError } = await supabase.rpc(
+  'create_agent_order_id',
+  {
+    agent_id_input: agentInfo.id,
+  }
+)
+
+if (orderIdError) throw orderIdError
  
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -1483,26 +1566,30 @@ const backupEntries = Object.entries(backupSelections).filter(
       if (itemError) throw itemError
  
       for (const i of cart) {
-        if (i.is_bundle) {
-          for (const bi of i.bundle_items || []) {
-            const product = products.find((p) => String(p.id) === String(bi.product_id))
-            const currentStock = Number(product?.stock || 0)
-            const { error: bundleStockError } = await supabase
-              .from('products')
-              .update({ stock: currentStock - Number(bi.qty || 0) })
-              .eq('id', bi.product_id)
- 
-            if (bundleStockError) throw bundleStockError
-          }
-        } else {
-          const { error: stockError } = await supabase
-            .from('products')
-            .update({ stock: Number(i.stock || 0) - Number(i.qty || 0) })
-            .eq('id', i.id)
- 
-          if (stockError) throw stockError
+  if (i.is_bundle) {
+    for (const bi of i.bundle_items || []) {
+      const { error: bundleStockError } = await supabase.rpc(
+        'decrement_stock',
+        {
+          product_id_input: bi.product_id,
+          qty_input: Number(bi.qty || 0),
         }
+      )
+
+      if (bundleStockError) throw bundleStockError
+    }
+  } else {
+    const { error: stockError } = await supabase.rpc(
+      'decrement_stock',
+      {
+        product_id_input: i.id,
+        qty_input: Number(i.qty || 0),
       }
+    )
+
+    if (stockError) throw stockError
+  }
+}
  
       const copiedSummary = buildCopiedSummary(oid)
       setCopiedPreview(copiedSummary)
@@ -2634,7 +2721,31 @@ const backupEntries = Object.entries(backupSelections).filter(
               </div>
             </section>
           </div>
-        </form>
+        </form>{cart.length > 0 && !showSummaryModal && (
+  <div className="fixed bottom-0 left-0 right-0 z-[9998] border-t border-[#eadacb] bg-white/95 px-4 py-3 shadow-[0_-10px_30px_rgba(121,88,63,0.15)] backdrop-blur md:hidden">
+    <div className="mx-auto flex max-w-7xl items-center gap-3">
+      <div className="flex-1">
+        <div className="text-xs font-semibold text-[#9b7b63]">
+          🛒 {cartQty} items
+        </div>
+        <div className="text-lg font-black text-[#5f4432]">
+          RM {money(total)}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        disabled={submitting}
+        onClick={() => {
+          document.querySelector('form')?.requestSubmit()
+        }}
+        className="rounded-3xl border border-[#d2b49c] bg-[#dcc0a8] px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+      >
+        {submitting ? '提交中' : '提交订单'}
+      </button>
+    </div>
+  </div>
+)}
       </div>
  
       {showSummaryModal && (
