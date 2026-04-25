@@ -1510,6 +1510,7 @@ const { data: oid, error: orderIdError } = await supabase.rpc(
 )
 
 if (orderIdError) throw orderIdError
+console.log('FINAL agent_id:', agentInfo.id, typeof agentInfo.id)
 console.log('OID:', oid)
  
       const { data: order, error: orderError } = await supabase
