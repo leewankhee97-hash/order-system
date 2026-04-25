@@ -1,9 +1,9 @@
 'use client'
-
+ 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabase'
-
+ 
 const STATES = [
   'Johor',
   'Kedah',
@@ -23,18 +23,18 @@ const STATES = [
   'Putrajaya',
 ]
 const EAST = ['SABAH', 'SARAWAK', 'WP LABUAN']
-
+ 
 const APP_VERSION =
-  process.env.NEXT_PUBLIC_APP_VERSION || '2026-04-24-1'
+  process.env.NEXT_PUBLIC_APP_VERSION || '2026-04-25-1'
 const VERSION_PARAM = '_v'
 const REFRESH_PARAM = '_r'
 const VERSION_STORAGE_KEY = 'order2_app_version'
 const VERSION_RELOAD_GUARD_KEY = 'order2_app_version_reloaded'
-
+ 
 function money(v) {
   return Number(v || 0).toFixed(2)
 }
-
+ 
 function stockLabel(stock) {
   const s = Number(stock || 0)
   if (s <= 0) {
@@ -57,14 +57,14 @@ function stockLabel(stock) {
     badge: 'border-cyan-200 bg-cyan-50 text-cyan-700',
   }
 }
-
+ 
 function cardGlow(stock) {
   const s = Number(stock || 0)
   if (s <= 0) return 'hover:border-red-200'
   if (s <= 50) return 'hover:border-amber-200'
   return 'hover:border-[#d8c2aa]'
 }
-
+ 
 function PawPrint({ className = '' }) {
   return (
     <span className={`inline-block ${className}`} aria-hidden="true">
@@ -72,7 +72,7 @@ function PawPrint({ className = '' }) {
     </span>
   )
 }
-
+ 
 function FilterButton({ active, onClick, children }) {
   return (
     <button
@@ -88,17 +88,17 @@ function FilterButton({ active, onClick, children }) {
     </button>
   )
 }
-
+ 
 function normalizeText(v) {
   return String(v || '')
     .trim()
     .replace(/\s+/g, ' ')
 }
-
+ 
 function eqText(a, b) {
   return normalizeText(a).toLowerCase() === normalizeText(b).toLowerCase()
 }
-
+ 
 function getProductType(product) {
   const rawOriginal = normalizeText(
     product?.product_type ??
@@ -107,13 +107,13 @@ function getProductType(product) {
       product?.main_category ??
       ''
   )
-
+ 
   const raw = rawOriginal.toUpperCase()
-
+ 
   if (raw.includes('烟弹') || raw.includes('POD') || raw.includes('弹')) {
     return '烟弹'
   }
-
+ 
   if (
     raw.includes('烟杆') ||
     raw.includes('杆') ||
@@ -122,7 +122,7 @@ function getProductType(product) {
   ) {
     return '烟杆'
   }
-
+ 
   if (
     raw.includes('一次性') ||
     raw.includes('抛弃式') ||
@@ -131,73 +131,73 @@ function getProductType(product) {
   ) {
     return '一次性'
   }
-
+ 
   if (!rawOriginal) return '未分类'
   return rawOriginal
 }
-
+ 
 function cleanProductName(product) {
   let n = normalizeText(product?.name)
-
+ 
   const brand = normalizeText(product?.brand)
   const series = normalizeText(product?.series)
-
+ 
   if (brand) {
     const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     n = n.replace(new RegExp(escaped, 'ig'), ' ')
   }
-
+ 
   if (series) {
     const escaped = series.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     n = n.replace(new RegExp(escaped, 'ig'), ' ')
   }
-
+ 
   n = n.replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim()
-
+ 
   return n || normalizeText(product?.name) || '-'
 }
-
+ 
 function getVariantLabel(product) {
   const type = getProductType(product)
   if (type === '烟杆') return '颜色'
   return '口味'
 }
-
+ 
 function splitBrandFlavor(brand, productName) {
   const safeBrand = normalizeText(brand)
   const safeProductName = normalizeText(productName)
-
+ 
   if (!safeBrand) {
     return {
       brandLine: '',
       flavorLine: safeProductName || '-',
     }
   }
-
+ 
   const escaped = safeBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const flavor = safeProductName.replace(new RegExp(`^${escaped}\\s*`, 'i'), '').trim()
-
+ 
   return {
     brandLine: safeBrand,
     flavorLine: flavor || safeProductName || '-',
   }
 }
-
+ 
 function getSummaryGroupName(item) {
   return normalizeText(item?.brand) || cleanProductName(item) || '-'
 }
-
+ 
 function getSummaryVariantName(item) {
   const cleanName = cleanProductName(item)
   const groupName = getSummaryGroupName(item)
-
+ 
   if (eqText(cleanName, groupName)) return normalizeText(item?.name) || cleanName || '-'
   return cleanName || normalizeText(item?.name) || '-'
 }
-
+ 
 function buildGroupedNormalItems(cartItems = []) {
   const groupMap = new Map()
-
+ 
   cartItems
     .filter((item) => !item.is_bundle)
     .forEach((item) => {
@@ -207,7 +207,7 @@ function buildGroupedNormalItems(cartItems = []) {
       const price = Number(item.price || 0)
       const qty = Number(item.qty || 0)
       const itemSubtotal = qty * price
-
+ 
       if (!groupMap.has(groupKey)) {
         groupMap.set(groupKey, {
           name: groupName,
@@ -215,12 +215,12 @@ function buildGroupedNormalItems(cartItems = []) {
           variants: new Map(),
         })
       }
-
+ 
       const group = groupMap.get(groupKey)
       group.subtotal += itemSubtotal
-
+ 
       const variantKey = `${variantName.toLowerCase()}__${price}`
-
+ 
       if (!group.variants.has(variantKey)) {
         group.variants.set(variantKey, {
           name: variantName,
@@ -229,24 +229,24 @@ function buildGroupedNormalItems(cartItems = []) {
           subtotal: 0,
         })
       }
-
+ 
       const variant = group.variants.get(variantKey)
       variant.qty += qty
       variant.subtotal += itemSubtotal
     })
-
+ 
   return Array.from(groupMap.values()).map((group) => ({
     ...group,
     variants: Array.from(group.variants.values()),
   }))
 }
-
+ 
 function buildCurrentVersionedUrl(extraParams = {}) {
   if (typeof window === 'undefined') return ''
   const url = new URL(window.location.href)
-
+ 
   url.searchParams.set(VERSION_PARAM, APP_VERSION)
-
+ 
   Object.entries(extraParams).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') {
       url.searchParams.delete(key)
@@ -254,108 +254,105 @@ function buildCurrentVersionedUrl(extraParams = {}) {
       url.searchParams.set(key, String(value))
     }
   })
-
+ 
   return url.toString()
 }
-
+ 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
-
+ 
 export default function Page() {
   const { agent } = useParams()
   const productsGridRef = useRef(null)
   const bundleSectionRef = useRef(null)
   const bundleControlRef = useRef(null)
   const initRequestRef = useRef(0)
-
+ 
   const [products, setProducts] = useState([])
   const [bundles, setBundles] = useState([])
-
+ 
   const [cart, setCart] = useState([])
   const [bundleSelect, setBundleSelect] = useState({})
   const [selectedBundle, setSelectedBundle] = useState(null)
   const [selectedBundleFlavor, setSelectedBundleFlavor] = useState('')
-
+ 
   const [agentInfo, setAgentInfo] = useState(null)
-
+ 
   const [delivery, setDelivery] = useState('自取')
   const [orderId, setOrderId] = useState('')
-
+ 
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
-
+ 
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [state, setState] = useState('')
   const [postcode, setPostcode] = useState('')
   const [shipping, setShipping] = useState('')
-
+ 
   const [draftQty, setDraftQty] = useState({})
-
+ 
   const [selectedType, setSelectedType] = useState('')
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedVariant, setSelectedVariant] = useState('')
   const [search, setSearch] = useState('')
-
+ 
   const [backupSelections, setBackupSelections] = useState({})
   const [noBackup, setNoBackup] = useState(false)
-
+ 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [copiedPreview, setCopiedPreview] = useState('')
-
+ 
   const [summaryCopied, setSummaryCopied] = useState(false)
   const [showSummaryModal, setShowSummaryModal] = useState(false)
-
+ 
   useEffect(() => {
-  if (typeof window === 'undefined') return
-
-  const url = new URL(window.location.href)
-
-  const currentVersion = url.searchParams.get(VERSION_PARAM)
-  const storedVersion = window.localStorage.getItem(VERSION_STORAGE_KEY)
-  const reloadGuard = window.sessionStorage.getItem(VERSION_RELOAD_GUARD_KEY)
-
-  const versionChanged = storedVersion !== APP_VERSION
-  const urlMismatch = currentVersion !== APP_VERSION
-
-  // ✅ 新版本 → 更新记录
-  if (versionChanged) {
-    window.localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION)
-    window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
-  }
-
-  // ✅ 触发一次 reload（只一次）
-  if ((versionChanged || urlMismatch) && reloadGuard !== APP_VERSION) {
-    window.sessionStorage.setItem(VERSION_RELOAD_GUARD_KEY, APP_VERSION)
-
-    const nextUrl = buildCurrentVersionedUrl()
-    if (nextUrl && nextUrl !== window.location.href) {
-      window.location.replace(nextUrl)
-      return
+    if (typeof window === 'undefined') return
+ 
+    const url = new URL(window.location.href)
+    const currentVersion = url.searchParams.get(VERSION_PARAM)
+    const storedVersion = window.localStorage.getItem(VERSION_STORAGE_KEY)
+    const reloadGuard = window.sessionStorage.getItem(VERSION_RELOAD_GUARD_KEY)
+ 
+    const versionChanged = storedVersion !== APP_VERSION
+    const urlMismatch = currentVersion !== APP_VERSION
+ 
+    if (versionChanged) {
+      window.localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION)
+      window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
     }
-  }
-
-  // ✅ 清 guard 防止卡死
-  if (reloadGuard === APP_VERSION) {
-    window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
-  }
-
-  // ✅ 只在进入页面时 init
-  init()
-
-}, [agent])
-
+ 
+    if ((versionChanged || urlMismatch) && reloadGuard !== APP_VERSION) {
+      window.sessionStorage.setItem(VERSION_RELOAD_GUARD_KEY, APP_VERSION)
+ 
+      const nextUrl = buildCurrentVersionedUrl()
+      if (nextUrl && nextUrl !== window.location.href) {
+        window.location.replace(nextUrl)
+        return
+      }
+    }
+ 
+    if (reloadGuard === APP_VERSION) {
+      window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
+    }
+ 
+    // ✅ 只在第一次进入页面读取资料
+    // ❌ 不再做 2 秒后自动 init，避免填写资料时被重刷
+    // ❌ 不再监听 focus / visibilitychange，避免手机切去复制资料回来导致 cart 和表单被重刷
+    init()
+  }, [agent])
+ 
   async function init(options = {}) {
     const requestId = ++initRequestRef.current
-
+ 
     try {
       const rawAgent = String(agent || '').trim()
       const agentSlug = rawAgent.toLowerCase()
-
+ 
       if (!agentSlug) {
         if (requestId !== initRequestRef.current) return
         setAgentInfo(null)
@@ -363,92 +360,92 @@ export default function Page() {
         setBundles([])
         return
       }
-
+ 
       let foundAgent = null
       let foundAgentError = null
-
+ 
       for (let retry = 0; retry < 3 && !foundAgent; retry++) {
         console.log('FETCH AGENT TRY:', retry + 1)
-
+ 
         const { data: byAgentSlug, error: byAgentSlugError } = await supabase
           .from('agents')
           .select('*')
           .eq('agent_slug', agentSlug)
           .maybeSingle()
-
+ 
         if (byAgentSlugError) {
           console.error('AGENT BY AGENT_SLUG ERROR:', byAgentSlugError)
           foundAgentError = byAgentSlugError
         }
-
+ 
         if (byAgentSlug) {
           foundAgent = byAgentSlug
           break
         }
-
+ 
         const { data: bySlug, error: bySlugError } = await supabase
           .from('agents')
           .select('*')
           .eq('slug', agentSlug)
           .maybeSingle()
-
+ 
         if (bySlugError) {
           console.error('AGENT BY SLUG ERROR:', bySlugError)
           foundAgentError = bySlugError
         }
-
+ 
         if (bySlug) {
           foundAgent = bySlug
           break
         }
-
+ 
         const { data: byCode, error: byCodeError } = await supabase
           .from('agents')
           .select('*')
           .eq('code', rawAgent)
           .maybeSingle()
-
+ 
         if (byCodeError) {
           console.error('AGENT BY CODE ERROR:', byCodeError)
           foundAgentError = byCodeError
         }
-
+ 
         if (byCode) {
           foundAgent = byCode
           break
         }
-
+ 
         const agentId = Number(rawAgent)
-
+ 
         if (!Number.isNaN(agentId) && rawAgent !== '') {
           const { data: byId, error: byIdError } = await supabase
             .from('agents')
             .select('*')
             .eq('id', agentId)
             .maybeSingle()
-
+ 
           if (byIdError) {
             console.error('AGENT BY ID ERROR:', byIdError)
             foundAgentError = byIdError
           }
-
+ 
           if (byId) {
             foundAgent = byId
             break
           }
         }
-
+ 
         if (!foundAgent && retry < 2) {
           await sleep(500)
         }
       }
-
+ 
       console.log('APP VERSION:', APP_VERSION)
       console.log('AGENT PARAM:', agent)
       console.log('AGENT SLUG:', agentSlug)
       console.log('AGENT INFO:', foundAgent)
       console.log('AGENT ERROR:', foundAgentError)
-
+ 
       if (!foundAgent) {
         if (requestId !== initRequestRef.current) return
         setAgentInfo(null)
@@ -457,10 +454,10 @@ export default function Page() {
         setError('代理链接无效')
         return
       }
-
+ 
       let productsData = null
       let bundlesData = null
-
+ 
       for (let retry = 0; retry < 3 && !productsData; retry++) {
         const { data: p, error: productsError } = await supabase
           .from('products')
@@ -469,49 +466,49 @@ export default function Page() {
           .order('brand', { ascending: true })
           .order('series', { ascending: true })
           .order('name', { ascending: true })
-
+ 
         if (productsError) {
           console.error('PRODUCTS ERROR:', productsError)
         }
-
+ 
         if (Array.isArray(p) && p.length > 0) {
           productsData = p
           break
         }
-
+ 
         if (Array.isArray(p) && p.length === 0) {
           productsData = []
           break
         }
-
+ 
         if (retry < 2) {
           await sleep(500)
         }
       }
-
+ 
       for (let retry = 0; retry < 3 && !bundlesData; retry++) {
         const { data: b, error: bundlesError } = await supabase
           .from('bundle_rules')
           .select('*')
           .eq('is_active', true)
           .order('created_at', { ascending: true })
-
+ 
         if (bundlesError) {
           console.error('BUNDLES ERROR:', bundlesError)
         }
-
+ 
         if (Array.isArray(b)) {
           bundlesData = b
           break
         }
-
+ 
         if (retry < 2) {
           await sleep(500)
         }
       }
-
+ 
       if (requestId !== initRequestRef.current) return
-
+ 
       setError('')
       setAgentInfo(foundAgent)
       setProducts(productsData || [])
@@ -524,7 +521,7 @@ export default function Page() {
       }
     }
   }
-
+ 
   useEffect(() => {
     if (!agentInfo) return
     const prefix = agentInfo.code || agentInfo.name || 'ORDER'
@@ -538,17 +535,17 @@ export default function Page() {
     setNoBackup(false)
     setDraftQty({})
   }, [agentInfo])
-
+ 
   function getAgentLevel() {
     const raw = String(agentInfo?.level ?? '').trim().toLowerCase()
     if (raw.includes('3')) return 3
     if (raw.includes('2')) return 2
     return 1
   }
-
+ 
   function getAgentPrice(product) {
     const level = getAgentLevel()
-
+ 
     const p1 = Number(
       product.price_1 ??
         product.price1 ??
@@ -556,7 +553,7 @@ export default function Page() {
         product.retail_price ??
         0
     )
-
+ 
     const p2 = Number(
       product.price_2 ??
         product.price2 ??
@@ -564,7 +561,7 @@ export default function Page() {
         product.agent_price ??
         0
     )
-
+ 
     const p3 = Number(
       product.price_3 ??
         product.price3 ??
@@ -572,56 +569,56 @@ export default function Page() {
         product.vip_price ??
         0
     )
-
+ 
     if (level === 3) return p3 || p2 || p1
     if (level === 2) return p2 || p1
     return p1
   }
-
+ 
   function getBundlePrice(bundle) {
     const level = getAgentLevel()
-
+ 
     const p1 = Number(bundle?.bundle_price_1 ?? 0)
     const p2 = Number(bundle?.bundle_price_2 ?? 0)
     const p3 = Number(bundle?.bundle_price_3 ?? 0)
-
+ 
     if (level === 3) return p3 || p2 || p1
     if (level === 2) return p2 || p1
     return p1
   }
-
+ 
   function getDraftQty(id) {
     return Number(draftQty[id] || 0)
   }
-
+ 
   function setDraftQtyValue(product, nextQty) {
     const maxStock = Number(product?.stock || 0)
     let qty = Number(nextQty || 0)
-
+ 
     if (Number.isNaN(qty) || qty < 0) qty = 0
     if (qty > maxStock) qty = maxStock
-
+ 
     setDraftQty((prev) => ({
       ...prev,
       [product.id]: qty,
     }))
   }
-
+ 
   function addDraftToCart(product) {
     const qty = Number(draftQty[product.id] || 0)
     const maxStock = Number(product?.stock || 0)
-
+ 
     if (qty <= 0) return
-
+ 
     const lockedPrice = getAgentPrice(product)
-
+ 
     setCart((prev) => {
       const found = prev.find(
         (i) => !i.is_bundle && String(i.id) === String(product.id)
       )
       const existingQty = Number(found?.qty || 0)
       const nextQty = existingQty + qty
-
+ 
       if (found) {
         const finalQty = nextQty > maxStock ? maxStock : nextQty
         return prev.map((i) =>
@@ -630,7 +627,7 @@ export default function Page() {
             : i
         )
       }
-
+ 
       return [
         ...prev,
         {
@@ -641,23 +638,23 @@ export default function Page() {
         },
       ]
     })
-
+ 
     setDraftQty((prev) => ({
       ...prev,
       [product.id]: 0,
     }))
   }
-
+ 
   function addBundleToCart() {
     if (!selectedBundle) return
     if (bundleGroupCount <= 0) return
     if (bundleCount <= 0) return
-
+ 
     const selectedItems = Object.entries(bundleSelect)
       .map(([pid, qty]) => {
         const p = products.find((x) => String(x.id) === String(pid))
         if (!p || Number(qty || 0) <= 0) return null
-
+ 
         return {
           product_id: p.id,
           product_name: cleanProductName(p),
@@ -668,9 +665,9 @@ export default function Page() {
         }
       })
       .filter(Boolean)
-
+ 
     if (selectedItems.length === 0) return
-
+ 
     const bundleCartItem = {
       id: `bundle-${selectedBundle.id}-${Date.now()}`,
       is_bundle: true,
@@ -681,12 +678,12 @@ export default function Page() {
       price: bundleSinglePrice,
       bundle_items: selectedItems,
     }
-
+ 
     setCart((prev) => [...prev, bundleCartItem])
     setBundleSelect({})
     setSelectedBundleFlavor('')
   }
-
+ 
   function changeCartQty(id, nextQty) {
     setCart((prev) =>
       prev
@@ -701,11 +698,11 @@ export default function Page() {
         .filter((i) => (i.is_bundle ? true : i.qty > 0))
     )
   }
-
+ 
   function removeCart(id) {
     setCart((prev) => prev.filter((i) => i.id !== id))
   }
-
+ 
   const typeOptions = useMemo(() => {
     const preferredOrder = ['烟弹', '烟杆', '一次性']
     const all = [...new Set(products.map((p) => getProductType(p)).filter(Boolean))]
@@ -713,7 +710,7 @@ export default function Page() {
     const rest = all.filter((x) => !preferredOrder.includes(x)).sort()
     return [...ordered, ...rest]
   }, [products])
-
+ 
   const brandOptions = useMemo(() => {
     if (!selectedType) return []
     return [
@@ -725,12 +722,12 @@ export default function Page() {
       ),
     ]
   }, [products, selectedType])
-
+ 
   const variantOptions = useMemo(() => {
     if (!selectedType || !selectedBrand) return []
-
+ 
     const grouped = {}
-
+ 
     products
       .filter(
         (p) =>
@@ -741,35 +738,35 @@ export default function Page() {
       .forEach((p) => {
         const name = cleanProductName(p)
         if (!name) return
-
+ 
         if (!grouped[name]) {
           grouped[name] = {
             name,
             inStock: false,
           }
         }
-
+ 
         if (Number(p.stock || 0) > 0) {
           grouped[name].inStock = true
         }
       })
-
+ 
     return Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name))
   }, [products, selectedType, selectedBrand])
-
+ 
   const currentVariantLabel = useMemo(() => {
     if (!selectedType) return '口味 / 颜色'
     if (selectedType === '烟杆') return '颜色'
     return '口味'
   }, [selectedType])
-
+ 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase()
-
+ 
     if (!selectedType) return []
     if (!selectedBrand) return []
     if (!selectedVariant) return []
-
+ 
     return products.filter((p) => {
       const displayName = cleanProductName(p)
       const joined = [
@@ -782,52 +779,52 @@ export default function Page() {
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
-
+ 
       if (getProductType(p) !== selectedType) return false
       if (!eqText(p.brand, selectedBrand)) return false
       if (displayName !== selectedVariant) return false
       if (q && !joined.includes(q)) return false
       if (Number(p.stock || 0) <= 0) return false
       if (p.is_active === false) return false
-
+ 
       return true
     })
   }, [products, selectedType, selectedBrand, selectedVariant, search])
-
+ 
   useEffect(() => {
     if (!selectedVariant) return
     if (filteredProducts.length === 0) return
-
+ 
     const timer = setTimeout(() => {
       productsGridRef.current?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
       })
     }, 120)
-
+ 
     return () => clearTimeout(timer)
   }, [selectedVariant, filteredProducts.length])
-
+ 
   const bundleProducts = useMemo(() => {
     if (!selectedBundle) return []
-
+ 
     const bundleBrand = normalizeText(selectedBundle.brand)
     if (!bundleBrand) return []
-
+ 
     return products.filter((p) => {
       if (p.is_active === false) return false
       if (Number(p.stock || 0) <= 0) return false
       return eqText(p.brand, bundleBrand)
     })
   }, [selectedBundle, products])
-
+ 
   const bundleFlavorOptions = useMemo(() => {
     return bundleProducts
       .map((p) => cleanProductName(p))
       .filter(Boolean)
       .filter((value, index, arr) => arr.indexOf(value) === index)
   }, [bundleProducts])
-
+ 
   const selectedBundleProduct = useMemo(() => {
     if (!selectedBundle || !selectedBundleFlavor) return null
     return (
@@ -835,7 +832,7 @@ export default function Page() {
       null
     )
   }, [selectedBundle, selectedBundleFlavor, bundleProducts])
-
+ 
   const bundleSelectedItemsList = useMemo(() => {
     return Object.entries(bundleSelect)
       .map(([pid, qty]) => {
@@ -853,75 +850,75 @@ export default function Page() {
       .filter(Boolean)
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [bundleSelect, bundleProducts])
-
+ 
   useEffect(() => {
     if (!selectedBundle) return
     if (bundleFlavorOptions.length === 0) {
       setSelectedBundleFlavor('')
       return
     }
-
+ 
     if (
       selectedBundleFlavor &&
       bundleFlavorOptions.includes(selectedBundleFlavor)
     ) {
       return
     }
-
+ 
     setSelectedBundleFlavor(bundleFlavorOptions[0] || '')
   }, [selectedBundle, bundleFlavorOptions, selectedBundleFlavor])
-
+ 
   useEffect(() => {
     if (!selectedBundle) return
     if (!selectedBundleFlavor) return
-
+ 
     const timer = setTimeout(() => {
       bundleControlRef.current?.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       })
     }, 120)
-
+ 
     return () => clearTimeout(timer)
   }, [selectedBundleFlavor])
-
+ 
   const bundleLimit = Number(selectedBundle?.min_select_qty || 0)
   const bundleBuyQty = Number(selectedBundle?.buy_qty || 0)
   const bundleFreeQty = Number(selectedBundle?.free_qty || 0)
   const bundleGroupSize =
     bundleBuyQty > 0 || bundleFreeQty > 0 ? bundleBuyQty + bundleFreeQty : 0
-
+ 
   const bundleCount = useMemo(() => {
     return Object.values(bundleSelect).reduce((s, v) => s + Number(v || 0), 0)
   }, [bundleSelect])
-
+ 
   const bundleGroupCount = useMemo(() => {
     if (bundleGroupSize > 0) {
       return Math.floor(bundleCount / bundleGroupSize)
     }
-
+ 
     if (bundleLimit > 0) {
       return Math.floor(bundleCount / bundleLimit)
     }
-
+ 
     return selectedBundle && bundleCount > 0 ? 1 : 0
   }, [bundleCount, bundleGroupSize, bundleLimit, selectedBundle])
-
+ 
   const bundleSinglePrice = useMemo(() => {
     return selectedBundle ? getBundlePrice(selectedBundle) : 0
   }, [selectedBundle, agentInfo])
-
+ 
   const draftBundleTotal = useMemo(() => {
     if (!selectedBundle) return 0
-
+ 
     if (bundleGroupSize > 0) {
       return bundleGroupCount * bundleSinglePrice
     }
-
+ 
     if (bundleLimit > 0) {
       return bundleGroupCount * bundleSinglePrice
     }
-
+ 
     return bundleCount > 0 ? bundleSinglePrice : 0
   }, [
     selectedBundle,
@@ -931,45 +928,45 @@ export default function Page() {
     bundleLimit,
     bundleCount,
   ])
-
+ 
   const bundleRequirementText = useMemo(() => {
     if (!selectedBundle) return ''
-
+ 
     if (bundleGroupSize > 0) {
       return `每组 ${bundleBuyQty}送${bundleFreeQty}，共 ${bundleGroupSize} 个`
     }
-
+ 
     if (bundleLimit > 0) {
       return `每组固定 ${bundleLimit} 个`
     }
-
+ 
     return ''
   }, [selectedBundle, bundleGroupSize, bundleBuyQty, bundleFreeQty, bundleLimit])
-
+ 
   const bundleRemaining = useMemo(() => {
     if (!selectedBundle || !bundleGroupSize || bundleCount <= 0) return 0
     const mod = bundleCount % bundleGroupSize
     if (mod === 0) return 0
     return bundleGroupSize - mod
   }, [selectedBundle, bundleGroupSize, bundleCount])
-
+ 
   function setBundleQty(pid, qty) {
     const currentMap = { ...bundleSelect }
     let next = Number(qty || 0)
-
+ 
     if (Number.isNaN(next) || next < 0) next = 0
-
+ 
     const targetProduct = bundleProducts.find(
       (p) => String(p.id) === String(pid)
     )
     const maxStock = Number(targetProduct?.stock || 0)
-
+ 
     if (next > maxStock) next = maxStock
-
+ 
     currentMap[pid] = next
     setBundleSelect(currentMap)
   }
-
+ 
   function changeBundleQty(pid, delta, maxStock) {
     const current = Number(bundleSelect[pid] || 0)
     let next = current + delta
@@ -977,7 +974,7 @@ export default function Page() {
     if (next > Number(maxStock || 0)) next = Number(maxStock || 0)
     setBundleQty(pid, next)
   }
-
+ 
   const cartQty = useMemo(() => {
     return cart.reduce((s, i) => {
       if (i.is_bundle) {
@@ -986,26 +983,26 @@ export default function Page() {
       return s + Number(i.qty || 0)
     }, 0)
   }, [cart])
-
+ 
   const region = useMemo(() => {
     if (!state) return '-'
     return EAST.includes((state || '').toUpperCase())
       ? 'East Malaysia'
       : 'West Malaysia'
   }, [state])
-
+ 
   const normalTotal = useMemo(() => {
     return cart
       .filter((i) => !i.is_bundle)
       .reduce((s, i) => s + Number(i.qty || 0) * Number(i.price || 0), 0)
   }, [cart])
-
+ 
   const bundleCartTotal = useMemo(() => {
     return cart
       .filter((i) => i.is_bundle)
       .reduce((s, i) => s + Number(i.qty || 0) * Number(i.price || 0), 0)
   }, [cart])
-
+ 
   const postageItemCount = useMemo(() => {
     return cart.reduce((s, i) => {
       if (i.is_bundle) {
@@ -1015,11 +1012,11 @@ export default function Page() {
         )
         return s + bundleItemQty
       }
-
+ 
       return s + Number(i.qty || 0)
     }, 0)
   }, [cart])
-
+ 
   const shippingFee = useMemo(() => {
     if (delivery === '邮寄') {
       if (postageItemCount > 19) return 'ASK'
@@ -1028,29 +1025,29 @@ export default function Page() {
     }
     return Number(shipping || 0)
   }, [delivery, postageItemCount, state, shipping])
-
+ 
   const total = useMemo(() => {
     if (shippingFee === 'ASK') return normalTotal + bundleCartTotal
     return normalTotal + bundleCartTotal + Number(shippingFee || 0)
   }, [normalTotal, bundleCartTotal, shippingFee])
-
+ 
   const inStockCount = useMemo(() => {
     return products.filter((p) => Number(p.stock || 0) > 50).length
   }, [products])
-
+ 
   const lowStockCount = useMemo(() => {
     return products.filter(
       (p) => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 50
     ).length
   }, [products])
-
+ 
   const outStockCount = useMemo(() => {
     return products.filter((p) => Number(p.stock || 0) <= 0).length
   }, [products])
-
+ 
   const orderedBrands = useMemo(() => {
     const brands = new Set()
-
+ 
     cart.forEach((i) => {
       if (i.is_bundle) {
         const bundleBrand = normalizeText(i.bundle_brand)
@@ -1060,40 +1057,40 @@ export default function Page() {
         if (brand) brands.add(brand)
       }
     })
-
+ 
     if (selectedBundle) {
       const bundleBrand = normalizeText(selectedBundle.brand)
       if (bundleBrand) brands.add(bundleBrand)
     }
-
+ 
     return Array.from(brands)
   }, [cart, selectedBundle])
-
+ 
   const backupOptions = useMemo(() => {
     const map = {}
-
+ 
     orderedBrands.forEach((brand) => {
       const list = products
         .filter((p) => eqText(p.brand, brand))
         .map((p) => cleanProductName(p))
         .filter(Boolean)
-
+ 
       map[brand] = [...new Set(list)]
     })
-
+ 
     return map
   }, [orderedBrands, products])
-
+ 
   const hasAnyBackupSelected = useMemo(() => {
     return Object.values(backupSelections).some(
       (arr) => Array.isArray(arr) && arr.length > 0
     )
   }, [backupSelections])
-
+ 
   useEffect(() => {
     setBackupSelections((prev) => {
       const next = {}
-
+ 
       orderedBrands.forEach((brand) => {
         const validOptions = new Set(backupOptions[brand] || [])
         const kept = (prev[brand] || []).filter((item) => validOptions.has(item))
@@ -1101,18 +1098,18 @@ export default function Page() {
           next[brand] = kept
         }
       })
-
+ 
       return next
     })
   }, [orderedBrands, backupOptions])
-
+ 
   useEffect(() => {
     if (orderedBrands.length === 0) {
       setBackupSelections({})
       setNoBackup(false)
     }
   }, [orderedBrands])
-
+ 
   function toggleNoBackup() {
     setNoBackup((prev) => {
       const next = !prev
@@ -1122,33 +1119,33 @@ export default function Page() {
       return next
     })
   }
-
+ 
   function toggleBackup(brand, flavor) {
     setNoBackup(false)
-
+ 
     setBackupSelections((prev) => {
       const current = prev[brand] || []
-
+ 
       if (current.includes(flavor)) {
         const filtered = current.filter((f) => f !== flavor)
         const next = { ...prev }
-
+ 
         if (filtered.length > 0) {
           next[brand] = filtered
         } else {
           delete next[brand]
         }
-
+ 
         return next
       }
-
+ 
       return {
         ...prev,
         [brand]: [...current, flavor],
       }
     })
   }
-
+ 
   function resetFormAfterSubmit() {
     setCart([])
     setSelectedBundle(null)
@@ -1166,95 +1163,78 @@ export default function Page() {
     setBackupSelections({})
     setNoBackup(false)
   }
-
+ 
   function shippingText() {
     if (shippingFee === 'ASK') return '请问我查询运费'
     return `RM ${money(shippingFee)}`
   }
-
+ 
 function buildCopiedSummary(oid) {
   const lines = []
   const itemTotal = normalTotal + bundleCartTotal
-
+ 
   lines.push('🧾 ORDER SUMMARY')
   lines.push('')
-
-  // ✅ 配送信息
-lines.push(`配送方式：${delivery}`)
-lines.push(`订单编号：${oid}`)
-
-if (delivery === '自取') {
-  lines.push(`自取日期：${date || '-'}`)
-  lines.push(`自取时间：${time || '-'}`)
-}
-
-if (delivery === '邮寄') {
-  lines.push(`地区：${region}`)
-  lines.push(`收件人：${name || '-'}`)
-  lines.push(`电话：${phone || '-'}`)
-  lines.push(`地址：${address || '-'}`)
-}
-
-if (delivery === 'LALAMOVE') {
-  lines.push(`收件人：${name || '-'}`)
-  lines.push(`电话：${phone || '-'}`)
-  lines.push(`地址：${address || '-'}`)
-  lines.push(`Lalamove费用：RM${money(shipping || 0)}`)
-}
-
-lines.push('')
-
+ 
+  if (delivery === '自取') {
+    lines.push(`配送方式：自取`)
+    lines.push(`订单编号：${oid}`)
+    lines.push(`自取日期：${date || '-'}`)
+    lines.push(`自取时间：${time || '-'}`)
+    lines.push('')
+  }
+ 
   lines.push('━━━━━━━━━━━━━━━')
 lines.push('')
 lines.push('订单内容')
-
+ 
   buildGroupedNormalItems(cart).forEach((group, gIndex) => {
   if (gIndex !== 0) {
     lines.push('')
   }
-
+ 
   lines.push(`【${group.name}】`)
-
+ 
   const priceMap = {}
-
+ 
   group.variants.forEach((variant) => {
     const priceKey = money(variant.price)
     if (!priceMap[priceKey]) priceMap[priceKey] = []
     priceMap[priceKey].push(variant)
   })
-
+ 
   Object.entries(priceMap).forEach(([price, variants]) => {
     lines.push(`💰 RM${price}`)
-
+ 
     variants.forEach((variant) => {
       lines.push(`• ${variant.name} ×${variant.qty}`)
     })
   })
-
+ 
   lines.push(`🧮 小计：RM${money(group.subtotal)}`)
 })
-
+ 
   cart
     .filter((item) => item.is_bundle)
     .forEach((item) => {
       const subtotal = Number(item.qty || 0) * Number(item.price || 0)
-
+ 
       lines.push('')
       lines.push(`${item.bundle_name}（BUNDLE）× ${item.qty}组`)
       lines.push(`每组：RM${money(item.price)}`)
       lines.push(`小计：RM${money(subtotal)}`)
       lines.push(`口味明细`)
-
+ 
       ;(item.bundle_items || []).forEach((bi) => {
         const split = splitBrandFlavor(bi.brand, bi.product_name)
         if (split.brandLine) lines.push(split.brandLine)
         lines.push(`- ${split.flavorLine} × ${bi.qty}`)
       })
     })
-
+ 
   lines.push('')
   lines.push(`备注`)
-
+ 
   if (noBackup) {
     lines.push(`【不选择备选】`)
     lines.push(`如遇缺货，下一单扣`)
@@ -1265,7 +1245,7 @@ const cartBrands = new Set(
     normalizeText(item.is_bundle ? item.bundle_brand : item.brand)
   )
 )
-
+ 
 // ✅ 再过滤 backup，只保留购物车里的品牌
 const backupEntries = Object.entries(backupSelections).filter(
   ([brand, flavors]) =>
@@ -1273,15 +1253,15 @@ const backupEntries = Object.entries(backupSelections).filter(
     flavors.length > 0 &&
     cartBrands.has(normalizeText(brand))
 )
-
+ 
     if (backupEntries.length > 0) {
       lines.push(`【备选口味】`)
       lines.push('')
-
+ 
       backupEntries.forEach(([brand, flavors], index) => {
         lines.push(brand)
         flavors.forEach((f) => lines.push(`• ${f}`))
-
+ 
         if (index !== backupEntries.length - 1) {
           lines.push('')
         }
@@ -1290,27 +1270,27 @@ const backupEntries = Object.entries(backupSelections).filter(
       lines.push(`-`)
     }
   }
-
+ 
   lines.push('')
   lines.push(`费用明细`)
   lines.push(`物品总额：RM${money(itemTotal)}`)
   lines.push(`运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`)
   lines.push('')
   lines.push(`总额：RM${money(total)}`)
-
+ 
   return lines.join('\n')
 }
-
+ 
   async function copyText(text) {
     if (!text || !String(text).trim()) {
       throw new Error('没有可复制的内容')
     }
-
+ 
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text)
       return
     }
-
+ 
     const textarea = document.createElement('textarea')
     textarea.value = text
     textarea.style.position = 'fixed'
@@ -1319,15 +1299,15 @@ const backupEntries = Object.entries(backupSelections).filter(
     document.body.appendChild(textarea)
     textarea.focus()
     textarea.select()
-
+ 
     const ok = document.execCommand('copy')
     textarea.remove()
-
+ 
     if (!ok) {
       throw new Error('复制失败')
     }
   }
-
+ 
   async function handleCopySummary() {
     try {
       await copyText(copiedPreview || '')
@@ -1337,7 +1317,7 @@ const backupEntries = Object.entries(backupSelections).filter(
       alert('没有可复制的订单摘要')
     }
   }
-
+ 
   function hardRefreshPage() {
     if (typeof window === 'undefined') return
     window.location.replace(
@@ -1346,47 +1326,47 @@ const backupEntries = Object.entries(backupSelections).filter(
       })
     )
   }
-
+ 
   function handleCloseSummaryModal() {
     if (!summaryCopied) {
       const ok = window.confirm('你还没复制订单摘要，确定要关闭吗？')
       if (!ok) return
     }
-
+ 
     setShowSummaryModal(false)
-
+ 
     setTimeout(() => {
       hardRefreshPage()
     }, 300)
   }
-
+ 
   async function submit(e) {
     e.preventDefault()
-
+ 
     if (!agentInfo) {
       setError('代理链接无效')
       return
     }
-
+ 
     if (cart.length === 0) {
       setError('请选择产品或bundle')
       return
     }
-
+ 
     if (delivery === '自取') {
       if (!date || !time) {
         setError('请选择自取日期和时间')
         return
       }
     }
-
+ 
     if (delivery !== '自取') {
       if (!name || !phone || !address) {
         setError('请填写完整收件资料')
         return
       }
     }
-
+ 
     if (delivery === '邮寄') {
       if (!state) {
         setError('请选择州属')
@@ -1397,30 +1377,30 @@ const backupEntries = Object.entries(backupSelections).filter(
         return
       }
     }
-
+ 
     if (orderedBrands.length > 0 && !noBackup && !hasAnyBackupSelected) {
       setError('请选择备选口味，或勾选【不选择备选】')
       return
     }
-
+ 
     try {
       setSubmitting(true)
       setError('')
       setSuccess('')
       setSummaryCopied(false)
       setShowSummaryModal(false)
-
+ 
       const prefix = agentInfo.code || agentInfo.name || 'ORDER'
       const count = agentInfo.order_counter || 1
       const oid = `${prefix}-${String(count).padStart(4, '0')}`
-
+ 
       const { error: agentUpdateError } = await supabase
         .from('agents')
         .update({ order_counter: count + 1 })
         .eq('id', agentInfo.id)
-
+ 
       if (agentUpdateError) throw agentUpdateError
-
+ 
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -1439,11 +1419,11 @@ const backupEntries = Object.entries(backupSelections).filter(
         })
         .select()
         .single()
-
+ 
       if (orderError) throw orderError
-
+ 
       const items = []
-
+ 
       cart.forEach((i) => {
         if (i.is_bundle) {
           ;(i.bundle_items || []).forEach((bi) => {
@@ -1471,10 +1451,10 @@ const backupEntries = Object.entries(backupSelections).filter(
           })
         }
       })
-
+ 
       const { error: itemError } = await supabase.from('order_items').insert(items)
       if (itemError) throw itemError
-
+ 
       for (const i of cart) {
         if (i.is_bundle) {
           for (const bi of i.bundle_items || []) {
@@ -1484,7 +1464,7 @@ const backupEntries = Object.entries(backupSelections).filter(
               .from('products')
               .update({ stock: currentStock - Number(bi.qty || 0) })
               .eq('id', bi.product_id)
-
+ 
             if (bundleStockError) throw bundleStockError
           }
         } else {
@@ -1492,22 +1472,22 @@ const backupEntries = Object.entries(backupSelections).filter(
             .from('products')
             .update({ stock: Number(i.stock || 0) - Number(i.qty || 0) })
             .eq('id', i.id)
-
+ 
           if (stockError) throw stockError
         }
       }
-
+ 
       const copiedSummary = buildCopiedSummary(oid)
       setCopiedPreview(copiedSummary)
       setShowSummaryModal(true)
       setSummaryCopied(false)
       setSuccess(`成功：${oid}`)
-
+ 
       resetFormAfterSubmit()
       await init()
     } catch (err) {
       let message = '提交失败'
-
+ 
       if (typeof err === 'string') {
         message = err
       } else if (err?.message) {
@@ -1525,13 +1505,13 @@ const backupEntries = Object.entries(backupSelections).filter(
           message = '提交失败'
         }
       }
-
+ 
       setError(message)
     } finally {
       setSubmitting(false)
     }
   }
-
+ 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#fffaf5_0%,#f7efe6_35%,#f2e5d9_70%,#ead8c7_100%)] text-[#5c4333]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -1539,13 +1519,13 @@ const backupEntries = Object.entries(backupSelections).filter(
         <div className="absolute right-[-60px] top-20 h-72 w-72 rounded-full bg-[#ead0b8]/50 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#f3dfcd]/40 blur-3xl" />
       </div>
-
+ 
       <div className="relative mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8">
         <div className="mb-3 flex items-center justify-between gap-3 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9b7b63]">
           <span>Version</span>
           <span>{APP_VERSION}</span>
         </div>
-
+ 
         <div className="mb-6 overflow-hidden rounded-[30px] border border-[#eadacb] bg-white/75 shadow-[0_20px_60px_rgba(121,88,63,0.12)] backdrop-blur">
           <div className="border-b border-[#efe3d8] bg-[linear-gradient(90deg,#f8efe6_0%,#f5e7da_45%,#f1dfcf_100%)] px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1555,11 +1535,11 @@ const backupEntries = Object.entries(backupSelections).filter(
                   Agent Order Portal
                   <PawPrint />
                 </div>
-
+ 
                 <h1 className="mt-2 text-2xl font-black tracking-wide text-[#5f4432] md:text-4xl">
                   {agentInfo?.name || agentInfo?.code || '欢迎下单'}
                 </h1>
-
+ 
                 <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
                   <div>agent param: {String(agent || '-')}</div>
                   <div>agentInfo: {agentInfo ? (agentInfo.name || agentInfo.code || 'YES') : 'NO'}</div>
@@ -1567,42 +1547,42 @@ const backupEntries = Object.entries(backupSelections).filter(
                   <div>bundles: {bundles.length}</div>
                   <div>error: {error || '-'}</div>
                 </div>
-
+ 
                 <p className="mt-2 text-sm text-[#9b7b63]">
                   欢迎来到下单系统，看来今天又要发大财了❤️
                 </p>
               </div>
-
+ 
               <div className="flex items-center gap-3 text-4xl md:text-5xl">
                 <span>🐶</span>
                 <span>🦴</span>
               </div>
             </div>
           </div>
-
+ 
           <div className="grid gap-3 p-5 md:grid-cols-4">
             <div className="rounded-3xl border border-[#dff0f4] bg-[#f1fbfd] p-4">
               <div className="text-xs font-bold uppercase tracking-widest text-cyan-700">IN STOCK</div>
               <div className="mt-2 text-3xl font-black text-cyan-700">{inStockCount}</div>
             </div>
-
+ 
             <div className="rounded-3xl border border-[#f4e6c8] bg-[#fff9ed] p-4">
               <div className="text-xs font-bold uppercase tracking-widest text-amber-700">LOW STOCK</div>
               <div className="mt-2 text-3xl font-black text-amber-700">{lowStockCount}</div>
             </div>
-
+ 
             <div className="rounded-3xl border border-[#f5d8d8] bg-[#fff4f4] p-4">
               <div className="text-xs font-bold uppercase tracking-widest text-red-600">OUT OF STOCK</div>
               <div className="mt-2 text-3xl font-black text-red-600">{outStockCount}</div>
             </div>
-
+ 
             <div className="rounded-3xl border border-[#eadccf] bg-[#fbf6f1] p-4">
               <div className="text-xs font-bold uppercase tracking-widest text-[#8a6247]">CART ITEMS</div>
               <div className="mt-2 text-3xl font-black text-[#7b5740]">{cartQty}</div>
             </div>
           </div>
         </div>
-
+ 
         <form onSubmit={submit} className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
           <div className="space-y-6">
             <section className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur">
@@ -1614,7 +1594,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                   </div>
                   <h2 className="mt-2 text-xl font-black text-[#5f4432]">Products</h2>
                 </div>
-
+ 
                 <div className="w-full md:w-[320px]">
                   <input
                     type="text"
@@ -1625,7 +1605,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                   />
                 </div>
               </div>
-
+ 
               <div className="space-y-4">
                 <div>
                   <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
@@ -1647,7 +1627,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                     ))}
                   </div>
                 </div>
-
+ 
                 {selectedType ? (
                   <div>
                     <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
@@ -1669,7 +1649,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                     </div>
                   </div>
                 ) : null}
-
+ 
                 {selectedType && selectedBrand ? (
                   <div>
                     <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
@@ -1705,7 +1685,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                   </div>
                 ) : null}
               </div>
-
+ 
               <div
                 ref={productsGridRef}
                 className="mt-5 mb-4 rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#a08874]"
@@ -1716,14 +1696,14 @@ const backupEntries = Object.entries(backupSelections).filter(
                     : 'This option is out of stock'
                   : `请选择${currentVariantLabel}后显示产品`}
               </div>
-
+ 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredProducts.map((p) => {
                   const stockInfo = stockLabel(p.stock)
                   const displayPrice = getAgentPrice(p)
                   const displayName = cleanProductName(p)
                   const qtyDraft = getDraftQty(p.id)
-
+ 
                   return (
                     <div
                       key={p.id}
@@ -1743,12 +1723,12 @@ const backupEntries = Object.entries(backupSelections).filter(
                             {p.series || '-'} · {getVariantLabel(p)}
                           </div>
                         </div>
-
+ 
                         <div className={`mt-3 inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
                           {stockInfo.text}
                         </div>
                       </div>
-
+ 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
                           <div className="text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
@@ -1758,7 +1738,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                             RM {money(displayPrice)}
                           </div>
                         </div>
-
+ 
                         <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
                           <div className="text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
                             Stock
@@ -1768,12 +1748,12 @@ const backupEntries = Object.entries(backupSelections).filter(
                           </div>
                         </div>
                       </div>
-
+ 
                       <div className="mt-4 rounded-[24px] border border-[#eadacb] bg-[#fffaf6] p-3">
                         <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
                           Quantity
                         </div>
-
+ 
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -1783,7 +1763,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                           >
                             -
                           </button>
-
+ 
                           <input
                             type="number"
                             min="0"
@@ -1792,7 +1772,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                             onChange={(e) => setDraftQtyValue(p, e.target.value)}
                             className="h-12 flex-1 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-base font-bold text-[#5c4333] outline-none focus:border-[#cfae95]"
                           />
-
+ 
                           <button
                             type="button"
                             onClick={() => setDraftQtyValue(p, qtyDraft + 1)}
@@ -1802,12 +1782,12 @@ const backupEntries = Object.entries(backupSelections).filter(
                             +
                           </button>
                         </div>
-
+ 
                         <div className="mt-2 text-center text-xs text-[#8b7260]">
                           {qtyDraft > 0 ? `准备加入 ${qtyDraft} 个` : '先选择数量，再加入购物车'}
                         </div>
                       </div>
-
+ 
                       <button
                         type="button"
                         onClick={() => addDraftToCart(p)}
@@ -1825,7 +1805,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 })}
               </div>
             </section>
-
+ 
             <section
               ref={bundleSectionRef}
               className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur"
@@ -1837,7 +1817,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 </div>
                 <h2 className="mt-2 text-xl font-black text-[#5f4432]">Bundle</h2>
               </div>
-
+ 
               <div className="flex flex-wrap gap-2">
                 {bundles.map((b) => (
                   <button
@@ -1864,7 +1844,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                   </button>
                 ))}
               </div>
-
+ 
               {selectedBundle ? (
                 <div className="mt-5 space-y-4">
                   <div className="rounded-3xl border border-[#eadacb] bg-[#fbf6f1] p-4">
@@ -1874,7 +1854,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                           Bundle Price Per Group:{' '}
                           <span className="font-bold">RM {money(bundleSinglePrice)}</span>
                         </div>
-
+ 
                         {bundleRequirementText ? (
                           <div className="mt-1 text-sm text-[#a18673]">
                             规则：
@@ -1884,17 +1864,17 @@ const backupEntries = Object.entries(backupSelections).filter(
                             </span>
                           </div>
                         ) : null}
-
+ 
                         <div className="mt-2 text-sm text-[#a18673]">
                           已选：
                           <span className="font-bold text-[#5f4432]"> {bundleCount} </span>盒
                         </div>
-
+ 
                         <div className="mt-1 text-sm text-[#a18673]">
                           已完成：
                           <span className="font-bold text-[#5f4432]"> {bundleGroupCount} </span>组
                         </div>
-
+ 
                         {bundleRemaining > 0 ? (
                           <div className="mt-1 text-sm font-semibold text-red-500">
                             还差 {bundleRemaining} 盒
@@ -1904,21 +1884,21 @@ const backupEntries = Object.entries(backupSelections).filter(
                             已满足 Bundle 条件
                           </div>
                         ) : null}
-
+ 
                         <div className="mt-1 text-sm text-[#a18673]">
                           Draft Bundle Total:{' '}
                           <span className="font-bold text-[#5f4432]">
                             RM {money(draftBundleTotal)}
                           </span>
                         </div>
-
+ 
                         <div className="mt-1 text-xs text-[#a18673]">
                           Bind Brand:{' '}
                           <span className="font-bold text-[#5f4432]">
                             {selectedBundle.brand || '-'}
                           </span>
                         </div>
-
+ 
                         {bundleGroupSize > 0 ? (
                           <div className="mt-2 text-xs text-[#8a6d59]">
                             例子：{bundleGroupSize} / {bundleGroupSize * 2} /{' '}
@@ -1930,7 +1910,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                           </div>
                         ) : null}
                       </div>
-
+ 
                       <button
                         type="button"
                         onClick={() => {
@@ -1942,7 +1922,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                         Clear Bundle
                       </button>
                     </div>
-
+ 
                     <button
                       type="button"
                       onClick={addBundleToCart}
@@ -1952,7 +1932,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                       Add Bundle to Cart 🛒
                     </button>
                   </div>
-
+ 
                   {bundleProducts.length === 0 ? (
                     <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">
                       这个 Bundle 目前没有匹配到产品。请检查{' '}
@@ -1977,13 +1957,13 @@ const backupEntries = Object.entries(backupSelections).filter(
                           ))}
                         </div>
                       </div>
-
+ 
                       <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#a08874]">
                         {selectedBundleFlavor
                           ? `Showing 1 product`
                           : `请选择口味后显示产品`}
                       </div>
-
+ 
                       {selectedBundleProduct ? (
                         <div
                           ref={bundleControlRef}
@@ -1994,23 +1974,23 @@ const backupEntries = Object.entries(backupSelections).filter(
                               {getProductType(selectedBundleProduct)} ·{' '}
                               {selectedBundleProduct.brand || 'NO BRAND'}
                             </div>
-
+ 
                             <div className="mt-2 text-sm md:text-base font-bold text-[#5f4432] leading-tight">
                               {cleanProductName(selectedBundleProduct)}
                             </div>
-
+ 
                             <div className="mt-1 text-xs text-[#a88b77]">
                               {selectedBundleProduct.series || '-'} ·{' '}
                               {getVariantLabel(selectedBundleProduct)}
                             </div>
-
+ 
                             <div
                               className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockLabel(selectedBundleProduct.stock).badge}`}
                             >
                               {stockLabel(selectedBundleProduct.stock).text}
                             </div>
                           </div>
-
+ 
                           <div className="mt-4 grid grid-cols-2 gap-3">
                             <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
                               <div className="text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
@@ -2020,7 +2000,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                                 {Number(selectedBundleProduct.stock || 0)}
                               </div>
                             </div>
-
+ 
                             <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
                               <div className="text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
                                 Selected
@@ -2030,12 +2010,12 @@ const backupEntries = Object.entries(backupSelections).filter(
                               </div>
                             </div>
                           </div>
-
+ 
                           <div className="mt-4 rounded-[24px] border border-[#eadacb] bg-[#fffaf6] p-3">
                             <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#b0947f]">
                               Quantity
                             </div>
-
+ 
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
@@ -2053,7 +2033,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                               >
                                 -
                               </button>
-
+ 
                               <input
                                 type="number"
                                 min="0"
@@ -2064,7 +2044,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                                 }
                                 className="h-12 flex-1 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-base font-bold text-[#5c4333] outline-none focus:border-[#cfae95]"
                               />
-
+ 
                               <button
                                 type="button"
                                 onClick={() =>
@@ -2083,7 +2063,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                                 +
                               </button>
                             </div>
-
+ 
                             <div className="mt-2 text-center text-xs text-[#8b7260]">
                               {Number(bundleSelect[selectedBundleProduct.id] || 0) > 0
                                 ? `当前已选 ${Number(bundleSelect[selectedBundleProduct.id] || 0)} 盒`
@@ -2092,7 +2072,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                           </div>
                         </div>
                       ) : null}
-
+ 
                       <div className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4">
                         <div className="flex items-center justify-between gap-3">
                           <div className="text-base font-black text-[#5f4432]">
@@ -2107,7 +2087,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                                 : '已选'}
                           </div>
                         </div>
-
+ 
                         {bundleSelectedItemsList.length === 0 ? (
                           <div className="mt-3 rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-4 text-sm text-[#a08874]">
                             还没有选择 bundle 口味
@@ -2127,7 +2107,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                                     {item.brand} {item.series ? `· ${item.series}` : ''}
                                   </div>
                                 </div>
-
+ 
                                 <div className="flex items-center gap-2">
                                   <button
                                     type="button"
@@ -2136,11 +2116,11 @@ const backupEntries = Object.entries(backupSelections).filter(
                                   >
                                     -
                                   </button>
-
+ 
                                   <div className="min-w-[28px] text-center text-sm font-bold text-[#5f4432]">
                                     {item.qty}
                                   </div>
-
+ 
                                   <button
                                     type="button"
                                     onClick={() => changeBundleQty(item.id, 1, item.stock)}
@@ -2160,7 +2140,7 @@ const backupEntries = Object.entries(backupSelections).filter(
               ) : null}
             </section>
           </div>
-
+ 
           <div className="space-y-6">
             <section className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur">
               <div className="mb-4">
@@ -2170,7 +2150,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 </div>
                 <h2 className="mt-2 text-xl font-black text-[#5f4432]">Order Info</h2>
               </div>
-
+ 
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
@@ -2187,7 +2167,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 >
                   邮寄
                 </button>
-
+ 
                 <button
                   type="button"
                   onClick={() => setDelivery('自取')}
@@ -2199,7 +2179,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 >
                   自取
                 </button>
-
+ 
                 <button
                   type="button"
                   onClick={() => {
@@ -2216,7 +2196,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                   LALAMOVE
                 </button>
               </div>
-
+ 
               <div className="mt-4 space-y-3">
                 <div>
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
@@ -2228,7 +2208,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                     className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none"
                   />
                 </div>
-
+ 
                 {delivery === '自取' && (
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
@@ -2242,7 +2222,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                         className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
                       />
                     </div>
-
+ 
                     <div>
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
                         Pickup Time
@@ -2256,7 +2236,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                     </div>
                   </div>
                 )}
-
+ 
                 {delivery !== '自取' && (
                   <>
                     <div>
@@ -2271,7 +2251,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                         className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none placeholder:text-[#b29a88] focus:border-[#cfae95]"
                       />
                     </div>
-
+ 
                     <div>
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
                         Phone
@@ -2284,7 +2264,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                         className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none placeholder:text-[#b29a88] focus:border-[#cfae95]"
                       />
                     </div>
-
+ 
                     <div>
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
                         Address
@@ -2298,7 +2278,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                     </div>
                   </>
                 )}
-
+ 
                 {delivery === '邮寄' && (
                   <>
                     <div className="grid gap-3 md:grid-cols-2">
@@ -2314,7 +2294,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                           className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none placeholder:text-[#b29a88] focus:border-[#cfae95]"
                         />
                       </div>
-
+ 
                       <div>
                         <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
                           State
@@ -2333,18 +2313,18 @@ const backupEntries = Object.entries(backupSelections).filter(
                         </select>
                       </div>
                     </div>
-
+ 
                     <div className="rounded-3xl border border-[#eadacb] bg-[#fbf6f1] px-4 py-3 text-sm text-[#8a6d59]">
                       Region: <span className="font-semibold text-[#5f4432]">{region}</span>
                     </div>
-
+ 
                     <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#8a6d59]">
                       Shipping Fee:{' '}
                       <span className="font-semibold text-[#5f4432]">{shippingText()}</span>
                     </div>
                   </>
                 )}
-
+ 
                 {delivery === 'LALAMOVE' && (
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
@@ -2359,13 +2339,13 @@ const backupEntries = Object.entries(backupSelections).filter(
                     />
                   </div>
                 )}
-
+ 
                 {error ? (
                   <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-500">
                     {error}
                   </div>
                 ) : null}
-
+ 
                 {success ? (
                   <div className="rounded-3xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
                     {success}
@@ -2373,7 +2353,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 ) : null}
               </div>
             </section>
-
+ 
             <section className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur">
               <div className="mb-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#b08867]">
@@ -2382,7 +2362,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 </div>
                 <h2 className="mt-2 text-xl font-black text-[#5f4432]">Cart</h2>
               </div>
-
+ 
               {cart.length === 0 ? (
                 <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-4 text-sm text-[#a08874]">
                   还没有普通产品
@@ -2407,7 +2387,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                               {item.qty} 组 × RM {money(item.price)}
                             </div>
                           </div>
-
+ 
                           <button
                             type="button"
                             onClick={() => removeCart(item.id)}
@@ -2416,7 +2396,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                             Remove
                           </button>
                         </div>
-
+ 
                         <div className="mt-3 rounded-3xl border border-[#d8ead9] bg-white/80 p-3">
                           <div className="text-xs font-bold uppercase tracking-[0.22em] text-[#6d8d70]">
                             Bundle Items
@@ -2429,7 +2409,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                             ))}
                           </div>
                         </div>
-
+ 
                         <div className="mt-3 text-right text-sm font-bold text-[#24502b]">
                           Subtotal: RM {money(Number(item.qty || 0) * Number(item.price || 0))}
                         </div>
@@ -2449,7 +2429,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                             </div>
                             <div className="mt-2 text-sm text-[#7b5740]">RM {money(item.price)}</div>
                           </div>
-
+ 
                           <button
                             type="button"
                             onClick={() => removeCart(item.id)}
@@ -2458,7 +2438,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                             Remove
                           </button>
                         </div>
-
+ 
                         <div className="mt-4 flex items-center gap-2">
                           <button
                             type="button"
@@ -2467,7 +2447,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                           >
                             -
                           </button>
-
+ 
                           <input
                             type="number"
                             min="0"
@@ -2475,7 +2455,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                             onChange={(e) => changeCartQty(item.id, e.target.value)}
                             className="h-11 w-24 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-[#5c4333] outline-none focus:border-[#cfae95]"
                           />
-
+ 
                           <button
                             type="button"
                             onClick={() => changeCartQty(item.id, item.qty + 1)}
@@ -2483,7 +2463,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                           >
                             +
                           </button>
-
+ 
                           <div className="ml-auto text-sm text-[#8b7260]">
                             Subtotal:{' '}
                             <span className="font-bold text-[#5f4432]">
@@ -2497,7 +2477,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 </div>
               )}
             </section>
-
+ 
             <section className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur">
               <div className="mb-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#b08867]">
@@ -2506,7 +2486,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 </div>
                 <h2 className="mt-2 text-xl font-black text-[#5f4432]">备选口味/颜色</h2>
               </div>
-
+ 
               {orderedBrands.length === 0 ? (
                 <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-4 text-sm text-[#a08874]">
                   下单后才会出现备选选项
@@ -2516,7 +2496,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                   <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-500">
                     此项必选：请勾选【不选择备选】或选择至少一个备选口味
                   </div>
-
+ 
                   <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-4">
                     <label className="flex cursor-pointer items-center gap-3">
                       <input
@@ -2527,12 +2507,12 @@ const backupEntries = Object.entries(backupSelections).filter(
                       />
                       <span className="font-semibold text-[#5f4432]">不选择备选</span>
                     </label>
-
+ 
                     <div className="mt-2 text-sm text-[#8a6d59]">
                       勾选后将自动备注：下一单扣
                     </div>
                   </div>
-
+ 
                   {orderedBrands.map((brand) => (
                     <div
                       key={brand}
@@ -2541,11 +2521,11 @@ const backupEntries = Object.entries(backupSelections).filter(
                       <div className="mb-3 text-base font-black text-[#5f4432]">
                         {brand}
                       </div>
-
+ 
                       <div className="flex flex-wrap gap-2">
                         {(backupOptions[brand] || []).map((flavor) => {
                           const active = backupSelections[brand]?.includes(flavor)
-
+ 
                           return (
                             <button
                               key={flavor}
@@ -2568,7 +2548,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 </div>
               )}
             </section>
-
+ 
             <section className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur">
               <div className="mb-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#b08867]">
@@ -2577,30 +2557,30 @@ const backupEntries = Object.entries(backupSelections).filter(
                 </div>
                 <h2 className="mt-2 text-xl font-black text-[#5f4432]">Summary</h2>
               </div>
-
+ 
               <div className="space-y-3">
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Cart Items</span>
                   <span className="font-bold text-[#5f4432]">{cartQty}</span>
                 </div>
-
+ 
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Normal Products</span>
                   <span className="font-bold text-[#5f4432]">RM {money(normalTotal)}</span>
                 </div>
-
+ 
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Bundle</span>
                   <span className="font-bold text-[#5f4432]">
                     RM {money(bundleCartTotal)}
                   </span>
                 </div>
-
+ 
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Shipping</span>
                   <span className="font-bold text-[#5f4432]">{shippingText()}</span>
                 </div>
-
+ 
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Backup Status</span>
                   <span className="font-bold text-[#5f4432]">
@@ -2611,12 +2591,12 @@ const backupEntries = Object.entries(backupSelections).filter(
                         : '未完成'}
                   </span>
                 </div>
-
+ 
                 <div className="flex items-center justify-between rounded-3xl border border-[#d8c2aa] bg-[linear-gradient(90deg,#f6eadf_0%,#edd8c4_100%)] px-4 py-4">
                   <span className="text-[#7a563d]">Total</span>
                   <span className="text-2xl font-black text-[#6a4a34]">RM {money(total)}</span>
                 </div>
-
+ 
                 <button
                   type="submit"
                   disabled={submitting}
@@ -2629,7 +2609,7 @@ const backupEntries = Object.entries(backupSelections).filter(
           </div>
         </form>
       </div>
-
+ 
       {showSummaryModal && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
@@ -2643,7 +2623,7 @@ const backupEntries = Object.entries(backupSelections).filter(
               <h3 className="text-lg font-black text-[#5f4432]">
                 ORDER SUMMARY
               </h3>
-
+ 
               <button
                 type="button"
                 onClick={handleCloseSummaryModal}
@@ -2652,18 +2632,18 @@ const backupEntries = Object.entries(backupSelections).filter(
                 关闭
               </button>
             </div>
-
+ 
             <textarea
               value={copiedPreview}
               readOnly
               className="min-h-[280px] w-full rounded-3xl border border-[#b6e07b] bg-[#97e067] px-4 py-3 text-sm text-[#17320d] outline-none"
             />
-
+ 
             <div className="mt-4 flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-[#7a5b47]">
                 {summaryCopied ? '已复制，可关闭视窗' : '请先复制订单摘要'}
               </div>
-
+ 
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -2676,7 +2656,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                 >
                   {summaryCopied ? '已复制' : '复制'}
                 </button>
-
+ 
                 <button
                   type="button"
                   onClick={handleCloseSummaryModal}
