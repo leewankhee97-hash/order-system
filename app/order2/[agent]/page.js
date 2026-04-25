@@ -1505,7 +1505,7 @@ const prefix = agentInfo.code || agentInfo.name || 'ORDER'
 const { data: oid, error: orderIdError } = await supabase.rpc(
   'create_agent_order_id',
   {
-    agent_id_input: agentInfo.id,
+    agent_id_input: Number(agentInfo.id), // ✅ 这里一定要 Number
   }
 )
 
@@ -1515,7 +1515,7 @@ console.log('OID:', oid)
       const { data: order, error: orderError } = await supabase
   .from('orders')
   .insert({
-    agent_id: agentInfo.id, // ✅ 关键修复
+   agent_id: Number(agentInfo.id),
     agent_name: prefix,
     delivery_method: delivery,
     pickup_order_id: String(oid),
