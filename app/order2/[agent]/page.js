@@ -311,73 +311,43 @@ export default function Page() {
   const [showSummaryModal, setShowSummaryModal] = useState(false)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') return
 
-    const url = new URL(window.location.href)
-    const currentVersion = url.searchParams.get(VERSION_PARAM)
-    const storedVersion = window.localStorage.getItem(VERSION_STORAGE_KEY)
-    const reloadGuard = window.sessionStorage.getItem(VERSION_RELOAD_GUARD_KEY)
+  const url = new URL(window.location.href)
 
-    const versionChanged = storedVersion !== APP_VERSION
-    const urlMismatch = currentVersion !== APP_VERSION
+  const currentVersion = url.searchParams.get(VERSION_PARAM)
+  const storedVersion = window.localStorage.getItem(VERSION_STORAGE_KEY)
+  const reloadGuard = window.sessionStorage.getItem(VERSION_RELOAD_GUARD_KEY)
 
-    if (versionChanged) {
-      window.localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION)
-      window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
+  const versionChanged = storedVersion !== APP_VERSION
+  const urlMismatch = currentVersion !== APP_VERSION
+
+  // ✅ 新版本 → 更新记录
+  if (versionChanged) {
+    window.localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION)
+    window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
+  }
+
+  // ✅ 触发一次 reload（只一次）
+  if ((versionChanged || urlMismatch) && reloadGuard !== APP_VERSION) {
+    window.sessionStorage.setItem(VERSION_RELOAD_GUARD_KEY, APP_VERSION)
+
+    const nextUrl = buildCurrentVersionedUrl()
+    if (nextUrl && nextUrl !== window.location.href) {
+      window.location.replace(nextUrl)
+      return
     }
+  }
 
-    if ((versionChanged || urlMismatch) && reloadGuard !== APP_VERSION) {
-      window.sessionStorage.setItem(VERSION_RELOAD_GUARD_KEY, APP_VERSION)
+  // ✅ 清 guard 防止卡死
+  if (reloadGuard === APP_VERSION) {
+    window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
+  }
 
-      const nextUrl = buildCurrentVersionedUrl()
-      if (nextUrl && nextUrl !== window.location.href) {
-        window.location.replace(nextUrl)
-        return
-      }
-    }
+  // ✅ 只在进入页面时 init
+  init()
 
-    if (reloadGuard === APP_VERSION) {
-      window.sessionStorage.removeItem(VERSION_RELOAD_GUARD_KEY)
-    }
-
-    init()
-
-    const t = setTimeout(() => {
-      init({ silent: true })
-    }, 2000)
-
-    return () => clearTimeout(t)
-  }, [agent])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const handlePageShow = (event) => {
-      if (event.persisted) {
-        init({ silent: true })
-      }
-    }
-
-    const handleFocus = () => {
-      init({ silent: true })
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        init({ silent: true })
-      }
-    }
-
-    window.addEventListener('pageshow', handlePageShow)
-    window.addEventListener('focus', handleFocus)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener('pageshow', handlePageShow)
-      window.removeEventListener('focus', handleFocus)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [agent])
+}, [agent])
 
   async function init(options = {}) {
     const requestId = ++initRequestRef.current
@@ -1209,13 +1179,30 @@ function buildCopiedSummary(oid) {
   lines.push('🧾 ORDER SUMMARY')
   lines.push('')
 
-  if (delivery === '自取') {
-    lines.push(`配送方式：自取`)
-    lines.push(`订单编号：${oid}`)
-    lines.push(`自取日期：${date || '-'}`)
-    lines.push(`自取时间：${time || '-'}`)
-    lines.push('')
-  }
+  // ✅ 配送信息
+lines.push(`配送方式：${delivery}`)
+lines.push(`订单编号：${oid}`)
+
+if (delivery === '自取') {
+  lines.push(`自取日期：${date || '-'}`)
+  lines.push(`自取时间：${time || '-'}`)
+}
+
+if (delivery === '邮寄') {
+  lines.push(`地区：${region}`)
+  lines.push(`收件人：${name || '-'}`)
+  lines.push(`电话：${phone || '-'}`)
+  lines.push(`地址：${address || '-'}`)
+}
+
+if (delivery === 'LALAMOVE') {
+  lines.push(`收件人：${name || '-'}`)
+  lines.push(`电话：${phone || '-'}`)
+  lines.push(`地址：${address || '-'}`)
+  lines.push(`Lalamove费用：RM${money(shipping || 0)}`)
+}
+
+lines.push('')
 
   lines.push('━━━━━━━━━━━━━━━')
 lines.push('')
