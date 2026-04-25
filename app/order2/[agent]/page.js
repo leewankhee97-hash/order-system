@@ -1175,6 +1175,33 @@ function buildCopiedSummary(oid) {
  
   lines.push('🧾 ORDER SUMMARY')
   lines.push('')
+
+  // ✅ 配送信息
+lines.push(`配送方式：${delivery}`)
+lines.push(`订单编号：${oid}`)
+
+if (delivery === '自取') {
+  lines.push(`自取日期：${date || '-'}`)
+  lines.push(`自取时间：${time || '-'}`)
+}
+
+if (delivery === '邮寄') {
+  lines.push(`地区：${region}`)
+  lines.push(`收件人：${name || '-'}`)
+  lines.push(`电话：${phone || '-'}`)
+  lines.push(`地址：${address || '-'}`)
+  lines.push(`Postcode：${postcode || '-'}`)
+  lines.push(`State：${state || '-'}`)
+}
+
+if (delivery === 'LALAMOVE') {
+  lines.push(`收件人：${name || '-'}`)
+  lines.push(`电话：${phone || '-'}`)
+  lines.push(`地址：${address || '-'}`)
+  lines.push(`Lalamove费用：RM${money(shipping || 0)}`)
+}
+
+lines.push('')
  
   if (delivery === '自取') {
     lines.push(`配送方式：自取`)
