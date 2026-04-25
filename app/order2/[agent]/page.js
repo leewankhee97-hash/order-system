@@ -1510,6 +1510,7 @@ const { data: oid, error: orderIdError } = await supabase.rpc(
 )
 
 if (orderIdError) throw orderIdError
+console.log('OID:', oid)
  
       const { data: order, error: orderError } = await supabase
   .from('orders')
@@ -1517,7 +1518,7 @@ if (orderIdError) throw orderIdError
     agent_id: agentInfo.id, // ✅ 关键修复
     agent_name: prefix,
     delivery_method: delivery,
-    pickup_order_id: oid,
+    pickup_order_id: String(oid),
           pickup_date: delivery === '自取' ? date || null : null,
           pickup_time: delivery === '自取' ? time || null : null,
           recipient_name: name || null,
