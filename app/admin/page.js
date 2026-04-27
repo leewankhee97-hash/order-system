@@ -172,40 +172,56 @@ export default function AdminPage() {
       orderDateMap[o.id] = o.created_at
     })
 
-    const productMap = {}
+    const productInfoMap = {}
 
-    orderItems.forEach((item) => {
-      const createdAt = orderDateMap[item.order_id]
-      const d = new Date(createdAt)
+products.forEach((p) => {
+  productInfoMap[String(p.id)] = {
+    category: p.category || p.product_type || '未分类',
+    brand: p.brand || p.series || '-',
+    name: p.name || '-',
+  }
+})
 
-      if (
-        Number.isNaN(d.getTime()) ||
-        d.getMonth() !== month ||
-        d.getFullYear() !== year
-      ) {
-        return
-      }
+const productMap = {}
 
-      const name = item.product_name || item.name || 'UNKNOWN'
-      const qty = Number(item.qty || item.quantity || 0)
+orderItems.forEach((item) => {
+  const createdAt = orderDateMap[item.order_id]
+  const d = new Date(createdAt)
 
-      if (!productMap[name]) productMap[name] = 0
-      productMap[name] += qty
-    })
+  if (
+    Number.isNaN(d.getTime()) ||
+    d.getMonth() !== month ||
+    d.getFullYear() !== year
+  ) {
+    return
+  }
 
-    const top = Object.entries(productMap)
-      .map(([name, qty]) => ({ name, qty }))
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 10)
+  const info = productInfoMap[String(item.product_id)] || {}
 
-    setTodaySales(todayTotal)
-    setMonthSales(monthTotal)
-    setAgentRanking(ranking)
-    setLowStock(low)
-    setOutStock(out)
-    setGroupedOutStock(groupedOut)
-    setGroupedLowStock(groupedLow)
-    setTopProducts(top)
+  const category = info.category || '未分类'
+  const brand = info.brand || '-'
+  const name = item.product_name || info.name || 'UNKNOWN'
+  const qty = Number(item.qty || item.quantity || 0)
+
+  const key = `${category}__${brand}__${name}`
+
+  if (!productMap[key]) {
+    productMap[key] = {
+      category,
+      brand,
+      name,
+      qty: 0,
+    }
+  }
+
+  productMap[key].qty += qty
+})
+
+const top = Object.values(productMap)
+  .sort((a, b) => b.qty - a.qty)
+  .slice(0, 10)
+
+setTopProducts(top)
 
     setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
     setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
@@ -884,23 +900,24 @@ export default function AdminPage() {
             {topProducts.length === 0 && <div>暂无数据</div>}
 
             {topProducts.map((p, i) => (
-              <div
-                key={p.name}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  padding: '10px 0',
-                  borderBottom: '1px solid #eee',
-                }}
-              >
-                <div>
-                  {i + 1}. {p.name}
-                </div>
-                <div style={{ fontWeight: 800 }}>
-                  × {p.qty}
-                </div>
-              </div>
-            ))}
+  <div
+    key={`${p.category}-${p.brand}-${p.name}`}
+    style={{
+      display: 'grid',
+      gridTemplateColumns: '50px 1fr 1fr 2fr 80px',
+      gap: 10,
+      padding: '10px 0',
+      borderBottom: '1px solid #eee',
+      alignItems: 'center',
+    }}
+  >
+    <div>{i + 1}.</div>
+    <div>{p.category}</div>
+    <div>{p.brand}</div>
+    <div>{p.name}</div>
+    <div style={{ fontWeight: 800 }}>× {p.qty}</div>
+  </div>
+))}
           </div>
         </div>
 
