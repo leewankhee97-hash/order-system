@@ -111,8 +111,8 @@ export default function AdminPage() {
   function calculateStats(orders, products, orderItems = []) {
     const today = new Date().toISOString().slice(0, 10)
     const now = new Date()
-    const month = now.getMonth()
-    const year = now.getFullYear()
+const month = now.getMonth() + 1   // 🔥 关键
+const year = now.getFullYear()
 
     let todayTotal = 0
     let monthTotal = 0
@@ -128,7 +128,7 @@ export default function AdminPage() {
       const d = new Date(o.created_at)
       const isThisMonth =
         !Number.isNaN(d.getTime()) &&
-        d.getMonth() === month &&
+        d.getMonth() + 1 === month
         d.getFullYear() === year
 
       if (isThisMonth) {
