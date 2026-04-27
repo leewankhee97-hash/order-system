@@ -109,123 +109,120 @@ export default function AdminPage() {
   }
 
   function calculateStats(orders, products, orderItems = []) {
-    const today = new Date().toISOString().slice(0, 10)
-    const now = new Date()
-const month = now.getMonth() + 1   // 🔥 关键
-const year = now.getFullYear()
+  const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const month = now.getMonth()
+  const year = now.getFullYear()
 
-    let todayTotal = 0
-    let monthTotal = 0
-    const agentMap = {}
+  let todayTotal = 0
+  let monthTotal = 0
+  const agentMap = {}
 
-    orders.forEach((o) => {
-      const sales = getNetSales(o)
+  orders.forEach((o) => {
+    const sales = getNetSales(o)
 
-      if (o.created_at?.slice(0, 10) === today) {
-        todayTotal += sales
-      }
-
-      const d = new Date(o.created_at)
-      const isThisMonth =
-        !Number.isNaN(d.getTime()) &&
-        d.getMonth() + 1 === month
-        d.getFullYear() === year
-
-      if (isThisMonth) {
-        monthTotal += sales
-      }
-
-      const name = String(o.agent_name || 'UNKNOWN').trim() || 'UNKNOWN'
-
-      if (!agentMap[name]) {
-        agentMap[name] = {
-          name,
-          total: 0,
-          count: 0,
-        }
-      }
-
-      agentMap[name].total += sales
-      agentMap[name].count += 1
-    })
-
-    const ranking = Object.values(agentMap)
-      .map((agent) => ({
-        ...agent,
-        avg: agent.count > 0 ? agent.total / agent.count : 0,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10)
-
-    const low = products.filter((p) => {
-      const stock = Number(p.stock || 0)
-      return stock > 0 && stock <= 50
-    })
-
-    const out = products.filter((p) => Number(p.stock || 0) <= 0)
-
-    const groupedOut = groupProducts(out)
-    const groupedLow = groupProducts(low)
-
-    const orderDateMap = {}
-    orders.forEach((o) => {
-      orderDateMap[o.id] = o.created_at
-    })
-
-    const productInfoMap = {}
-
-products.forEach((p) => {
-  productInfoMap[String(p.id)] = {
-    category: p.category || p.product_type || '未分类',
-    brand: p.brand || p.series || '-',
-    name: p.name || '-',
-  }
-})
-
-const productMap = {}
-
-orderItems.forEach((item) => {
-  const createdAt = orderDateMap[item.order_id]
-  const d = new Date(createdAt)
-
-  if (
-    Number.isNaN(d.getTime()) ||
-    d.getMonth() !== month ||
-    d.getFullYear() !== year
-  ) {
-    return
-  }
-
-  const info = productInfoMap[String(item.product_id)] || {}
-
-  const category = info.category || '未分类'
-  const brand = info.brand || '-'
-  const name = item.product_name || info.name || 'UNKNOWN'
-  const qty = Number(item.qty || item.quantity || 0)
-
-  const key = `${category}__${brand}__${name}`
-
-  if (!productMap[key]) {
-    productMap[key] = {
-      category,
-      brand,
-      name,
-      qty: 0,
+    if (o.created_at?.slice(0, 10) === today) {
+      todayTotal += sales
     }
-  }
 
-  productMap[key].qty += qty
-})
+    const d = new Date(o.created_at)
+    const isThisMonth =
+      !Number.isNaN(d.getTime()) &&
+      d.getMonth() === month &&
+      d.getFullYear() === year
 
-const top = Object.values(productMap)
-  .sort((a, b) => b.qty - a.qty)
-  .slice(0, 10)
+    if (isThisMonth) {
+      monthTotal += sales
+    }
 
-setTopProducts(top)
+    const name = String(o.agent_name || 'UNKNOWN').trim() || 'UNKNOWN'
 
-    setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
-    setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
-  }
+    if (!agentMap[name]) {
+      agentMap[name] = { name, total: 0, count: 0 }
+    }
+
+    agentMap[name].total += sales
+    agentMap[name].count += 1
+  })
+
+  const ranking = Object.values(agentMap)
+    .map((agent) => ({
+      ...agent,
+      avg: agent.count > 0 ? agent.total / agent.count : 0,
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10)
+
+  const low = products.filter((p) => {
+    const stock = Number(p.stock || 0)
+    return stock > 0 && stock <= 50
+  })
+
+  const out = products.filter((p) => Number(p.stock || 0) <= 0)
+
+  const groupedOut = groupProducts(out)
+  const groupedLow = groupProducts(low)
+
+  const orderDateMap = {}
+  orders.forEach((o) => {
+    orderDateMap[o.id] = o.created_at
+  })
+
+  const productInfoMap = {}
+  products.forEach((p) => {
+    productInfoMap[String(p.id)] = {
+      category: p.category || p.product_type || '未分类',
+      brand: p.brand || p.series || '-',
+      name: p.name || '-',
+    }
+  })
+
+  const productMap = {}
+
+  orderItems.forEach((item) => {
+    const createdAt = orderDateMap[item.order_id]
+    const d = new Date(createdAt)
+
+    if (
+      Number.isNaN(d.getTime()) ||
+      d.getMonth() !== month ||
+      d.getFullYear() !== year
+    ) {
+      return
+    }
+
+    const info = productInfoMap[String(item.product_id)] || {}
+
+    const category = info.category || '未分类'
+    const brand = info.brand || '-'
+    const name = item.product_name || info.name || 'UNKNOWN'
+    const qty = Number(item.qty || item.quantity || 0)
+
+    const key = `${category}__${brand}__${name}`
+
+    if (!productMap[key]) {
+      productMap[key] = { category, brand, name, qty: 0 }
+    }
+
+    productMap[key].qty += qty
+  })
+
+  const top = Object.values(productMap)
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 10)
+
+  setTodaySales(todayTotal)
+  setMonthSales(monthTotal)
+  setAgentRanking(ranking)
+  setLowStock(low)
+  setOutStock(out)
+  setGroupedOutStock(groupedOut)
+  setGroupedLowStock(groupedLow)
+  setTopProducts(top)
+
+  setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
+  setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
+}
 
   function handleStockInput(productId, value) {
     setStockInputs((prev) => ({
