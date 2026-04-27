@@ -25,6 +25,8 @@ export default function AdminPage() {
   const [collapsedOut, setCollapsedOut] = useState({})
   const [collapsedLow, setCollapsedLow] = useState({})
   const [topProducts, setTopProducts] = useState([])
+  const [agents, setAgents] = useState([])
+const [resetAgentId, setResetAgentId] = useState('')
 
   useEffect(() => {
     init()
@@ -33,6 +35,10 @@ export default function AdminPage() {
   async function init() {
     const { data: orderData } = await supabase.from('orders').select('*')
     const { data: productData } = await supabase.from('products').select('*')
+    const { data: agentData } = await supabase
+  .from('agents')
+  .select('id, name, code, slug, order_counter')
+  .order('name', { ascending: true })
     const { data: notifData } = await supabase
       .from('notifications')
       .select('*')
@@ -44,6 +50,7 @@ export default function AdminPage() {
 
     setOrders(o)
     setProducts(p)
+    setAgents(agentData || [])
     setNotifications(notifData || [])
 
     calculateStats(o, p)
@@ -239,7 +246,32 @@ setTopProducts(top)
 
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
   }
+// 👇 Reset TEST 功能
+async function handleResetAgent() {
+  if (!resetAgentId) {
+    alert('请选择要 Reset 的 Agent')
+    return
+  }
 
+  const selected = agents.find((a) => String(a.id) === String(resetAgentId))
+  const label = selected?.name || selected?.code || selected?.slug || resetAgentId
+
+  const ok = confirm(`确定要清空 ${label} 所有订单并重置 ORDER ID？`)
+  if (!ok) return
+
+  const res = await fetch('/api/reset-agent', {
+    method: 'POST',
+    body: JSON.stringify({ agent_id: resetAgentId }),
+  })
+
+  if (res.ok) {
+    alert(`${label} 已重置`)
+    location.reload()
+  } else {
+    const text = await res.text()
+    alert(`重置失败：${text}`)
+  }
+}
   function quickFill(productId, qty) {
     setStockInputs((prev) => ({
       ...prev,
@@ -572,7 +604,53 @@ setTopProducts(top)
       <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 20 }}>
         后台管理
       </h1>
+<div
+  style={{
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 16,
+    border: '1px solid #ffcccc',
+    background: '#fff5f5',
+    display: 'flex',
+    gap: 10,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  }}
+>
+  <select
+    value={resetAgentId}
+    onChange={(e) => setResetAgentId(e.target.value)}
+    style={{
+      padding: '10px 12px',
+      borderRadius: 10,
+      border: '1px solid #d7bfa8',
+      minWidth: 220,
+    }}
+  >
+    <option value="">选择 Agent</option>
+    {agents.map((a) => (
+      <option key={a.id} value={a.id}>
+        {a.name || a.code || a.slug} — #{a.id}
+      </option>
+    ))}
+  </select>
 
+  <button
+    type="button"
+    onClick={handleResetAgent}
+    style={{
+      padding: '10px 16px',
+      background: '#ff4d4f',
+      color: '#fff',
+      border: 'none',
+      borderRadius: 10,
+      fontWeight: 800,
+      cursor: 'pointer',
+    }}
+  >
+    🧨 Reset Agent
+  </button>
+</div>
       {saveMsg ? (
         <div
           style={{
