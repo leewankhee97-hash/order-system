@@ -24,6 +24,7 @@ export default function AdminPage() {
 
   const [collapsedOut, setCollapsedOut] = useState({})
   const [collapsedLow, setCollapsedLow] = useState({})
+  const [topProducts, setTopProducts] = useState([])
 
   useEffect(() => {
     init()
@@ -149,6 +150,36 @@ export default function AdminPage() {
 
     setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
     setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
+    setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
+setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
+
+// 🔥 TOP 产品统计（本月）
+const productMap = {}
+
+orders.forEach((o) => {
+  const d = new Date(o.created_at)
+  if (d.getMonth() !== month || d.getFullYear() !== year) return
+
+  const items = o.items || o.cart_items || o.products || []
+
+  items.forEach((item) => {
+    const name = item.name || item.product_name || 'UNKNOWN'
+    const qty = Number(item.qty || item.quantity || 0)
+
+    if (!productMap[name]) {
+      productMap[name] = 0
+    }
+
+    productMap[name] += qty
+  })
+})
+
+const top = Object.entries(productMap)
+  .map(([name, qty]) => ({ name, qty }))
+  .sort((a, b) => b.qty - a.qty)
+  .slice(0, 10)
+
+setTopProducts(top)
   }
 
   function handleStockInput(productId, value) {
@@ -597,6 +628,34 @@ export default function AdminPage() {
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
           🏆 Agent 排行榜
+          <div style={{ marginBottom: 20 }}>
+  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+    🔥 本月热卖产品
+  </h2>
+
+  <div style={sectionCard}>
+    {topProducts.length === 0 && <div>暂无数据</div>}
+
+    {topProducts.map((p, i) => (
+      <div
+        key={p.name}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          padding: '10px 0',
+          borderBottom: '1px solid #eee',
+        }}
+      >
+        <div>
+          {i + 1}. {p.name}
+        </div>
+        <div style={{ fontWeight: 800 }}>
+          × {p.qty}
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
         </h2>
 
         <div style={sectionCard}>

@@ -4,12 +4,11 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
 const menuItems = [
-  { label: 'Dashboard', href: '/admin' },
-  { label: 'Products', href: '/admin/products' },
-  { label: 'Orders', href: '/admin/orders' },
-  { label: 'Bundles', href: '/admin/bundles' },
-  { label: 'Agents', href: '/admin/agents' },
-  { label: 'Prices', href: '/admin/prices' },
+  { label: '🏠 Dashboard', href: '/admin' },
+  { label: '📦 Products', href: '/admin/products' },
+  { label: '🧾 Orders', href: '/admin/orders' },
+  { label: '🎁 Bundles', href: '/admin/bundles' },
+  { label: '👥 Agents', href: '/admin/agents' },
 ]
 
 export default function AdminLayout({ children }) {
