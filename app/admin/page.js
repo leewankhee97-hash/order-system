@@ -7,38 +7,54 @@ export default function AdminPage() {
   const [orders, setOrders] = useState([])
   const [products, setProducts] = useState([])
   const [notifications, setNotifications] = useState([])
+  const [agents, setAgents] = useState([])
 
   const [todaySales, setTodaySales] = useState(0)
   const [monthSales, setMonthSales] = useState(0)
   const [agentRanking, setAgentRanking] = useState([])
+  const [topProducts, setTopProducts] = useState([])
 
   const [lowStock, setLowStock] = useState([])
   const [outStock, setOutStock] = useState([])
-
   const [groupedOutStock, setGroupedOutStock] = useState({})
   const [groupedLowStock, setGroupedLowStock] = useState({})
 
   const [stockInputs, setStockInputs] = useState({})
   const [savingId, setSavingId] = useState(null)
   const [saveMsg, setSaveMsg] = useState('')
-
   const [collapsedOut, setCollapsedOut] = useState({})
   const [collapsedLow, setCollapsedLow] = useState({})
-  const [topProducts, setTopProducts] = useState([])
-  const [agents, setAgents] = useState([])
-const [resetAgentId, setResetAgentId] = useState('')
+
+  const [resetAgentId, setResetAgentId] = useState('')
+  const [toast, setToast] = useState(null)
+  const [resetLoading, setResetLoading] = useState(false)
 
   useEffect(() => {
     init()
   }, [])
 
+  useEffect(() => {
+    if (!toast) return
+
+    const timer = setTimeout(() => {
+      setToast(null)
+    }, 2500)
+
+    return () => clearTimeout(timer)
+  }, [toast])
+
   async function init() {
     const { data: orderData } = await supabase.from('orders').select('*')
     const { data: productData } = await supabase.from('products').select('*')
     const { data: agentData } = await supabase
-  .from('agents')
-  .select('id, name, code, slug, order_counter')
-  .order('name', { ascending: true })
+      .from('agents')
+      .select('id, name, code, slug, order_counter')
+      .order('name', { ascending: true })
+
+    const { data: orderItemData } = await supabase
+      .from('order_items')
+      .select('*')
+
     const { data: notifData } = await supabase
       .from('notifications')
       .select('*')
@@ -47,13 +63,14 @@ const [resetAgentId, setResetAgentId] = useState('')
 
     const o = orderData || []
     const p = productData || []
+    const oi = orderItemData || []
 
     setOrders(o)
     setProducts(p)
     setAgents(agentData || [])
     setNotifications(notifData || [])
 
-    calculateStats(o, p)
+    calculateStats(o, p, oi)
   }
 
   function getNetSales(order) {
@@ -91,16 +108,14 @@ const [resetAgentId, setResetAgentId] = useState('')
     return next
   }
 
-  function calculateStats(orders, products) {
+  function calculateStats(orders, products, orderItems = []) {
     const today = new Date().toISOString().slice(0, 10)
-
     const now = new Date()
     const month = now.getMonth()
     const year = now.getFullYear()
 
     let todayTotal = 0
     let monthTotal = 0
-
     const agentMap = {}
 
     orders.forEach((o) => {
@@ -111,7 +126,12 @@ const [resetAgentId, setResetAgentId] = useState('')
       }
 
       const d = new Date(o.created_at)
-      if (!Number.isNaN(d.getTime()) && d.getMonth() === month && d.getFullYear() === year) {
+      const isThisMonth =
+        !Number.isNaN(d.getTime()) &&
+        d.getMonth() === month &&
+        d.getFullYear() === year
+
+      if (isThisMonth) {
         monthTotal += sales
       }
 
@@ -147,6 +167,37 @@ const [resetAgentId, setResetAgentId] = useState('')
     const groupedOut = groupProducts(out)
     const groupedLow = groupProducts(low)
 
+    const orderDateMap = {}
+    orders.forEach((o) => {
+      orderDateMap[o.id] = o.created_at
+    })
+
+    const productMap = {}
+
+    orderItems.forEach((item) => {
+      const createdAt = orderDateMap[item.order_id]
+      const d = new Date(createdAt)
+
+      if (
+        Number.isNaN(d.getTime()) ||
+        d.getMonth() !== month ||
+        d.getFullYear() !== year
+      ) {
+        return
+      }
+
+      const name = item.product_name || item.name || 'UNKNOWN'
+      const qty = Number(item.qty || item.quantity || 0)
+
+      if (!productMap[name]) productMap[name] = 0
+      productMap[name] += qty
+    })
+
+    const top = Object.entries(productMap)
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 10)
+
     setTodaySales(todayTotal)
     setMonthSales(monthTotal)
     setAgentRanking(ranking)
@@ -154,39 +205,10 @@ const [resetAgentId, setResetAgentId] = useState('')
     setOutStock(out)
     setGroupedOutStock(groupedOut)
     setGroupedLowStock(groupedLow)
+    setTopProducts(top)
 
     setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
     setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
-    setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
-setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
-
-// 🔥 TOP 产品统计（本月）
-const productMap = {}
-
-orders.forEach((o) => {
-  const d = new Date(o.created_at)
-  if (d.getMonth() !== month || d.getFullYear() !== year) return
-
-  const items = o.items || o.cart_items || o.products || []
-
-  items.forEach((item) => {
-    const name = item.name || item.product_name || 'UNKNOWN'
-    const qty = Number(item.qty || item.quantity || 0)
-
-    if (!productMap[name]) {
-      productMap[name] = 0
-    }
-
-    productMap[name] += qty
-  })
-})
-
-const top = Object.entries(productMap)
-  .map(([name, qty]) => ({ name, qty }))
-  .sort((a, b) => b.qty - a.qty)
-  .slice(0, 10)
-
-setTopProducts(top)
   }
 
   function handleStockInput(productId, value) {
@@ -201,7 +223,7 @@ setTopProducts(top)
     const newStock = Number(raw)
 
     if (raw === undefined || raw === '' || Number.isNaN(newStock) || newStock < 0) {
-      alert('请输入正确库存')
+      setToast({ type: 'error', msg: '请输入正确库存' })
       return
     }
 
@@ -214,12 +236,14 @@ setTopProducts(top)
       .eq('id', productId)
 
     if (error) {
-      alert(`更新失败：${error.message}`)
+      setToast({ type: 'error', msg: `更新失败：${error.message}` })
       setSavingId(null)
       return
     }
 
     setSaveMsg('库存已更新')
+    setToast({ type: 'success', msg: '库存已更新 ✅' })
+
     setStockInputs((prev) => ({
       ...prev,
       [productId]: '',
@@ -240,41 +264,54 @@ setTopProducts(top)
       .eq('id', notificationId)
 
     if (error) {
-      alert(`通知更新失败：${error.message}`)
+      setToast({ type: 'error', msg: `通知更新失败：${error.message}` })
       return
     }
 
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
-  }
-// 👇 Reset TEST 功能
-async function handleResetAgent() {
-  if (!resetAgentId) {
-    alert('请选择要 Reset 的 Agent')
-    return
+    setToast({ type: 'success', msg: '通知已处理 ✅' })
   }
 
-  const selected = agents.find((a) => String(a.id) === String(resetAgentId))
-  const label = selected?.name || selected?.code || selected?.slug || resetAgentId
+  async function handleResetAgent() {
+    if (!resetAgentId) {
+      setToast({ type: 'error', msg: '请选择 Agent' })
+      return
+    }
 
-  const ok = confirm(`确定要清空 ${label} 所有订单并重置 ORDER ID？`)
-  if (!ok) return
+    if (resetLoading) return
 
-  const res = await fetch('/api/reset-agent', {
-    method: 'POST',
-    body: JSON.stringify({ agent_id: resetAgentId }),
-  })
+    const selected = agents.find((a) => String(a.id) === String(resetAgentId))
+    const label = selected?.name || selected?.code || selected?.slug || resetAgentId
 
-  const text = await res.text()
+    const ok = confirm(`确定要清空 ${label} 所有订单并重置 ORDER ID？`)
+    if (!ok) return
 
-if (res.ok) {
-  alert(`${label} 已成功重置 ✅`)
-  await init()
-  setResetAgentId('')
-  return
-}
+    setResetLoading(true)
 
-alert(`重置失败：${text}`)
-}
+    try {
+      const res = await fetch('/api/reset-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: resetAgentId }),
+      })
+
+      const text = await res.text()
+
+      if (res.ok) {
+        setToast({ type: 'success', msg: `${label} 已成功重置 ✅` })
+        await init()
+        setResetAgentId('')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        setToast({ type: 'error', msg: `失败：${text}` })
+      }
+    } catch (err) {
+      setToast({ type: 'error', msg: '网络错误' })
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
   function quickFill(productId, qty) {
     setStockInputs((prev) => ({
       ...prev,
@@ -490,7 +527,8 @@ alert(`重置失败：${text}`)
                         key={p.id}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'minmax(180px, 1fr) 110px minmax(140px, 220px) auto',
+                          gridTemplateColumns:
+                            'minmax(180px, 1fr) 110px minmax(140px, 220px) auto',
                           gap: 10,
                           alignItems: 'center',
                           padding: '10px 12px',
@@ -565,298 +603,327 @@ alert(`重置失败：${text}`)
   }
 
   return (
-    <div style={{ minWidth: 0 }}>
-      {notifications.length > 0 && (
+    <>
+      {toast && (
         <div
           style={{
-            marginBottom: 16,
-            padding: '14px 16px',
-            borderRadius: 14,
-            background: '#fff1f1',
-            border: '1px solid #ffcccc',
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            zIndex: 9999,
+            padding: '12px 16px',
+            borderRadius: 12,
+            background: toast.type === 'success' ? '#e6ffed' : '#ffecec',
+            border: `1px solid ${
+              toast.type === 'success' ? '#b7eb8f' : '#ffa39e'
+            }`,
+            color: toast.type === 'success' ? '#389e0d' : '#cf1322',
+            fontWeight: 800,
+            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
           }}
         >
-          <div style={{ fontWeight: 900, color: '#c0392b', marginBottom: 6 }}>
-            🔔 库存提醒（{notifications.length}）
-          </div>
-
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              style={{
-                fontSize: 14,
-                color: '#c0392b',
-                cursor: 'pointer',
-                padding: '6px 0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 12,
-                flexWrap: 'wrap',
-              }}
-              onClick={() => markNotificationRead(n.id)}
-            >
-              <span>🔴 {n.message}</span>
-              <span style={{ fontSize: 12, fontWeight: 800 }}>
-                点击已处理
-              </span>
-            </div>
-          ))}
+          {toast.msg}
         </div>
       )}
 
-      <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 20 }}>
-        后台管理
-      </h1>
-<div
-  style={{
-    marginBottom: 20,
-    padding: 16,
-    borderRadius: 16,
-    border: '1px solid #ffcccc',
-    background: '#fff5f5',
-    display: 'flex',
-    gap: 10,
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  }}
->
-  <select
-    value={resetAgentId}
-    onChange={(e) => setResetAgentId(e.target.value)}
-    style={{
-      padding: '10px 12px',
-      borderRadius: 10,
-      border: '1px solid #d7bfa8',
-      minWidth: 220,
-    }}
-  >
-    <option value="">选择 Agent</option>
-    {agents.map((a) => (
-      <option key={a.id} value={a.id}>
-        {a.name || a.code || a.slug} — #{a.id}
-      </option>
-    ))}
-  </select>
+      <div style={{ minWidth: 0 }}>
+        {notifications.length > 0 && (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: '#fff1f1',
+              border: '1px solid #ffcccc',
+            }}
+          >
+            <div style={{ fontWeight: 900, color: '#c0392b', marginBottom: 6 }}>
+              🔔 库存提醒（{notifications.length}）
+            </div>
 
-  <button
-    type="button"
-    onClick={handleResetAgent}
-    style={{
-      padding: '10px 16px',
-      background: '#ff4d4f',
-      color: '#fff',
-      border: 'none',
-      borderRadius: 10,
-      fontWeight: 800,
-      cursor: 'pointer',
-    }}
-  >
-    🧨 Reset Agent
-  </button>
-</div>
-      {saveMsg ? (
+            {notifications.map((n) => (
+              <div
+                key={n.id}
+                style={{
+                  fontSize: 14,
+                  color: '#c0392b',
+                  cursor: 'pointer',
+                  padding: '6px 0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                }}
+                onClick={() => markNotificationRead(n.id)}
+              >
+                <span>🔴 {n.message}</span>
+                <span style={{ fontSize: 12, fontWeight: 800 }}>
+                  点击已处理
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 20 }}>
+          后台管理
+        </h1>
+
         <div
           style={{
-            marginBottom: 16,
-            padding: '12px 16px',
-            borderRadius: 12,
-            background: '#eefaf0',
-            border: '1px solid #b9dfbe',
-            fontWeight: 800,
+            marginBottom: 20,
+            padding: 16,
+            borderRadius: 16,
+            border: '1px solid #ffcccc',
+            background: '#fff5f5',
+            display: 'flex',
+            gap: 10,
+            flexWrap: 'wrap',
+            alignItems: 'center',
           }}
         >
-          {saveMsg}
-        </div>
-      ) : null}
+          <select
+            value={resetAgentId}
+            onChange={(e) => setResetAgentId(e.target.value)}
+            disabled={resetLoading}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid #d7bfa8',
+              minWidth: 220,
+            }}
+          >
+            <option value="">选择 Agent</option>
+            {agents.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name || a.code || a.slug} — #{a.id}
+              </option>
+            ))}
+          </select>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 16,
-          marginBottom: 20,
-        }}
-      >
-        <div style={statCard}>
-          <div>今日销售</div>
-          <div style={{ fontSize: 24, fontWeight: 900 }}>
-            RM {todaySales.toFixed(2)}
+          <button
+            type="button"
+            onClick={handleResetAgent}
+            disabled={resetLoading}
+            style={{
+              padding: '10px 16px',
+              background: resetLoading ? '#ccc' : '#ff4d4f',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 10,
+              fontWeight: 800,
+              cursor: resetLoading ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {resetLoading ? '重置中...' : '🧨 Reset Agent'}
+          </button>
+        </div>
+
+        {saveMsg ? (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: '12px 16px',
+              borderRadius: 12,
+              background: '#eefaf0',
+              border: '1px solid #b9dfbe',
+              fontWeight: 800,
+            }}
+          >
+            {saveMsg}
           </div>
-        </div>
+        ) : null}
 
-        <div style={statCard}>
-          <div>本月销售</div>
-          <div style={{ fontSize: 24, fontWeight: 900 }}>
-            RM {monthSales.toFixed(2)}
-          </div>
-        </div>
-
-        <div style={statCard}>
-          <div>低库存产品</div>
-          <div style={{ fontSize: 24, fontWeight: 900 }}>
-            {lowStock.length}
-          </div>
-        </div>
-
-        <div style={{ ...statCard, background: '#ffe9e9' }}>
-          <div>缺货产品</div>
-          <div style={{ fontSize: 24, fontWeight: 900 }}>
-            {outStock.length}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-          🏆 Agent 排行榜
-          <div style={{ marginBottom: 20 }}>
-  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-    🔥 本月热卖产品
-  </h2>
-
-  <div style={sectionCard}>
-    {topProducts.length === 0 && <div>暂无数据</div>}
-
-    {topProducts.map((p, i) => (
-      <div
-        key={p.name}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          padding: '10px 0',
-          borderBottom: '1px solid #eee',
-        }}
-      >
-        <div>
-          {i + 1}. {p.name}
-        </div>
-        <div style={{ fontWeight: 800 }}>
-          × {p.qty}
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
-        </h2>
-
-        <div style={sectionCard}>
-          {agentRanking.length === 0 && <div>暂无数据</div>}
-
-          {agentRanking.length > 0 && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: 12,
-              }}
-            >
-              {agentRanking.map((a, i) => (
-                <div
-                  key={a.name}
-                  style={{
-                    ...getRankCardStyle(i),
-                    borderRadius: 16,
-                    padding: '16px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 10,
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div style={{ fontSize: 22, fontWeight: 900 }}>
-                      {getRankBadge(i)}
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 800,
-                        padding: '6px 10px',
-                        borderRadius: 999,
-                        border: '1px solid #d7bfa8',
-                        background: '#fffaf5',
-                      }}
-                    >
-                      第 {i + 1} 名
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 900,
-                      marginBottom: 10,
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {a.name}
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: 10,
-                      }}
-                    >
-                      <span>销售额</span>
-                      <strong>RM {a.total.toFixed(2)}</strong>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: 10,
-                      }}
-                    >
-                      <span>订单数</span>
-                      <strong>{a.count}</strong>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: 10,
-                      }}
-                    >
-                      <span>平均单价</span>
-                      <strong>RM {a.avg.toFixed(2)}</strong>
-                    </div>
-                  </div>
-                </div>
-              ))}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 16,
+            marginBottom: 20,
+          }}
+        >
+          <div style={statCard}>
+            <div>今日销售</div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>
+              RM {todaySales.toFixed(2)}
             </div>
-          )}
+          </div>
+
+          <div style={statCard}>
+            <div>本月销售</div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>
+              RM {monthSales.toFixed(2)}
+            </div>
+          </div>
+
+          <div style={statCard}>
+            <div>低库存产品</div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>
+              {lowStock.length}
+            </div>
+          </div>
+
+          <div style={{ ...statCard, background: '#ffe9e9' }}>
+            <div>缺货产品</div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>
+              {outStock.length}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+            🏆 Agent 排行榜
+          </h2>
+
+          <div style={sectionCard}>
+            {agentRanking.length === 0 && <div>暂无数据</div>}
+
+            {agentRanking.length > 0 && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                {agentRanking.map((a, i) => (
+                  <div
+                    key={a.name}
+                    style={{
+                      ...getRankCardStyle(i),
+                      borderRadius: 16,
+                      padding: '16px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 10,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div style={{ fontSize: 22, fontWeight: 900 }}>
+                        {getRankBadge(i)}
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 800,
+                          padding: '6px 10px',
+                          borderRadius: 999,
+                          border: '1px solid #d7bfa8',
+                          background: '#fffaf5',
+                        }}
+                      >
+                        第 {i + 1} 名
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 900,
+                        marginBottom: 10,
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {a.name}
+                    </div>
+
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                        }}
+                      >
+                        <span>销售额</span>
+                        <strong>RM {a.total.toFixed(2)}</strong>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                        }}
+                      >
+                        <span>订单数</span>
+                        <strong>{a.count}</strong>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                        }}
+                      >
+                        <span>平均单价</span>
+                        <strong>RM {a.avg.toFixed(2)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+            🔥 本月热卖产品
+          </h2>
+
+          <div style={sectionCard}>
+            {topProducts.length === 0 && <div>暂无数据</div>}
+
+            {topProducts.map((p, i) => (
+              <div
+                key={p.name}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '10px 0',
+                  borderBottom: '1px solid #eee',
+                }}
+              >
+                <div>
+                  {i + 1}. {p.name}
+                </div>
+                <div style={{ fontWeight: 800 }}>
+                  × {p.qty}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+            ❌ OUT OF STOCK 分类总览
+          </h2>
+
+          <div style={{ ...sectionCard, background: '#fffdfd' }}>
+            {renderStockGroup(groupedOutStock, 'out')}
+          </div>
+        </div>
+
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+            ⚠️ 低库存产品
+          </h2>
+
+          <div style={{ ...sectionCard, background: '#fffdf8' }}>
+            {renderStockGroup(groupedLowStock, 'low')}
+          </div>
         </div>
       </div>
-
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-          ❌ OUT OF STOCK 分类总览
-        </h2>
-
-        <div style={{ ...sectionCard, background: '#fffdfd' }}>
-          {renderStockGroup(groupedOutStock, 'out')}
-        </div>
-      </div>
-
-      <div>
-        <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-          ⚠️ 低库存产品
-        </h2>
-
-        <div style={{ ...sectionCard, background: '#fffdf8' }}>
-          {renderStockGroup(groupedLowStock, 'low')}
-        </div>
-      </div>
-    </div>
+    </>
   )
 }
