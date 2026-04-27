@@ -162,7 +162,7 @@ export default function AdminPage() {
       return stock > 0 && stock <= 50
     })
 
-    const out = products.filter((p) => Number(p.stock || 0) === 0)
+    const out = products.filter((p) => Number(p.stock || 0) <= 0)
 
     const groupedOut = groupProducts(out)
     const groupedLow = groupProducts(low)
