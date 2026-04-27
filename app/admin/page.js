@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 export default function AdminPage() {
   const [orders, setOrders] = useState([])
   const [products, setProducts] = useState([])
+  const [notifications, setNotifications] = useState([])
 
   const [todaySales, setTodaySales] = useState(0)
   const [monthSales, setMonthSales] = useState(0)
@@ -31,12 +32,18 @@ export default function AdminPage() {
   async function init() {
     const { data: orderData } = await supabase.from('orders').select('*')
     const { data: productData } = await supabase.from('products').select('*')
+    const { data: notifData } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('is_read', false)
+      .order('created_at', { ascending: false })
 
     const o = orderData || []
     const p = productData || []
 
     setOrders(o)
     setProducts(p)
+    setNotifications(notifData || [])
 
     calculateStats(o, p)
   }
@@ -186,6 +193,20 @@ export default function AdminPage() {
     setTimeout(() => {
       setSaveMsg('')
     }, 1800)
+  }
+
+  async function markNotificationRead(notificationId) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId)
+
+    if (error) {
+      alert(`通知更新失败：${error.message}`)
+      return
+    }
+
+    setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
   }
 
   function quickFill(productId, qty) {
@@ -479,6 +500,44 @@ export default function AdminPage() {
 
   return (
     <div style={{ minWidth: 0 }}>
+      {notifications.length > 0 && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: '14px 16px',
+            borderRadius: 14,
+            background: '#fff1f1',
+            border: '1px solid #ffcccc',
+          }}
+        >
+          <div style={{ fontWeight: 900, color: '#c0392b', marginBottom: 6 }}>
+            🔔 库存提醒（{notifications.length}）
+          </div>
+
+          {notifications.map((n) => (
+            <div
+              key={n.id}
+              style={{
+                fontSize: 14,
+                color: '#c0392b',
+                cursor: 'pointer',
+                padding: '6px 0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 12,
+                flexWrap: 'wrap',
+              }}
+              onClick={() => markNotificationRead(n.id)}
+            >
+              <span>🔴 {n.message}</span>
+              <span style={{ fontSize: 12, fontWeight: 800 }}>
+                点击已处理
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 20 }}>
         后台管理
       </h1>
