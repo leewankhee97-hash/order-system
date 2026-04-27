@@ -264,13 +264,16 @@ async function handleResetAgent() {
     body: JSON.stringify({ agent_id: resetAgentId }),
   })
 
-  if (res.ok) {
-    alert(`${label} 已重置`)
-    location.reload()
-  } else {
-    const text = await res.text()
-    alert(`重置失败：${text}`)
-  }
+  const text = await res.text()
+
+if (res.ok) {
+  alert(`${label} 已成功重置 ✅`)
+  await init()
+  setResetAgentId('')
+  return
+}
+
+alert(`重置失败：${text}`)
 }
   function quickFill(productId, qty) {
     setStockInputs((prev) => ({
