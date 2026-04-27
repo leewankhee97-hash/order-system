@@ -1492,6 +1492,20 @@ const backupEntries = Object.entries(backupSelections).filter(
       setError('请选择备选口味，或勾选【不选择备选】')
       return
     }
+    const confirmText = [
+  '确认提交订单？',
+  '',
+  `配送方式：${delivery}`,
+  `产品数量：${cartQty} 件`,
+  `备选状态：${noBackup ? '不选择备选' : hasAnyBackupSelected ? '已选择备选' : '未完成'}`,
+  `总额：RM ${money(total)}`,
+].join('\n')
+
+const ok = window.confirm(confirmText)
+
+if (!ok) {
+  return
+}
  try {
   setSubmitting(true)
   setError('')
@@ -1656,15 +1670,7 @@ console.log('OID:', oid)
                 <h1 className="mt-2 text-2xl font-black tracking-wide text-[#5f4432] md:text-4xl">
                   {agentInfo?.name || agentInfo?.code || '欢迎下单'}
                 </h1>
- 
-                <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-                  <div>agent param: {String(agent || '-')}</div>
-                  <div>agentInfo: {agentInfo ? (agentInfo.name || agentInfo.code || 'YES') : 'NO'}</div>
-                  <div>products: {products.length}</div>
-                  <div>bundles: {bundles.length}</div>
-                  <div>error: {error || '-'}</div>
-                </div>
- 
+
                 <p className="mt-2 text-sm text-[#9b7b63]">
                   欢迎来到下单系统，看来今天又要发大财了❤️
                 </p>
@@ -1824,9 +1830,9 @@ console.log('OID:', oid)
                   return (
                     <div
                       key={p.id}
-                      className={`group rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4 transition duration-200 shadow-sm ${cardGlow(
-                        p.stock
-                      )}`}
+                      className={`group rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-3 transition duration-200 shadow-sm ${cardGlow(
+  p.stock
+)}`}
                     >
                       <div className="mb-2">
                         <div className="min-w-0">
@@ -2471,8 +2477,10 @@ console.log('OID:', oid)
               </div>
             </section>
  
-            <section className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur">
-              <div className="mb-4">
+<section
+  data-cart-section="true"
+  className="rounded-[30px] border border-[#eadacb] bg-white/80 p-5 shadow-[0_15px_45px_rgba(121,88,63,0.10)] backdrop-blur"
+>              <div className="mb-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#b08867]">
                   <PawPrint />
                   Selected
@@ -2724,32 +2732,69 @@ console.log('OID:', oid)
               </div>
             </section>
           </div>
-        </form>{cart.length > 0 && !showSummaryModal && (
+        </form>
+
+{cart.length > 0 && !showSummaryModal && (
   <div className="fixed bottom-0 left-0 right-0 z-[9998] border-t border-[#eadacb] bg-white/95 px-4 py-3 shadow-[0_-10px_30px_rgba(121,88,63,0.15)] backdrop-blur md:hidden">
-    <div className="mx-auto flex max-w-7xl items-center gap-3">
-      <div className="flex-1">
-        <div className="text-xs font-semibold text-[#9b7b63]">
-          🛒 {cartQty} items
+    <div className="mx-auto max-w-7xl">
+      <div className="mb-2 grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-[#7a5b47]">
+        <div className="rounded-2xl border border-[#eadacb] bg-[#fffaf6] px-2 py-2">
+          🛒 {cartQty} 件
         </div>
-        <div className="text-lg font-black text-[#5f4432]">
-          RM {money(total)}
+
+        <div className="rounded-2xl border border-[#eadacb] bg-[#fffaf6] px-2 py-2">
+          {delivery}
+        </div>
+
+        <div
+          className={`rounded-2xl border px-2 py-2 ${
+            noBackup || hasAnyBackupSelected
+              ? 'border-green-200 bg-green-50 text-green-600'
+              : 'border-red-200 bg-red-50 text-red-500'
+          }`}
+        >
+          {noBackup || hasAnyBackupSelected ? '备选完成' : '备选未选'}
         </div>
       </div>
 
-      <button
-        type="button"
-        disabled={submitting}
-        onClick={() => {
-          document.querySelector('form')?.requestSubmit()
-        }}
-        className="rounded-3xl border border-[#d2b49c] bg-[#dcc0a8] px-5 py-3 text-sm font-black text-white disabled:opacity-50"
-      >
-        {submitting ? '提交中' : '提交订单'}
-      </button>
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <div className="text-xs font-semibold text-[#9b7b63]">
+            当前总额
+          </div>
+          <div className="text-lg font-black text-[#5f4432]">
+            RM {money(total)}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            document
+              .querySelector('[data-cart-section="true"]')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+          className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm font-black text-[#7a5b47]"
+        >
+          看购物车
+        </button>
+
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => {
+            document.querySelector('form')?.requestSubmit()
+          }}
+          className="rounded-3xl border border-[#d2b49c] bg-[#dcc0a8] px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+        >
+          {submitting ? '提交中' : '提交'}
+        </button>
+      </div>
     </div>
   </div>
 )}
-      </div>
+
+</div>
  
       {showSummaryModal && (
         <div
