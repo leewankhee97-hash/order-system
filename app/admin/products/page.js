@@ -1645,3 +1645,4 @@ const stockStatValueStyle = {
   fontSize: 24,
   fontWeight: 900,
 }
+
