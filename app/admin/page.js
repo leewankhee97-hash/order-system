@@ -80,13 +80,9 @@ export default function AdminPage() {
       const diff = current.monthSales - previous.monthSales
       const percent = ((diff / previous.monthSales) * 100).toFixed(0)
 
-      if (diff > 0) {
-        result.push(`📈 本月销售比上月 +${percent}%`)
-      } else if (diff < 0) {
-        result.push(`📉 本月销售比上月 ${percent}%`)
-      } else {
-        result.push('➖ 本月销售与上月持平')
-      }
+      if (diff > 0) result.push(`📈 本月销售比上月 +${percent}%`)
+      else if (diff < 0) result.push(`📉 本月销售比上月 ${percent}%`)
+      else result.push('➖ 本月销售与上月持平')
     }
 
     if (topProducts.length > 0) {
@@ -97,19 +93,10 @@ export default function AdminPage() {
           .filter((v) => v && v !== '-' && v !== '未分类')
           .join(' ｜ ')
 
-        const qty = Number(p.qty || 0)
-
-        result.push(`🔥 爆款 #${i + 1}：${label || p.name || 'UNKNOWN'}（销量 ${qty}）`)
+        result.push(`🔥 爆款 #${i + 1}：${label || p.name || 'UNKNOWN'}（销量 ${Number(p.qty || 0)}）`)
       })
 
       result.push('👉 建议：优先补货 + 推广爆款')
-    }
-
-    if (agentRanking.length > 0) {
-      const worst = agentRanking[agentRanking.length - 1]
-      if (worst.total < 1000) {
-        result.push(`⚠️ ${worst.name} 销量偏低，建议跟进`)
-      }
     }
 
     const profitable = topProducts
@@ -117,7 +104,15 @@ export default function AdminPage() {
       .sort((a, b) => Number(b.profit || 0) - Number(a.profit || 0))[0]
 
     if (profitable) {
-      result.push(`💰 利润最高：${profitable.name}`)
+      const label = [profitable.brand, profitable.name].filter(Boolean).join(' ')
+      result.push(`💰 利润最高：${label}（RM ${Number(profitable.profit || 0).toFixed(2)}）`)
+    }
+
+    if (agentRanking.length > 0) {
+      const worst = agentRanking[agentRanking.length - 1]
+      if (worst.total < 1000) {
+        result.push(`⚠️ ${worst.name} 销量偏低，建议跟进`)
+      }
     }
 
     return result
@@ -150,12 +145,27 @@ export default function AdminPage() {
     const next = { ...prevState }
 
     Object.keys(grouped).forEach((category) => {
-      if (typeof next[category] === 'undefined') {
-        next[category] = false
-      }
+      if (typeof next[category] === 'undefined') next[category] = false
     })
 
     return next
+  }
+
+  function getItemPrice(item, info, qty) {
+    const directPrice = Number(
+      item.price ||
+      item.unit_price ||
+      item.product_price ||
+      item.sell_price ||
+      0
+    )
+
+    if (directPrice > 0) return directPrice
+
+    const subtotal = Number(item.subtotal || item.total || item.amount || 0)
+    if (subtotal > 0 && qty > 0) return subtotal / qty
+
+    return Number(info.price || 0)
   }
 
   function calculateStats(orders, products, orderItems = []) {
@@ -184,9 +194,7 @@ export default function AdminPage() {
 
         const name = String(o.agent_name || 'UNKNOWN').trim() || 'UNKNOWN'
 
-        if (!agentMap[name]) {
-          agentMap[name] = { name, total: 0, count: 0 }
-        }
+        if (!agentMap[name]) agentMap[name] = { name, total: 0, count: 0 }
 
         agentMap[name].total += sales
         agentMap[name].count += 1
@@ -222,6 +230,8 @@ export default function AdminPage() {
         category: p.category || p.product_type || '未分类',
         brand: p.brand || p.series || '-',
         name: p.name || '-',
+        cost: Number(p.cost || p.cost_price || 0),
+        price: Number(p.price || p.price_1 || p.price_2 || p.price_3 || 0),
       }
     })
 
@@ -245,14 +255,25 @@ export default function AdminPage() {
       const brand = info.brand || '-'
       const name = item.product_name || info.name || 'UNKNOWN'
       const qty = Number(item.qty || item.quantity || 0)
+      const price = getItemPrice(item, info, qty)
+      const cost = Number(info.cost || 0)
 
       const key = `${category}__${brand}__${name}`
 
       if (!productMap[key]) {
-        productMap[key] = { category, brand, name, qty: 0 }
+        productMap[key] = {
+          category,
+          brand,
+          name,
+          qty: 0,
+          sales: 0,
+          profit: 0,
+        }
       }
 
       productMap[key].qty += qty
+      productMap[key].sales += price * qty
+      productMap[key].profit += (price - cost) * qty
     })
 
     const top = Object.values(productMap)
@@ -338,9 +359,7 @@ export default function AdminPage() {
     await init()
     setSavingId(null)
 
-    setTimeout(() => {
-      setSaveMsg('')
-    }, 1800)
+    setTimeout(() => setSaveMsg(''), 1800)
   }
 
   async function markNotificationRead(notificationId) {
@@ -717,7 +736,11 @@ export default function AdminPage() {
                 <div style={{ fontSize: 13, opacity: 0.7 }}>
                   {p.category} ｜ {p.brand}
                 </div>
-                <div style={{ fontWeight: 800 }}>× {p.qty}</div>
+                <div style={{ fontWeight: 800 }}>销量：{p.qty}</div>
+                <div>销售额：RM {Number(p.sales || 0).toFixed(2)}</div>
+                <div style={{ fontWeight: 900, color: Number(p.profit || 0) >= 0 ? '#2e7d32' : '#c0392b' }}>
+                  利润：RM {Number(p.profit || 0).toFixed(2)}
+                </div>
               </div>
             ))}
           </div>
