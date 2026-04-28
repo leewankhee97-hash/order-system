@@ -11,6 +11,8 @@ export default function AdminPage() {
 
   const [todaySales, setTodaySales] = useState(0)
   const [monthSales, setMonthSales] = useState(0)
+  const [todayProfit, setTodayProfit] = useState(0)
+const [monthProfit, setMonthProfit] = useState(0)
   const [agentRanking, setAgentRanking] = useState([])
   const [topProducts, setTopProducts] = useState([])
   const [insights, setInsights] = useState([])
@@ -174,7 +176,9 @@ export default function AdminPage() {
     const [year, month] = selectedMonth.split('-').map(Number)
 
     let todayTotal = 0
-    let monthTotal = 0
+let monthTotal = 0
+let todayProfitTotal = 0
+let monthProfitTotal = 0
     const agentMap = {}
 
     orders.forEach((o) => {
@@ -241,6 +245,17 @@ export default function AdminPage() {
     orderItems.forEach((item) => {
       const createdAt = orderDateMap[item.order_id]
       const d = new Date(createdAt)
+      const orderDate = new Date(createdAt)
+const orderDay = createdAt?.slice(0, 10)
+const todayStr = new Date().toISOString().slice(0, 10)
+
+const itemProfit = (price - cost) * qty
+
+if (orderDay === todayStr) {
+  todayProfitTotal += itemProfit
+}
+
+monthProfitTotal += itemProfit
 
       if (
         Number.isNaN(d.getTime()) ||
@@ -306,7 +321,9 @@ export default function AdminPage() {
     )
 
     setTodaySales(todayTotal)
-    setMonthSales(monthTotal)
+setMonthSales(monthTotal)
+setTodayProfit(todayProfitTotal)
+setMonthProfit(monthProfitTotal)
     setAgentRanking(ranking)
     setLowStock(low)
     setOutStock(out)
@@ -730,7 +747,19 @@ async function saveCost(productId) {
             <div>本月销售</div>
             <div style={{ fontSize: 24, fontWeight: 900 }}>RM {monthSales.toFixed(2)}</div>
           </div>
+<div style={statCard}>
+  <div>今日利润</div>
+  <div style={{ fontSize: 24, fontWeight: 900, color: '#2e7d32' }}>
+    RM {todayProfit.toFixed(2)}
+  </div>
+</div>
 
+<div style={statCard}>
+  <div>本月利润</div>
+  <div style={{ fontSize: 24, fontWeight: 900, color: '#2e7d32' }}>
+    RM {monthProfit.toFixed(2)}
+  </div>
+</div>
           <div style={statCard}>
             <div>低库存产品</div>
             <div style={{ fontSize: 24, fontWeight: 900 }}>{lowStock.length}</div>

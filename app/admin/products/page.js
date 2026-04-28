@@ -614,7 +614,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
 
       if (error) throw error
 
-      setMessage(`品牌 ${brand} / 系列 ${series} 的全部产品价格已更新`)
+      setMessage('修改成功')
       handleSeriesPriceReset()
       fetchProducts()
       setActiveTab('list')
