@@ -564,14 +564,16 @@ export default function AdminProductsPage() {
       if (!brand) throw new Error('请选择 Brand')
       if (!series) throw new Error('请选择 Series')
 
-      if (
+      const hasAnyPrice =
+  seriesPriceForm.price_1 !== '' ||
+  seriesPriceForm.price_2 !== '' ||
+  seriesPriceForm.price_3 !== ''
 
-        seriesPriceForm.price_1 === '' ||
-        seriesPriceForm.price_2 === '' ||
-        seriesPriceForm.price_3 === ''
-      ) {
-        throw new Error('请填写完整的三级代理价格')
-      }
+const hasCost = seriesPriceForm.cost !== ''
+
+if (!hasAnyPrice && !hasCost) {
+  throw new Error('请至少填写价格或成本其中一项')
+}
 
       if (Number.isNaN(price1) || Number.isNaN(price2) || Number.isNaN(price3)) {
         throw new Error('价格格式不正确')
@@ -593,11 +595,12 @@ export default function AdminProductsPage() {
         throw new Error(`找不到 brand = ${brand} 且 series = ${series} 的产品`)
       }
 
-      const payload = {
-        price_1: price1,
-        price_2: price2,
-        price_3: price3,
-      }
+      const payload = {}
+
+if (seriesPriceForm.price_1 !== '') payload.price_1 = price1
+if (seriesPriceForm.price_2 !== '') payload.price_2 = price2
+if (seriesPriceForm.price_3 !== '') payload.price_3 = price3
+if (seriesPriceForm.cost !== '') payload.cost = cost
 
       if (seriesPriceForm.cost !== '') {
         payload.cost = cost
