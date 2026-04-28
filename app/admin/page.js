@@ -111,12 +111,21 @@ const [monthProfit, setMonthProfit] = useState(0)
       result.push(`💰 利润最高：${label}（RM ${Number(profitable.profit || 0).toFixed(2)}）`)
     }
 
-    if (agentRanking.length > 0) {
-      const worst = agentRanking[agentRanking.length - 1]
-      if (worst.total < 1000) {
-        result.push(`⚠️ ${worst.name} 销量偏低，建议跟进`)
-      }
-    }
+    if (agentRanking.length >= 2) {
+  const totalSales = agentRanking.reduce((sum, a) => sum + Number(a.total || 0), 0)
+  const avgSales = totalSales / agentRanking.length
+  const weakAgents = agentRanking.filter((a) => {
+    return Number(a.total || 0) < avgSales * 0.5 && Number(a.count || 0) < 3
+  })
+
+  if (weakAgents.length > 0) {
+    weakAgents.slice(0, 3).forEach((agent) => {
+      result.push(
+        `⚠️ ${agent.name} 表现偏低：销售 RM ${Number(agent.total || 0).toFixed(2)}，订单 ${agent.count} 单，建议跟进`
+      )
+    })
+  }
+}
 
     return result
   }
