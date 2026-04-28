@@ -1360,7 +1360,7 @@ const backupEntries = Object.entries(backupSelections).filter(
 )
  
     if (backupEntries.length > 0) {
-      lines.push(`【备选口味】`)
+      lines.push(`【备选口味/颜色】`)
       lines.push('')
  
       backupEntries.forEach(([brand, flavors], index) => {
