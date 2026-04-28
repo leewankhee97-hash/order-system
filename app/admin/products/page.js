@@ -16,6 +16,7 @@ const emptyForm = {
   price_2: '',
   price_3: '',
   stock: '',
+  cost: '',
 }
 
 const emptyBulkForm = {
@@ -27,6 +28,7 @@ const emptyBulkForm = {
   price_3: '',
   stock: '',
   flavorsText: '',
+  cost: '',
 }
 
 const emptySeriesPriceForm = {
@@ -287,6 +289,7 @@ export default function AdminProductsPage() {
       price_2: product.price_2 ?? '',
       price_3: product.price_3 ?? '',
       stock: product.stock ?? '',
+      cost: product.cost ?? '',
     })
     setMessage('')
     setActiveTab('single')
@@ -430,6 +433,7 @@ export default function AdminProductsPage() {
         price_2: Number(form.price_2 || 0),
         price_3: Number(form.price_3 || 0),
         stock: Number(form.stock || 0),
+        cost: Number(form.cost || 0),
       }
 
       let res
@@ -481,6 +485,7 @@ export default function AdminProductsPage() {
       if (flavors.length === 0) throw new Error(`没有可新增的${getVariantLabel(productType)}`)
 
       const rows = flavors.map((flavor) => ({
+        cost: Number(bulkForm.cost || 0),
         product_type: productType,
         brand,
         series,
@@ -776,20 +781,21 @@ export default function AdminProductsPage() {
               >
                 <tr>
                   {[
-                    '分类',
-                    'Brand',
-                    'Series',
-                    '口味/颜色',
-                    'Name',
-                    'SKU',
-                    'LV1',
-                    'LV2',
-                    'LV3',
-                    '库存状态',
-                    '快速补货',
-                    '手动库存',
-                    '操作',
-                  ].map((h) => (
+  '分类',
+  'Brand',
+  'Series',
+  '口味/颜色',
+  'Name',
+  'SKU',
+  'LV1',
+  'LV2',
+  'LV3',
+  'Cost', // ✅ 新增
+  '库存状态',
+  '快速补货',
+  '手动库存',
+  '操作',
+].map((h) => (
                     <th key={h} style={thStyle}>
                       {h}
                     </th>
@@ -826,6 +832,9 @@ export default function AdminProductsPage() {
                       <td style={tdStyle}>{p.price_1 ?? 0}</td>
                       <td style={tdStyle}>{p.price_2 ?? 0}</td>
                       <td style={tdStyle}>{p.price_3 ?? 0}</td>
+                      <td style={tdStyle}>
+  RM {Number(p.cost || 0).toFixed(2)}
+</td>
 
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1092,6 +1101,12 @@ export default function AdminProductsPage() {
             onChange={(e) => handleChange('stock', e.target.value)}
             style={inputStyle}
           />
+          <input
+  placeholder="Cost（成本）"
+  value={form.cost}
+  onChange={(e) => handleChange('cost', e.target.value)}
+  style={inputStyle}
+/>
         </div>
 
         <div style={tipBoxStyle}>
@@ -1196,6 +1211,12 @@ export default function AdminProductsPage() {
               onChange={(e) => handleBulkChange('stock', e.target.value)}
               style={inputStyle}
             />
+            <input
+  placeholder="默认成本，例如 8.5"
+  value={bulkForm.cost}
+  onChange={(e) => handleBulkChange('cost', e.target.value)}
+  style={inputStyle}
+/>
           </div>
 
           <textarea
