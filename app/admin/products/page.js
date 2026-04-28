@@ -27,8 +27,8 @@ const emptyBulkForm = {
   price_2: '',
   price_3: '',
   stock: '',
-  flavorsText: '',
   cost: '',
+  flavorsText: '',
 }
 
 const emptySeriesPriceForm = {
@@ -37,7 +37,7 @@ const emptySeriesPriceForm = {
   price_1: '',
   price_2: '',
   price_3: '',
-   cost: '', // 🔥 加这个
+  cost: '',
 }
 
 const emptyFilters = {
@@ -68,6 +68,7 @@ function uniqueSorted(arr) {
     String(a).localeCompare(String(b), 'zh-Hans-CN', { sensitivity: 'base' })
   )
 }
+
 
 function stockStatus(stock) {
   const s = Number(stock || 0)
@@ -138,6 +139,7 @@ export default function AdminProductsPage() {
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+
   }, [])
 
   async function fetchProducts() {
@@ -192,6 +194,31 @@ export default function AdminProductsPage() {
     )
   }, [products, filters.product_type, filters.brand, filters.series])
 
+  const bulkBrandOptions = useMemo(() => {
+    return uniqueSorted(products.map((p) => p.brand))
+  }, [products])
+
+  const bulkSeriesOptions = useMemo(() => {
+    return uniqueSorted(
+      products
+        .filter((p) => !bulkForm.brand || p.brand === bulkForm.brand)
+        .map((p) => p.series)
+    )
+  }, [products, bulkForm.brand])
+
+  const seriesPriceBrandOptions = useMemo(() => {
+    return uniqueSorted(products.map((p) => p.brand))
+  }, [products])
+
+
+  const seriesPriceSeriesOptions = useMemo(() => {
+    return uniqueSorted(
+      products
+        .filter((p) => !seriesPriceForm.brand || p.brand === seriesPriceForm.brand)
+        .map((p) => p.series)
+    )
+  }, [products, seriesPriceForm.brand])
+
   const filteredProducts = useMemo(() => {
     const keyword = search.trim().toLowerCase()
 
@@ -212,6 +239,7 @@ export default function AdminProductsPage() {
           String(p.price_1 ?? ''),
           String(p.price_2 ?? ''),
           String(p.price_3 ?? ''),
+          String(p.cost ?? ''),
           String(p.stock ?? ''),
           stockStatus(p.stock).text,
         ]
@@ -253,6 +281,7 @@ export default function AdminProductsPage() {
   function handleSeriesPriceChange(key, value) {
     setSeriesPriceForm((prev) => ({ ...prev, [key]: value }))
   }
+
 
   function handleFilterChange(key, value) {
     setFilters((prev) => {
@@ -310,6 +339,7 @@ export default function AdminProductsPage() {
       price_1: product.price_1 ?? '',
       price_2: product.price_2 ?? '',
       price_3: product.price_3 ?? '',
+      cost: product.cost ?? '',
     })
     setMessage('')
     setActiveTab('bulk')
@@ -321,6 +351,7 @@ export default function AdminProductsPage() {
       }
     }, 120)
   }
+
 
   function handleReset() {
     setEditingId('')
@@ -392,6 +423,7 @@ export default function AdminProductsPage() {
     setRestockingId(id)
     setMessage('')
 
+
     const { error } = await supabase
       .from('products')
       .update({ stock: newStock })
@@ -462,6 +494,7 @@ export default function AdminProductsPage() {
     setBulkSaving(true)
     setMessage('')
 
+
     try {
       const productType = bulkForm.product_type.trim()
       const brand = bulkForm.brand.trim()
@@ -470,10 +503,11 @@ export default function AdminProductsPage() {
       const price2 = Number(bulkForm.price_2 || 0)
       const price3 = Number(bulkForm.price_3 || 0)
       const stock = Number(bulkForm.stock || 0)
+      const cost = Number(bulkForm.cost || 0)
 
       if (!productType) throw new Error('请选择分类')
-      if (!brand) throw new Error('请填写品牌')
-      if (!series) throw new Error('请填写系列')
+      if (!brand) throw new Error('请选择 Brand')
+      if (!series) throw new Error('请选择 Series')
       if (!bulkForm.flavorsText.trim()) {
         throw new Error(`请填写${getVariantLabel(productType)}内容`)
       }
@@ -486,7 +520,6 @@ export default function AdminProductsPage() {
       if (flavors.length === 0) throw new Error(`没有可新增的${getVariantLabel(productType)}`)
 
       const rows = flavors.map((flavor) => ({
-        cost: Number(bulkForm.cost || 0),
         product_type: productType,
         brand,
         series,
@@ -497,6 +530,7 @@ export default function AdminProductsPage() {
         price_2: price2,
         price_3: price3,
         stock,
+        cost,
       }))
 
       const { error } = await supabase.from('products').insert(rows)
@@ -525,11 +559,13 @@ export default function AdminProductsPage() {
       const price1 = Number(seriesPriceForm.price_1)
       const price2 = Number(seriesPriceForm.price_2)
       const price3 = Number(seriesPriceForm.price_3)
+      const cost = Number(seriesPriceForm.cost || 0)
 
-      if (!brand) throw new Error('请填写 Brand')
-      if (!series) throw new Error('请填写 Series')
+      if (!brand) throw new Error('请选择 Brand')
+      if (!series) throw new Error('请选择 Series')
 
       if (
+
         seriesPriceForm.price_1 === '' ||
         seriesPriceForm.price_2 === '' ||
         seriesPriceForm.price_3 === ''
@@ -539,6 +575,10 @@ export default function AdminProductsPage() {
 
       if (Number.isNaN(price1) || Number.isNaN(price2) || Number.isNaN(price3)) {
         throw new Error('价格格式不正确')
+      }
+
+      if (seriesPriceForm.cost !== '' && Number.isNaN(cost)) {
+        throw new Error('成本格式不正确')
       }
 
       const { data: matchedProducts, error: checkError } = await supabase
@@ -553,14 +593,19 @@ export default function AdminProductsPage() {
         throw new Error(`找不到 brand = ${brand} 且 series = ${series} 的产品`)
       }
 
+      const payload = {
+        price_1: price1,
+        price_2: price2,
+        price_3: price3,
+      }
+
+      if (seriesPriceForm.cost !== '') {
+        payload.cost = cost
+      }
+
       const { error } = await supabase
         .from('products')
-        .update({
-  price_1: price1,
-  price_2: price2,
-  price_3: price3,
-  cost: Number(seriesPriceForm.cost || 0), // 🔥 关键
-})
+        .update(payload)
         .eq('brand', brand)
         .eq('series', series)
 
@@ -591,6 +636,7 @@ export default function AdminProductsPage() {
       }
       setMessage('产品已删除')
       fetchProducts()
+
     }
   }
 
@@ -661,6 +707,7 @@ export default function AdminProductsPage() {
           <input
             placeholder="搜索 SKU / Name / Brand / Series / 口味"
             value={search}
+
             onChange={(e) => setSearch(e.target.value)}
             style={inputStyle}
           />
@@ -731,6 +778,7 @@ export default function AdminProductsPage() {
             gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, minmax(0, 1fr))',
             gap: 12,
             marginTop: 16,
+
           }}
         >
           <div style={stockStatCardStyle}>
@@ -772,7 +820,7 @@ export default function AdminProductsPage() {
           <div>读取中...</div>
         ) : (
           <div style={{ maxHeight: 'calc(100vh - 260px)', overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1520 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1600 }}>
               <thead
                 style={{
                   position: 'sticky',
@@ -783,24 +831,25 @@ export default function AdminProductsPage() {
               >
                 <tr>
                   {[
-  '分类',
-  'Brand',
-  'Series',
-  '口味/颜色',
-  'Name',
-  'SKU',
-  'LV1',
-  'LV2',
-  'LV3',
-  'Cost', // ✅ 新增
-  '库存状态',
-  '快速补货',
-  '手动库存',
-  '操作',
-].map((h) => (
+                    '分类',
+                    'Brand',
+                    'Series',
+                    '口味/颜色',
+                    'Name',
+                    'SKU',
+                    'LV1',
+                    'LV2',
+                    'LV3',
+                    'Cost',
+                    '库存状态',
+                    '快速补货',
+                    '手动库存',
+                    '操作',
+                  ].map((h) => (
                     <th key={h} style={thStyle}>
                       {h}
                     </th>
+
                   ))}
                 </tr>
               </thead>
@@ -834,9 +883,7 @@ export default function AdminProductsPage() {
                       <td style={tdStyle}>{p.price_1 ?? 0}</td>
                       <td style={tdStyle}>{p.price_2 ?? 0}</td>
                       <td style={tdStyle}>{p.price_3 ?? 0}</td>
-                      <td style={tdStyle}>
-  RM {Number(p.cost || 0).toFixed(2)}
-</td>
+                      <td style={tdStyle}>RM {Number(p.cost || 0).toFixed(2)}</td>
 
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -873,6 +920,7 @@ export default function AdminProductsPage() {
                               quickRestock(p.id, 10)
                             }}
                           >
+
                             +10
                           </button>
 
@@ -943,6 +991,7 @@ export default function AdminProductsPage() {
                               e.stopPropagation()
                               saveInlineStock(p.id)
                             }}
+
                           >
                             {stockSavingId === p.id ? '保存中' : '保存'}
                           </button>
@@ -989,7 +1038,7 @@ export default function AdminProductsPage() {
 
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={13} style={tdStyle}>
+                    <td colSpan={14} style={tdStyle}>
                       没有找到符合筛选条件的产品
                     </td>
                   </tr>
@@ -1013,6 +1062,7 @@ export default function AdminProductsPage() {
           borderRadius: 20,
           padding: 20,
         }}
+
       >
         <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
           {editingId ? '单个编辑产品' : '单个新增 / 编辑产品'}
@@ -1041,38 +1091,19 @@ export default function AdminProductsPage() {
             ))}
           </select>
 
-          <select
-  value={seriesPriceForm.brand}
-  onChange={(e) => {
-    handleSeriesPriceChange('brand', e.target.value)
-    handleSeriesPriceChange('series', '')
-  }}
-  style={inputStyle}
->
-  <option value="">选择 Brand</option>
-  {filterBrandOptions.map((brand) => (
-    <option key={brand} value={brand}>
-      {brand}
-    </option>
-  ))}
-</select>
+          <input
+            placeholder="Brand"
+            value={form.brand}
+            onChange={(e) => handleChange('brand', e.target.value)}
+            style={inputStyle}
+          />
 
-          <select
-  value={seriesPriceForm.series}
-  onChange={(e) => handleSeriesPriceChange('series', e.target.value)}
-  style={inputStyle}
->
-  <option value="">选择 Series</option>
-  {uniqueSorted(
-    products
-      .filter((p) => !seriesPriceForm.brand || p.brand === seriesPriceForm.brand)
-      .map((p) => p.series)
-  ).map((series) => (
-    <option key={series} value={series}>
-      {series}
-    </option>
-  ))}
-</select>
+          <input
+            placeholder="Series"
+            value={form.series}
+            onChange={(e) => handleChange('series', e.target.value)}
+            style={inputStyle}
+          />
 
           <input
             placeholder={form.product_type === '烟杆' ? '颜色' : '口味'}
@@ -1102,6 +1133,7 @@ export default function AdminProductsPage() {
             style={inputStyle}
           />
 
+
           <input
             placeholder="LV2 Price"
             value={form.price_2}
@@ -1115,24 +1147,20 @@ export default function AdminProductsPage() {
             onChange={(e) => handleChange('price_3', e.target.value)}
             style={inputStyle}
           />
-<input
-  placeholder="Cost"
-  value={seriesPriceForm.cost}
-  onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
-  style={inputStyle}
-/>
+
           <input
             placeholder="Stock"
             value={form.stock}
             onChange={(e) => handleChange('stock', e.target.value)}
             style={inputStyle}
           />
+
           <input
-  placeholder="Cost（成本）"
-  value={form.cost}
-  onChange={(e) => handleChange('cost', e.target.value)}
-  style={inputStyle}
-/>
+            placeholder="Cost（成本）"
+            value={form.cost}
+            onChange={(e) => handleChange('cost', e.target.value)}
+            style={inputStyle}
+          />
         </div>
 
         <div style={tipBoxStyle}>
@@ -1176,6 +1204,7 @@ export default function AdminProductsPage() {
         >
           <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>一键批量新增产品</h2>
 
+
           <div
             style={{
               display: 'grid',
@@ -1196,19 +1225,34 @@ export default function AdminProductsPage() {
               ))}
             </select>
 
-            <input
-              placeholder="品牌，例如 LANA"
+            <select
               value={bulkForm.brand}
-              onChange={(e) => handleBulkChange('brand', e.target.value)}
+              onChange={(e) => {
+                handleBulkChange('brand', e.target.value)
+                handleBulkChange('series', '')
+              }}
               style={inputStyle}
-            />
+            >
+              <option value="">选择 Brand</option>
+              {bulkBrandOptions.map((brand) => (
+                <option key={brand} value={brand}>
+                  {brand}
+                </option>
+              ))}
+            </select>
 
-            <input
-              placeholder="系列，例如 1代"
+            <select
               value={bulkForm.series}
               onChange={(e) => handleBulkChange('series', e.target.value)}
               style={inputStyle}
-            />
+            >
+              <option value="">选择 Series</option>
+              {bulkSeriesOptions.map((series) => (
+                <option key={series} value={series}>
+                  {series}
+                </option>
+              ))}
+            </select>
 
             <input
               placeholder="LV1 默认价格，例如 14.8"
@@ -1231,18 +1275,20 @@ export default function AdminProductsPage() {
               style={inputStyle}
             />
 
+
             <input
               placeholder="默认库存，例如 100"
               value={bulkForm.stock}
               onChange={(e) => handleBulkChange('stock', e.target.value)}
               style={inputStyle}
             />
+
             <input
-  placeholder="默认成本，例如 8.5"
-  value={bulkForm.cost}
-  onChange={(e) => handleBulkChange('cost', e.target.value)}
-  style={inputStyle}
-/>
+              placeholder="默认成本，例如 8.5"
+              value={bulkForm.cost}
+              onChange={(e) => handleBulkChange('cost', e.target.value)}
+              style={inputStyle}
+            />
           </div>
 
           <textarea
@@ -1269,7 +1315,7 @@ STRAWBERRY`}
             <br />
             SKU = 品牌-系列-{getVariantLabel(bulkForm.product_type)}
             <br />
-            LV1 / LV2 / LV3 会套用你上面填写的默认值
+            LV1 / LV2 / LV3 / Cost 会套用你上面填写的默认值
           </div>
 
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
@@ -1293,28 +1339,46 @@ STRAWBERRY`}
           }}
         >
           <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
-            按 Brand + Series 一键修改全部价格
+            按 Brand + Series 一键修改全部价格 / 成本
           </h2>
 
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1.2fr 1fr 1fr 1fr',
+              gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1.2fr 1fr 1fr 1fr 1fr',
+
               gap: 12,
             }}
           >
-            <input
-              placeholder="Brand，例如 LANA"
+            <select
               value={seriesPriceForm.brand}
-              onChange={(e) => handleSeriesPriceChange('brand', e.target.value)}
+              onChange={(e) => {
+                handleSeriesPriceChange('brand', e.target.value)
+                handleSeriesPriceChange('series', '')
+              }}
               style={inputStyle}
-            />
-            <input
-              placeholder="Series，例如 1代"
+            >
+              <option value="">选择 Brand</option>
+              {seriesPriceBrandOptions.map((brand) => (
+                <option key={brand} value={brand}>
+                  {brand}
+                </option>
+              ))}
+            </select>
+
+            <select
               value={seriesPriceForm.series}
               onChange={(e) => handleSeriesPriceChange('series', e.target.value)}
               style={inputStyle}
-            />
+            >
+              <option value="">选择 Series</option>
+              {seriesPriceSeriesOptions.map((series) => (
+                <option key={series} value={series}>
+                  {series}
+                </option>
+              ))}
+            </select>
+
             <input
               placeholder="LV1"
               value={seriesPriceForm.price_1}
@@ -1334,23 +1398,26 @@ STRAWBERRY`}
               style={inputStyle}
             />
             <input
-  placeholder="Cost"
-  value={seriesPriceForm.cost}
-  onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
-  style={inputStyle}
-/>
+              placeholder="Cost"
+              value={seriesPriceForm.cost}
+              onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
+              style={inputStyle}
+            />
           </div>
 
           <div style={tipBoxStyle}>
             这个功能会把所有 <b>Brand + Series 完全相同</b> 的产品一起更新成同一套代理价格。
+            <br />
+            如果 Cost 有填写，也会一起更新整组成本；如果 Cost 留空，则不会改成本。
           </div>
 
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
             <button type="submit" style={primaryButton} disabled={seriesSaving}>
-              {seriesSaving ? '更新中...' : '一键更新该 Brand + Series 全部价格'}
+              {seriesSaving ? '更新中...' : '一键更新该 Brand + Series 全部价格 / 成本'}
             </button>
             <button type="button" style={secondaryButton} onClick={handleSeriesPriceReset}>
               清空
+
             </button>
           </div>
         </form>
@@ -1421,6 +1488,7 @@ const secondaryButton = {
   height: 46,
   padding: '0 18px',
   borderRadius: 14,
+
   border: '1px solid #d7bfa8',
   background: '#fff8f1',
   color: '#6f4e37',
@@ -1491,6 +1559,7 @@ const thStyle = {
   borderBottom: '1px solid #ead7c4',
   whiteSpace: 'nowrap',
   fontWeight: 800,
+
   color: '#6f4e37',
 }
 
@@ -1561,6 +1630,7 @@ const stockStatCardStyle = {
   background: '#fff',
   border: '1px solid #ead7c4',
   borderRadius: 16,
+
   padding: 16,
 }
 
