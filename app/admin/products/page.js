@@ -1041,19 +1041,38 @@ export default function AdminProductsPage() {
             ))}
           </select>
 
-          <input
-            placeholder="Brand"
-            value={form.brand}
-            onChange={(e) => handleChange('brand', e.target.value)}
-            style={inputStyle}
-          />
+          <select
+  value={seriesPriceForm.brand}
+  onChange={(e) => {
+    handleSeriesPriceChange('brand', e.target.value)
+    handleSeriesPriceChange('series', '')
+  }}
+  style={inputStyle}
+>
+  <option value="">选择 Brand</option>
+  {filterBrandOptions.map((brand) => (
+    <option key={brand} value={brand}>
+      {brand}
+    </option>
+  ))}
+</select>
 
-          <input
-            placeholder="Series"
-            value={form.series}
-            onChange={(e) => handleChange('series', e.target.value)}
-            style={inputStyle}
-          />
+          <select
+  value={seriesPriceForm.series}
+  onChange={(e) => handleSeriesPriceChange('series', e.target.value)}
+  style={inputStyle}
+>
+  <option value="">选择 Series</option>
+  {uniqueSorted(
+    products
+      .filter((p) => !seriesPriceForm.brand || p.brand === seriesPriceForm.brand)
+      .map((p) => p.series)
+  ).map((series) => (
+    <option key={series} value={series}>
+      {series}
+    </option>
+  ))}
+</select>
 
           <input
             placeholder={form.product_type === '烟杆' ? '颜色' : '口味'}
