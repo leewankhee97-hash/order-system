@@ -37,6 +37,7 @@ const emptySeriesPriceForm = {
   price_1: '',
   price_2: '',
   price_3: '',
+   cost: '', // 🔥 加这个
 }
 
 const emptyFilters = {
@@ -555,10 +556,11 @@ export default function AdminProductsPage() {
       const { error } = await supabase
         .from('products')
         .update({
-          price_1: price1,
-          price_2: price2,
-          price_3: price3,
-        })
+  price_1: price1,
+  price_2: price2,
+  price_3: price3,
+  cost: Number(seriesPriceForm.cost || 0), // 🔥 核心
+})
         .eq('brand', brand)
         .eq('series', series)
 
@@ -1094,7 +1096,12 @@ export default function AdminProductsPage() {
             onChange={(e) => handleChange('price_3', e.target.value)}
             style={inputStyle}
           />
-
+<input
+  placeholder="Cost"
+  value={seriesPriceForm.cost}
+  onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
+  style={inputStyle}
+/>
           <input
             placeholder="Stock"
             value={form.stock}
