@@ -243,54 +243,57 @@ let monthProfitTotal = 0
     const productMap = {}
 
     orderItems.forEach((item) => {
-      const createdAt = orderDateMap[item.order_id]
-      const d = new Date(createdAt)
-      const orderDate = new Date(createdAt)
-const orderDay = createdAt?.slice(0, 10)
-const todayStr = new Date().toISOString().slice(0, 10)
+  const createdAt = orderDateMap[item.order_id]
+  const d = new Date(createdAt)
 
-const itemProfit = (price - cost) * qty
+  // ✅ 正确判断月份
+  if (
+    Number.isNaN(d.getTime()) ||
+    d.getMonth() + 1 !== month ||
+    d.getFullYear() !== year
+  ) {
+    return
+  }
 
-if (orderDay === todayStr) {
-  todayProfitTotal += itemProfit
-}
+  const info = productInfoMap[String(item.product_id)] || {}
 
-monthProfitTotal += itemProfit
+  const category = info.category || '未分类'
+  const brand = info.brand || '-'
+  const name = item.product_name || info.name || 'UNKNOWN'
 
-      if (
-        Number.isNaN(d.getTime()) ||
-        d.getMonth() + 1 !== month ||
-        d.getFullYear() !== year
-      ) {
-        return
-      }
+  const qty = Number(item.qty || item.quantity || 0)
+  const price = getItemPrice(item, info, qty)
+  const cost = Number(info.cost || 0)
 
-      const info = productInfoMap[String(item.product_id)] || {}
+  // ✅ 利润计算
+  const itemProfit = (price - cost) * qty
 
-      const category = info.category || '未分类'
-      const brand = info.brand || '-'
-      const name = item.product_name || info.name || 'UNKNOWN'
-      const qty = Number(item.qty || item.quantity || 0)
-      const price = getItemPrice(item, info, qty)
-      const cost = Number(info.cost || 0)
+  const orderDay = createdAt?.slice(0, 10)
+  const todayStr = new Date().toISOString().slice(0, 10)
 
-      const key = `${category}__${brand}__${name}`
+  if (orderDay === todayStr) {
+    todayProfitTotal += itemProfit
+  }
 
-      if (!productMap[key]) {
-        productMap[key] = {
-          category,
-          brand,
-          name,
-          qty: 0,
-          sales: 0,
-          profit: 0,
-        }
-      }
+  monthProfitTotal += itemProfit
 
-      productMap[key].qty += qty
-      productMap[key].sales += price * qty
-      productMap[key].profit += (price - cost) * qty
-    })
+  const key = `${category}__${brand}__${name}`
+
+  if (!productMap[key]) {
+    productMap[key] = {
+      category,
+      brand,
+      name,
+      qty: 0,
+      sales: 0,
+      profit: 0,
+    }
+  }
+
+  productMap[key].qty += qty
+  productMap[key].sales += price * qty
+  productMap[key].profit += itemProfit
+})
 
     const top = Object.values(productMap)
       .sort((a, b) => b.qty - a.qty)
