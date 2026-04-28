@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [groupedLowStock, setGroupedLowStock] = useState({})
 
   const [stockInputs, setStockInputs] = useState({})
+  const [costInputs, setCostInputs] = useState({})
   const [savingId, setSavingId] = useState(null)
   const [saveMsg, setSaveMsg] = useState('')
   const [collapsedOut, setCollapsedOut] = useState({})
@@ -324,7 +325,49 @@ export default function AdminPage() {
       [productId]: value,
     }))
   }
+function handleCostInput(productId, value) {
+  setCostInputs((prev) => ({
+    ...prev,
+    [productId]: value,
+  }))
+}
 
+async function saveCost(productId) {
+  const raw = costInputs[productId]
+  const newCost = Number(raw)
+
+  if (raw === undefined || raw === '' || Number.isNaN(newCost) || newCost < 0) {
+    setToast({ type: 'error', msg: '请输入正确成本' })
+    return
+  }
+
+  setSavingId(productId)
+  setSaveMsg('')
+
+  const { error } = await supabase
+    .from('products')
+    .update({ cost: newCost })
+    .eq('id', productId)
+
+  if (error) {
+    setToast({ type: 'error', msg: `成本更新失败：${error.message}` })
+    setSavingId(null)
+    return
+  }
+
+  setSaveMsg('成本已更新')
+  setToast({ type: 'success', msg: '成本已更新 ✅' })
+
+  setCostInputs((prev) => ({
+    ...prev,
+    [productId]: '',
+  }))
+
+  await init()
+  setSavingId(null)
+
+  setTimeout(() => setSaveMsg(''), 1800)
+}
   async function saveStock(productId) {
     const raw = stockInputs[productId]
     const newStock = Number(raw)
@@ -558,7 +601,12 @@ export default function AdminPage() {
                   <div style={{ display: 'grid', gap: 10 }}>
                     {items.map((p) => (
                       <div key={p.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 110px minmax(140px, 220px) auto', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: '12px', background: '#fff', border: '1px solid #f0e0d3' }}>
-                        <div style={{ fontWeight: 700 }}>{p.name}</div>
+                        <div style={{ fontWeight: 700 }}>
+  <div>{p.name}</div>
+  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+    Cost: RM {Number(p.cost || 0).toFixed(2)}
+  </div>
+</div>
 
                         <div style={{ fontWeight: 800, color: isOut ? '#c0392b' : '#b9770e' }}>
                           stock: {Number(p.stock || 0)}
@@ -573,7 +621,29 @@ export default function AdminPage() {
                             onChange={(e) => handleStockInput(p.id, e.target.value)}
                             style={{ width: 100, padding: '8px 10px', borderRadius: 10, border: '1px solid #d7bfa8', outline: 'none' }}
                           />
+<input
+  type="number"
+  min="0"
+  step="0.01"
+  placeholder="成本"
+  value={costInputs[p.id] ?? ''}
+  onChange={(e) => handleCostInput(p.id, e.target.value)}
+  style={{
+    width: 100,
+    padding: '8px 10px',
+    borderRadius: 10,
+    border: '1px solid #d7bfa8',
+    outline: 'none',
+  }}
+/>
 
+<button
+  type="button"
+  style={miniBtn}
+  onClick={() => saveCost(p.id)}
+>
+  存成本
+</button>
                           <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 10)}>10</button>
                           <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 20)}>20</button>
                           <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 50)}>50</button>
