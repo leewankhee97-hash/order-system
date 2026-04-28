@@ -34,8 +34,8 @@ export default function AdminPage() {
 })
 
   useEffect(() => {
-    init()
-  }, [])
+  init()
+}, [selectedMonth])
 
   useEffect(() => {
     if (!toast) return
@@ -186,12 +186,12 @@ export default function AdminPage() {
     const d = new Date(createdAt)
 
     if (
-      Number.isNaN(d.getTime()) ||
-      d.getMonth() !== month ||
-      d.getFullYear() !== year
-    ) {
-      return
-    }
+  Number.isNaN(d.getTime()) ||
+  d.getMonth() + 1 !== month ||
+  d.getFullYear() !== year
+) {
+  return
+}
 
     const info = productInfoMap[String(item.product_id)] || {}
 
