@@ -121,21 +121,23 @@ export default function AdminPage() {
   const agentMap = {}
 
   orders.forEach((o) => {
-    const sales = getNetSales(o)
+  const sales = getNetSales(o)
 
-    if (o.created_at?.slice(0, 10) === today) {
-      todayTotal += sales
-    }
+  const d = new Date(o.created_at)
 
-    const d = new Date(o.created_at)
-    const isThisMonth =
-  !Number.isNaN(d.getTime()) &&
-  d.getMonth() + 1 === month &&
-  d.getFullYear() === year
+  const isThisMonth =
+    !Number.isNaN(d.getTime()) &&
+    d.getMonth() + 1 === month &&
+    d.getFullYear() === year
 
-    if (isThisMonth) {
-      monthTotal += sales
-    }
+  // 👉 今日销售（不受月份影响）
+  if (o.created_at?.slice(0, 10) === today) {
+    todayTotal += sales
+  }
+
+  // 👉 月份筛选（核心）
+  if (isThisMonth) {
+    monthTotal += sales
 
     const name = String(o.agent_name || 'UNKNOWN').trim() || 'UNKNOWN'
 
@@ -145,7 +147,8 @@ export default function AdminPage() {
 
     agentMap[name].total += sales
     agentMap[name].count += 1
-  })
+  }
+})
 
   const ranking = Object.values(agentMap)
     .map((agent) => ({
