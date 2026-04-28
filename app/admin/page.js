@@ -96,7 +96,16 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
   // 🔥 爆款产品
   if (topProducts.length > 0) {
     const top = topProducts[0]
-    result.push(`🔥 爆款：${top.name}（销量 ${top.qty}）`)
+
+const label = [
+  top.category,
+  top.brand,
+  top.name,
+]
+  .filter(Boolean)
+  .join(' ｜ ')
+
+result.push(`🔥 爆款：${label}（销量 ${top.qty}）`)
   }
 
   // ⚠️ Agent 表现（简单版）
