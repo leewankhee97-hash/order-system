@@ -28,7 +28,9 @@ export default function AdminPage() {
   const [resetAgentId, setResetAgentId] = useState('')
   const [toast, setToast] = useState(null)
   const [resetLoading, setResetLoading] = useState(false)
-  const [selectedMonth, setSelectedMonth] = useState(() => {
+ const [insights, setInsights] = useState([])
+
+const [selectedMonth, setSelectedMonth] = useState(() => {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 })
@@ -76,6 +78,51 @@ export default function AdminPage() {
 
     calculateStats(o, p, oi)
   }
+  function generateInsights(current, previous, topProducts, agentRanking) {
+  const result = []
+
+  // 📈 销售趋势
+  if (previous.monthSales > 0) {
+    const diff = current.monthSales - previous.monthSales
+    const percent = ((diff / previous.monthSales) * 100).toFixed(0)
+
+    if (diff > 0) {
+      result.push(`📈 本月销售比上月 +${percent}%`)
+    } else {
+      result.push(`📉 本月销售比上月 ${percent}%`)
+    }
+  }
+
+  // 🔥 爆款产品
+  if (topProducts.length > 0) {
+    const top = topProducts[0]
+    result.push(`🔥 爆款：${top.name}（销量 ${top.qty}）`)
+  }
+
+  // ⚠️ Agent 表现（简单版）
+  if (agentRanking.length > 0) {
+    const worst = agentRanking[agentRanking.length - 1]
+    if (worst.total < 1000) {
+      result.push(`⚠️ ${worst.name} 销量偏低`)
+    }
+  }
+
+  // 💰 利润最高（如果你已经做 profit）
+  const profitable = topProducts
+    .filter((p) => p.profit > 0)
+    .sort((a, b) => b.profit - a.profit)[0]
+
+  if (profitable) {
+    result.push(`💰 利润最高：${profitable.name}`)
+  }
+
+  // 👉 建议
+  if (topProducts.length > 0) {
+    result.push('👉 建议：补货 + 推广爆款')
+  }
+
+  return result
+}
 
   function getNetSales(order) {
     const total = Number(order.total_amount || 0)
@@ -224,7 +271,33 @@ export default function AdminPage() {
   setGroupedOutStock(groupedOut)
   setGroupedLowStock(groupedLow)
   setTopProducts(top)
+// 👉 上个月数据（简单版）
+const prevMonth = month === 1 ? 12 : month - 1
+const prevYear = month === 1 ? year - 1 : year
 
+let prevMonthSales = 0
+
+orders.forEach((o) => {
+  const d = new Date(o.created_at)
+
+  if (
+    !Number.isNaN(d.getTime()) &&
+    d.getMonth() + 1 === prevMonth &&
+    d.getFullYear() === prevYear
+  ) {
+    prevMonthSales += getNetSales(o)
+  }
+})
+
+// 👉 生成 AI 分析
+const ai = generateInsights(
+  { monthSales },
+  { monthSales: prevMonthSales },
+  top,
+  ranking
+)
+
+setInsights(ai)
   setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
   setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
 }
@@ -763,145 +836,150 @@ export default function AdminPage() {
         ) : null}
 
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 16,
-            marginBottom: 20,
-          }}
-        >
-          <div style={statCard}>
-            <div>今日销售</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>
-              RM {todaySales.toFixed(2)}
-            </div>
-          </div>
+  style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: 16,
+    marginBottom: 20,
+  }}
+>
+  <div style={statCard}>
+    <div>今日销售</div>
+    <div style={{ fontSize: 24, fontWeight: 900 }}>
+      RM {todaySales.toFixed(2)}
+    </div>
+  </div>
 
-          <div style={statCard}>
-            <div>本月销售</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>
-              RM {monthSales.toFixed(2)}
-            </div>
-          </div>
+  <div style={statCard}>
+    <div>本月销售</div>
+    <div style={{ fontSize: 24, fontWeight: 900 }}>
+      RM {monthSales.toFixed(2)}
+    </div>
+  </div>
 
-          <div style={statCard}>
-            <div>低库存产品</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>
-              {lowStock.length}
-            </div>
-          </div>
+  <div style={statCard}>
+    <div>低库存产品</div>
+    <div style={{ fontSize: 24, fontWeight: 900 }}>
+      {lowStock.length}
+    </div>
+  </div>
 
-          <div style={{ ...statCard, background: '#ffe9e9' }}>
-            <div>缺货产品</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>
-              {outStock.length}
-            </div>
-          </div>
-        </div>
+  <div style={{ ...statCard, background: '#ffe9e9' }}>
+    <div>缺货产品</div>
+    <div style={{ fontSize: 24, fontWeight: 900 }}>
+      {outStock.length}
+    </div>
+  </div>
+</div>
 
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
-            🏆 Agent 排行榜
-          </h2>
+<div style={{ marginBottom: 20 }}>
+  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+    📊 AI 商业分析
+  </h2>
 
-          <div style={sectionCard}>
-            {agentRanking.length === 0 && <div>暂无数据</div>}
+  <div style={sectionCard}>
+    {insights.length === 0 && <div>暂无分析</div>}
 
-            {agentRanking.length > 0 && (
+    {insights.map((text, i) => (
+      <div
+        key={i}
+        style={{
+          padding: '8px 0',
+          borderBottom: '1px solid #eee',
+          fontWeight: 600,
+        }}
+      >
+        {text}
+      </div>
+    ))}
+  </div>
+</div>
+
+<div style={{ marginBottom: 20 }}>
+  <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
+    🏆 Agent 排行榜
+  </h2>
+
+  <div style={sectionCard}>
+    {agentRanking.length === 0 && <div>暂无数据</div>}
+
+    {agentRanking.length > 0 && (
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 12,
+        }}
+      >
+        {agentRanking.map((a, i) => (
+          <div
+            key={a.name}
+            style={{
+              ...getRankCardStyle(i),
+              borderRadius: 16,
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 10,
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ fontSize: 22, fontWeight: 900 }}>
+                {getRankBadge(i)}
+              </div>
+
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                  gap: 12,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  padding: '6px 10px',
+                  borderRadius: 999,
+                  border: '1px solid #d7bfa8',
+                  background: '#fffaf5',
                 }}
               >
-                {agentRanking.map((a, i) => (
-                  <div
-                    key={a.name}
-                    style={{
-                      ...getRankCardStyle(i),
-                      borderRadius: 16,
-                      padding: '16px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 10,
-                        marginBottom: 12,
-                      }}
-                    >
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>
-                        {getRankBadge(i)}
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 800,
-                          padding: '6px 10px',
-                          borderRadius: 999,
-                          border: '1px solid #d7bfa8',
-                          background: '#fffaf5',
-                        }}
-                      >
-                        第 {i + 1} 名
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 900,
-                        marginBottom: 10,
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {a.name}
-                    </div>
-
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                        }}
-                      >
-                        <span>销售额</span>
-                        <strong>RM {a.total.toFixed(2)}</strong>
-                      </div>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                        }}
-                      >
-                        <span>订单数</span>
-                        <strong>{a.count}</strong>
-                      </div>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                        }}
-                      >
-                        <span>平均单价</span>
-                        <strong>RM {a.avg.toFixed(2)}</strong>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                第 {i + 1} 名
               </div>
-            )}
+            </div>
+
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 900,
+                marginBottom: 10,
+                wordBreak: 'break-word',
+              }}
+            >
+              {a.name}
+            </div>
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <span>销售额</span>
+                <strong>RM {a.total.toFixed(2)}</strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <span>订单数</span>
+                <strong>{a.count}</strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <span>平均单价</span>
+                <strong>RM {a.avg.toFixed(2)}</strong>
+              </div>
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
 
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>
