@@ -559,7 +559,7 @@ export default function AdminProductsPage() {
   price_1: price1,
   price_2: price2,
   price_3: price3,
-  cost: Number(seriesPriceForm.cost || 0), // 🔥 核心
+  cost: Number(seriesPriceForm.cost || 0), // 🔥 关键
 })
         .eq('brand', brand)
         .eq('series', series)
@@ -1314,6 +1314,12 @@ STRAWBERRY`}
               onChange={(e) => handleSeriesPriceChange('price_3', e.target.value)}
               style={inputStyle}
             />
+            <input
+  placeholder="Cost"
+  value={seriesPriceForm.cost}
+  onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
+  style={inputStyle}
+/>
           </div>
 
           <div style={tipBoxStyle}>
