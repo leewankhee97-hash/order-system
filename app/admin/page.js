@@ -28,6 +28,10 @@ export default function AdminPage() {
   const [resetAgentId, setResetAgentId] = useState('')
   const [toast, setToast] = useState(null)
   const [resetLoading, setResetLoading] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+})
 
   useEffect(() => {
     init()
@@ -110,9 +114,7 @@ export default function AdminPage() {
 
   function calculateStats(orders, products, orderItems = []) {
   const today = new Date().toISOString().slice(0, 10)
-  const now = new Date()
-  const month = now.getMonth()
-  const year = now.getFullYear()
+  const [year, month] = selectedMonth.split('-').map(Number)
 
   let todayTotal = 0
   let monthTotal = 0
@@ -127,9 +129,9 @@ export default function AdminPage() {
 
     const d = new Date(o.created_at)
     const isThisMonth =
-      !Number.isNaN(d.getTime()) &&
-      d.getMonth() === month &&
-      d.getFullYear() === year
+  !Number.isNaN(d.getTime()) &&
+  d.getMonth() + 1 === month &&
+  d.getFullYear() === year
 
     if (isThisMonth) {
       monthTotal += sales
@@ -713,6 +715,16 @@ export default function AdminPage() {
               </option>
             ))}
           </select>
+          <input
+  type="month"
+  value={selectedMonth}
+  onChange={(e) => setSelectedMonth(e.target.value)}
+  style={{
+    padding: '10px 12px',
+    borderRadius: 10,
+    border: '1px solid #d7bfa8',
+  }}
+/>
 
           <button
             type="button"
@@ -900,19 +912,23 @@ export default function AdminPage() {
   <div
     key={`${p.category}-${p.brand}-${p.name}`}
     style={{
-      display: 'grid',
-      gridTemplateColumns: '50px 1fr 1fr 2fr 80px',
-      gap: 10,
-      padding: '10px 0',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '12px 10px',
       borderBottom: '1px solid #eee',
-      alignItems: 'center',
     }}
   >
-    <div>{i + 1}.</div>
-    <div>{p.category}</div>
-    <div>{p.brand}</div>
-    <div>{p.name}</div>
-    <div style={{ fontWeight: 800 }}>× {p.qty}</div>
+    <div style={{ fontWeight: 900 }}>
+      {i + 1}. {p.name}
+    </div>
+
+    <div style={{ fontSize: 13, opacity: 0.7 }}>
+      {p.category} ｜ {p.brand}
+    </div>
+
+    <div style={{ fontWeight: 800 }}>
+      × {p.qty}
+    </div>
   </div>
 ))}
           </div>
