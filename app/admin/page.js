@@ -95,7 +95,13 @@ const [selectedMonth, setSelectedMonth] = useState(() => {
 
   // 🔥 爆款产品
   if (topProducts.length > 0) {
-    const top = topProducts[0]
+    const topList = topProducts.slice(0, 3)
+
+topList.forEach((p, i) => {
+  const label = `${p.brand || ''} ${p.name || ''}`.trim()
+
+  result.push(`🔥 爆款 #${i + 1}：${label}（销量 ${p.qty}）`)
+})
 
 const label = [
   top.category,
