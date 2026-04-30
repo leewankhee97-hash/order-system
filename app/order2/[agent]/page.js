@@ -689,8 +689,8 @@ useEffect(() => {
     const maxStock = Number(product?.stock || 0)
  
     if (qty <= 0) return
-    const hasMuarItem = cart.some((i) => !i.is_bundle && i.is_muar_only)
-const hasNormalItem = cart.some((i) => !i.is_bundle && !i.is_muar_only)
+    const hasMuarItem = cart.some((i) => i.is_muar_only)
+const hasNormalItem = cart.some((i) => !i.is_muar_only)
 
 if (product.is_muar_only && hasNormalItem) {
   alert('此产品是在 MUAR 出货，不可与其他产品一起下单，请分开下单')
@@ -725,14 +725,15 @@ if (product.is_muar_only) {
       }
  
       return [
-        ...prev,
-        {
-          ...product,
-          qty: qty > maxStock ? maxStock : qty,
-          price: lockedPrice,
-          is_bundle: false,
-        },
-      ]
+  ...prev,
+  {
+    ...product,
+    qty: qty > maxStock ? maxStock : qty,
+    price: lockedPrice,
+    is_bundle: false,
+    is_muar_only: Boolean(product.is_muar_only),
+  },
+]
     })
  
     setDraftQty((prev) => ({
@@ -745,22 +746,36 @@ if (product.is_muar_only) {
     if (!selectedBundle) return
     if (bundleGroupCount <= 0) return
     if (bundleCount <= 0) return
- 
+
     const selectedItems = Object.entries(bundleSelect)
       .map(([pid, qty]) => {
         const p = products.find((x) => String(x.id) === String(pid))
         if (!p || Number(qty || 0) <= 0) return null
  
         return {
-          product_id: p.id,
-          product_name: cleanProductName(p),
-          brand: p.brand || '',
-          series: p.series || '',
-          qty: Number(qty || 0),
-          stock: Number(p.stock || 0),
-        }
+  product_id: p.id,
+  product_name: cleanProductName(p),
+  brand: p.brand || '',
+  series: p.series || '',
+  qty: Number(qty || 0),
+  stock: Number(p.stock || 0),
+  is_muar_only: Boolean(p.is_muar_only), // 👈 加这一行
+}
       })
       .filter(Boolean)
+      const bundleHasMuar = selectedItems.some((i) => i.is_muar_only)
+const cartHasMuar = cart.some((i) => i.is_muar_only)
+const cartHasNormal = cart.some((i) => !i.is_muar_only)
+
+if (bundleHasMuar && cartHasNormal) {
+  alert('此 Bundle 内含 MUAR 出货产品，不可与其他产品一起下单')
+  return
+}
+
+if (!bundleHasMuar && cartHasMuar) {
+  alert('购物车已有 MUAR 出货产品，请分开下单')
+  return
+}
  
     if (selectedItems.length === 0) return
  
