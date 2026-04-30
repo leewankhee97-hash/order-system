@@ -72,7 +72,6 @@ export default function AdminAgentsPage() {
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
 
-  // 新增：创建代理
   const [createName, setCreateName] = useState('')
   const [createSlug, setCreateSlug] = useState('')
   const [createCode, setCreateCode] = useState('')
@@ -87,10 +86,8 @@ export default function AdminAgentsPage() {
     setCreateSlug((prev) => {
       const auto = makeSlug(createName)
 
-      // 用户还没手动改 slug，名称变动时自动同步
       if (!prev) return auto
 
-      // 如果当前 slug 跟旧规则自动值一致，也继续自动更新
       const currentFromName = makeSlug(createName)
       if (prev === currentFromName) return auto
 
@@ -137,70 +134,68 @@ export default function AdminAgentsPage() {
     }
   }
 
- async function createAgent() {
-  try {
-    const name = String(createName || '').trim()
-    const slug = makeSlug(createSlug)
-    const code = String(createCode || '').trim()
-    const level = Number(createLevel || 1)
+  async function createAgent() {
+    try {
+      const name = String(createName || '').trim()
+      const slug = makeSlug(createSlug)
+      const code = String(createCode || '').trim()
+      const level = Number(createLevel || 1)
 
-    if (!name) {
-      setMessage('请输入代理名称')
-      return
-    }
+      if (!name) {
+        setMessage('请输入代理名称')
+        return
+      }
 
-    if (!slug) {
-      setMessage('请输入有效的 slug')
-      return
-    }
+      if (!slug) {
+        setMessage('请输入有效的 slug')
+        return
+      }
 
-    if (![1, 2, 3].includes(level)) {
-      setMessage('代理等级只能是 1 / 2 / 3')
-      return
-    }
+      if (![1, 2, 3].includes(level)) {
+        setMessage('代理等级只能是 1 / 2 / 3')
+        return
+      }
 
-    setCreating(true)
-    setMessage('')
+      setCreating(true)
+      setMessage('')
 
-    const duplicated = agents.find((row) => {
-      const rowSlug = String(getAgentSlug(row) || '').trim().toLowerCase()
-      return rowSlug === slug.toLowerCase()
-    })
+      const duplicated = agents.find((row) => {
+        const rowSlug = String(getAgentSlug(row) || '').trim().toLowerCase()
+        return rowSlug === slug.toLowerCase()
+      })
 
-    if (duplicated) {
-      setMessage(`slug 已存在：${slug}`)
+      if (duplicated) {
+        setMessage(`slug 已存在：${slug}`)
+        setCreating(false)
+        return
+      }
+
+      const insertPayload = {
+        name,
+        slug,
+        level,
+        code: code || null,
+        is_active: true,
+      }
+
+      const { error } = await supabase.from('agents').insert([insertPayload])
+
+      if (error) throw error
+
+      setMessage(`代理创建成功：${name} / ${slug}`)
+      setCreateName('')
+      setCreateSlug('')
+      setCreateCode('')
+      setCreateLevel(1)
+
+      await fetchAgents()
+    } catch (error) {
+      console.error(error)
+      setMessage(error.message || '创建代理失败')
+    } finally {
       setCreating(false)
-      return
     }
-
-    const insertPayload = {
-      name,
-      slug,
-      level,
-      code: code || null,
-      is_active: true,
-    }
-
-    const { error } = await supabase
-      .from('agents')
-      .insert([insertPayload])
-
-    if (error) throw error
-
-    setMessage(`代理创建成功：${name} / ${slug}`)
-    setCreateName('')
-    setCreateSlug('')
-    setCreateCode('')
-    setCreateLevel(1)
-
-    await fetchAgents()
-  } catch (error) {
-    console.error(error)
-    setMessage(error.message || '创建代理失败')
-  } finally {
-    setCreating(false)
   }
-}
 
   const filteredAgents = useMemo(() => {
     const keyword = search.trim().toLowerCase()
@@ -293,7 +288,6 @@ export default function AdminAgentsPage() {
           </div>
         </div>
 
-        {/* 新增：创建代理 */}
         <div style={boxStyle}>
           <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 14 }}>
             创建新代理
@@ -421,7 +415,7 @@ export default function AdminAgentsPage() {
             <div>没有找到代理</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1180 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1260 }}>
                 <thead>
                   <tr>
                     <th style={thStyle}>代理名</th>
@@ -479,6 +473,13 @@ export default function AdminAgentsPage() {
 
                         <td style={tdStyle}>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <Link
+                              href={`/admin/orders?agent=${row.id}`}
+                              style={smallPrimaryLink}
+                            >
+                              查看订单
+                            </Link>
+
                             <button
                               type="button"
                               onClick={() => copyAgentLink(row)}
@@ -594,6 +595,20 @@ const smallPrimaryButton = {
   color: '#fff',
   fontWeight: 700,
   cursor: 'pointer',
+}
+
+const smallPrimaryLink = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: 34,
+  padding: '0 12px',
+  borderRadius: 10,
+  border: '1px solid #a47c57',
+  background: '#a47c57',
+  color: '#fff',
+  fontWeight: 700,
+  textDecoration: 'none',
 }
 
 const smallSecondaryLink = {
