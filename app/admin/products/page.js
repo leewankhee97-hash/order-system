@@ -17,6 +17,7 @@ const emptyForm = {
   price_3: '',
   stock: '',
   cost: '',
+  is_muar_only: false,
 }
 
 const emptyBulkForm = {
@@ -455,6 +456,7 @@ export default function AdminProductsPage() {
         price_3: Number(form.price_3 || 0),
         stock: Number(form.stock || 0),
         cost: Number(form.cost || 0),
+        is_muar_only: form.is_muar_only || false,
       }
 
       let res
@@ -1152,6 +1154,19 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
             onChange={(e) => handleChange('cost', e.target.value)}
             style={inputStyle}
           />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+  <input
+    type="checkbox"
+    checked={form.is_muar_only || false}
+    onChange={(e) =>
+      setForm((prev) => ({
+        ...prev,
+        is_muar_only: e.target.checked,
+      }))
+    }
+  />
+  <span>MUAR 出货（不可混单）</span>
+</div>
         </div>
 
         <div style={tipBoxStyle}>

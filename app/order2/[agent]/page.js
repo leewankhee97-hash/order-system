@@ -689,6 +689,22 @@ useEffect(() => {
     const maxStock = Number(product?.stock || 0)
  
     if (qty <= 0) return
+    const hasMuarItem = cart.some((i) => !i.is_bundle && i.is_muar_only)
+const hasNormalItem = cart.some((i) => !i.is_bundle && !i.is_muar_only)
+
+if (product.is_muar_only && hasNormalItem) {
+  alert('此产品是在 MUAR 出货，不可与其他产品一起下单，请分开下单')
+  return
+}
+
+if (!product.is_muar_only && hasMuarItem) {
+  alert('购物车已有 MUAR 出货产品，请分开下单')
+  return
+}
+
+if (product.is_muar_only) {
+  alert('此产品是在 MUAR 出货，不可与其他产品一起下单')
+}
  
     const lockedPrice = getAgentPrice(product)
  
