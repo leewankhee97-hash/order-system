@@ -933,7 +933,28 @@ useEffect(() => {
     if (p.is_active === false) return false
 
     return true
-  })
+  }).sort((a, b) => {
+  if (!q) return 0
+
+  const getScore = (p) => {
+    const brand = String(p.brand || '').toLowerCase()
+    const series = String(p.series || '').toLowerCase()
+    const name = String(p.name || '').toLowerCase()
+    const cleanName = cleanProductName(p).toLowerCase()
+
+    let score = 0
+
+    if (brand === q) score += 100
+    if (brand.includes(q)) score += 50
+    if (series.includes(q)) score += 30
+    if (name.includes(q)) score += 20
+    if (cleanName.includes(q)) score += 10
+
+    return score
+  }
+
+  return getScore(b) - getScore(a)
+})
 }, [products, selectedType, selectedBrand, selectedVariant, search])
  
   useEffect(() => {
