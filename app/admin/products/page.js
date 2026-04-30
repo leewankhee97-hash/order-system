@@ -506,8 +506,8 @@ export default function AdminProductsPage() {
       const cost = Number(bulkForm.cost || 0)
 
       if (!productType) throw new Error('请选择分类')
-      if (!brand) throw new Error('请选择 Brand')
-      if (!series) throw new Error('请选择 Series')
+      if (!brand) throw new Error('请输入 Brand')
+if (!series) throw new Error('请输入 Series')
       if (!bulkForm.flavorsText.trim()) {
         throw new Error(`请填写${getVariantLabel(productType)}内容`)
       }
@@ -1228,34 +1228,20 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
               ))}
             </select>
 
-            <select
-              value={bulkForm.brand}
-              onChange={(e) => {
-                handleBulkChange('brand', e.target.value)
-                handleBulkChange('series', '')
-              }}
-              style={inputStyle}
-            >
-              <option value="">选择 Brand</option>
-              {bulkBrandOptions.map((brand) => (
-                <option key={brand} value={brand}>
-                  {brand}
-                </option>
-              ))}
-            </select>
+            
+              <input
+  placeholder="输入 Brand，例如 SP2"
+  value={bulkForm.brand}
+  onChange={(e) => handleBulkChange('brand', e.target.value)}
+  style={inputStyle}
+/>
 
-            <select
-              value={bulkForm.series}
-              onChange={(e) => handleBulkChange('series', e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">选择 Series</option>
-              {bulkSeriesOptions.map((series) => (
-                <option key={series} value={series}>
-                  {series}
-                </option>
-              ))}
-            </select>
+<input
+  placeholder="输入 Series，例如 CRYSTAL PLUS"
+  value={bulkForm.series}
+  onChange={(e) => handleBulkChange('series', e.target.value)}
+  style={inputStyle}
+/>
 
             <input
               placeholder="LV1 默认价格，例如 14.8"
