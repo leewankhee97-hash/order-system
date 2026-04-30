@@ -298,6 +298,7 @@ export default function Page() {
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedVariant, setSelectedVariant] = useState('')
   const [search, setSearch] = useState('')
+  const isSearching = search.trim().length > 0
  
   const [backupSelections, setBackupSelections] = useState({})
   const [noBackup, setNoBackup] = useState(false)
@@ -1799,13 +1800,22 @@ console.log('OID:', oid)
                     type="text"
                     placeholder="Search 分类 / 品牌 / 口味 / 颜色"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => {
+  const value = e.target.value
+  setSearch(value)
+
+  if (value.trim()) {
+    setSelectedType('')
+    setSelectedBrand('')
+    setSelectedVariant('')
+  }
+}}
                     className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#5c4333] outline-none placeholder:text-[#b29a88] focus:border-[#d7bda5]"
                   />
                 </div>
               </div>
- 
-              <div className="space-y-4">
+ {!isSearching && (
+  <div className="space-y-4">
                 <div>
                   <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
                     1. 分类
@@ -1884,16 +1894,21 @@ console.log('OID:', oid)
                   </div>
                 ) : null}
               </div>
- 
-              <div
-                ref={productsGridRef}
+)}
+
+<div
+  ref={productsGridRef}
                 className="mt-5 mb-4 rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#a08874]"
               >
-                {selectedVariant
-                  ? filteredProducts.length > 0
-                    ? `Showing ${filteredProducts.length} product${filteredProducts.length === 1 ? '' : 's'}`
-                    : 'This option is out of stock'
-                  : `请选择${currentVariantLabel}后显示产品`}
+                {isSearching
+  ? filteredProducts.length > 0
+    ? `搜索到 ${filteredProducts.length} 个产品`
+    : '没有找到相关产品'
+  : selectedVariant
+    ? filteredProducts.length > 0
+      ? `Showing ${filteredProducts.length} product${filteredProducts.length === 1 ? '' : 's'}`
+      : 'This option is out of stock'
+    : `请选择${currentVariantLabel}后显示产品`}
               </div>
  
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
