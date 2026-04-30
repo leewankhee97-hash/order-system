@@ -722,4 +722,4 @@ const clearFilterButton = {
   color: '#6f4e37',
   fontWeight: 800,
   cursor: 'pointer',
-}
+} 
