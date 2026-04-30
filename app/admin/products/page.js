@@ -40,6 +40,7 @@ const emptySeriesPriceForm = {
   price_2: '',
   price_3: '',
   cost: '',
+  is_muar_only: false,
 }
  
 const emptyFilters = {
