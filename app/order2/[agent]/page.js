@@ -836,15 +836,14 @@ useEffect(() => {
   }, [products])
  
   const brandOptions = useMemo(() => {
-  if (!selectedType) return []
-
   const q = search.trim().toLowerCase()
 
   return [
     ...new Set(
       products
-        .filter((p) => getProductType(p) === selectedType)
         .filter((p) => {
+          if (selectedType && getProductType(p) !== selectedType) return false
+
           if (!q) return true
 
           const target = [
@@ -903,35 +902,38 @@ useEffect(() => {
   }, [selectedType])
  
   const filteredProducts = useMemo(() => {
-    const q = search.trim().toLowerCase()
- 
-    if (!selectedType) return []
-    if (!selectedBrand) return []
-    if (!selectedVariant) return []
- 
-    return products.filter((p) => {
-      const displayName = cleanProductName(p)
-      const joined = [
-        getProductType(p),
-        p.brand,
-        p.series,
-        p.name,
-        displayName,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
- 
-      if (getProductType(p) !== selectedType) return false
-      if (!eqText(p.brand, selectedBrand)) return false
-      if (displayName !== selectedVariant) return false
-      if (q && !joined.includes(q)) return false
-      if (Number(p.stock || 0) <= 0) return false
-      if (p.is_active === false) return false
- 
-      return true
-    })
-  }, [products, selectedType, selectedBrand, selectedVariant, search])
+  const q = search.trim().toLowerCase()
+
+  return products.filter((p) => {
+    const displayName = cleanProductName(p)
+
+    const joined = [
+      getProductType(p),
+      p.brand,
+      p.series,
+      p.name,
+      displayName,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+
+    // ✅ 搜索优先（重点）
+    if (q) {
+      if (!joined.includes(q)) return false
+    } else {
+      // ❗ 没搜索才用筛选
+      if (selectedType && getProductType(p) !== selectedType) return false
+      if (selectedBrand && !eqText(p.brand, selectedBrand)) return false
+      if (selectedVariant && displayName !== selectedVariant) return false
+    }
+
+    if (Number(p.stock || 0) <= 0) return false
+    if (p.is_active === false) return false
+
+    return true
+  })
+}, [products, selectedType, selectedBrand, selectedVariant, search])
  
   useEffect(() => {
     if (!selectedVariant) return
