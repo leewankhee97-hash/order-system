@@ -600,10 +600,9 @@ useEffect(() => {
   useEffect(() => {
   if (!agentInfo) return
 
-  const prefix = agentInfo.code || agentInfo.name || 'ORDER'
-  const count = agentInfo.order_counter || 1
-
-  setOrderId(`${prefix}-${String(count).padStart(4, '0')}`)
+  // ✅ 防跳号版本：下单前不预生成订单号
+  // 订单号只在 submit_order_atomic 成功后，由数据库返回真实 order_no
+  setOrderId('')
 
   // ❌ 不要清 cart / backup / 表单
   // setCart([])
@@ -1492,130 +1491,116 @@ const backupEntries = Object.entries(backupSelections).filter(
       setError('请选择备选口味，或勾选【不选择备选】')
       return
     }
+
     const confirmText = [
-  '确认提交订单？',
-  '',
-  `配送方式：${delivery}`,
-  `产品数量：${cartQty} 件`,
-  `备选状态：${noBackup ? '不选择备选' : hasAnyBackupSelected ? '已选择备选' : '未完成'}`,
-  `总额：RM ${money(total)}`,
-].join('\n')
+      '确认提交订单？',
+      '',
+      `配送方式：${delivery}`,
+      `产品数量：${cartQty} 件`,
+      `备选状态：${noBackup ? '不选择备选' : hasAnyBackupSelected ? '已选择备选' : '未完成'}`,
+      `总额：RM ${money(total)}`,
+    ].join('\n')
 
-const ok = window.confirm(confirmText)
+    const ok = window.confirm(confirmText)
 
-if (!ok) {
-  return
-}
- try {
-  setSubmitting(true)
-  setError('')
-  setSuccess('')
-  setSummaryCopied(false)
-  setShowSummaryModal(false)
-   console.log('SUBMIT agent_id:', agentInfo.id, typeof agentInfo.id)
+    if (!ok) {
+      return
+    }
 
-const prefix = agentInfo.code || agentInfo.name || 'ORDER'
+    try {
+      setSubmitting(true)
+      setError('')
+      setSuccess('')
+      setSummaryCopied(false)
+      setShowSummaryModal(false)
 
-const { data: oid, error: orderIdError } = await supabase.rpc(
-  'create_agent_order_id',
-  {
-    agent_id_input: Number(agentInfo.id), // ✅ 这里一定要 Number
-  }
-)
+      const agentCode = String(agentInfo.code || agentInfo.agent_slug || agentInfo.slug || agentInfo.name || 'ORDER')
+        .trim()
+        .toUpperCase()
+      const agentName = String(agentInfo.name || agentInfo.agent_name || agentCode || 'ORDER').trim()
 
-if (orderIdError) throw orderIdError
-console.log('FINAL agent_id:', agentInfo.id, typeof agentInfo.id)
-console.log('OID:', oid)
- 
-      const { data: order, error: orderError } = await supabase
-  .from('orders')
-  .insert({
-   agent_id: Number(agentInfo.id),
-    agent_name: prefix,
-    delivery_method: delivery,
-    pickup_order_id: String(oid),
-          pickup_date: delivery === '自取' ? date || null : null,
-          pickup_time: delivery === '自取' ? time || null : null,
-          recipient_name: name || null,
-          recipient_phone: phone || null,
-          recipient_address: address || null,
-          state: state || null,
-          postcode: postcode || null,
-          shipping_fee: shippingFee === 'ASK' ? null : shippingFee,
-          total_amount: total,
-        })
-        .select()
-        .single()
- 
-      if (orderError) throw orderError
- 
+      if (!agentCode) {
+        throw new Error('代理 Code 不存在，无法生成订单号')
+      }
+
       const items = []
- 
+
       cart.forEach((i) => {
         if (i.is_bundle) {
           ;(i.bundle_items || []).forEach((bi) => {
             items.push({
-              order_id: order.id,
               product_id: bi.product_id,
               product_name: bi.product_name,
               qty: Number(bi.qty || 0),
               unit_price: 0,
               subtotal: 0,
               item_type: 'BUNDLE_ITEM',
-              bundle_rule_id: i.bundle_rule_id,
-              bundle_name: i.bundle_name,
+              bundle_rule_id: i.bundle_rule_id || null,
+              bundle_name: i.bundle_name || null,
             })
           })
         } else {
           items.push({
-            order_id: order.id,
             product_id: i.id,
             product_name: cleanProductName(i),
-            qty: i.qty,
-            unit_price: i.price,
+            qty: Number(i.qty || 0),
+            unit_price: Number(i.price || 0),
             subtotal: Number(i.qty || 0) * Number(i.price || 0),
             item_type: 'NORMAL',
+            bundle_rule_id: null,
+            bundle_name: null,
           })
         }
       })
- 
-      const { error: itemError } = await supabase.from('order_items').insert(items)
-      if (itemError) throw itemError
- 
-      for (const i of cart) {
-  if (i.is_bundle) {
-    for (const bi of i.bundle_items || []) {
-      const { error: bundleStockError } = await supabase.rpc(
-        'decrement_stock',
+
+      if (items.length === 0) {
+        throw new Error('订单没有有效产品')
+      }
+
+      const { data: submitResult, error: submitError } = await supabase.rpc(
+        'submit_order_atomic',
         {
-          product_id_input: bi.product_id,
-          qty_input: Number(bi.qty || 0),
+          agent_code_input: agentCode,
+          agent_name_input: agentName,
+          order_payload: {
+            delivery_method: delivery,
+            pickup_date: delivery === '自取' ? date || null : null,
+            pickup_time: delivery === '自取' ? time || null : null,
+            customer_name: name || null,
+            customer_phone: phone || null,
+            customer_address: address || null,
+            address: address || null,
+            postcode: postcode || null,
+            state: state || null,
+            shipping_fee: shippingFee === 'ASK' ? null : Number(shippingFee || 0),
+            total_amount: Number(total || 0),
+          },
+          items_payload: items,
         }
       )
 
-      if (bundleStockError) throw bundleStockError
-    }
-  } else {
-    const { error: stockError } = await supabase.rpc(
-      'decrement_stock',
-      {
-        product_id_input: i.id,
-        qty_input: Number(i.qty || 0),
-      }
-    )
+      if (submitError) throw submitError
 
-    if (stockError) throw stockError
-  }
-}
- 
+      const oid =
+        submitResult?.order_no ||
+        submitResult?.orderNo ||
+        submitResult?.pickup_order_id ||
+        submitResult?.[0]?.order_no ||
+        ''
+
+      if (!oid) {
+        throw new Error('订单已提交，但数据库没有返回 order_no')
+      }
+
       const copiedSummary = buildCopiedSummary(oid)
+      setOrderId(oid)
       setCopiedPreview(copiedSummary)
       setShowSummaryModal(true)
       setSummaryCopied(false)
       setSuccess(`成功：${oid}`)
  
       resetFormAfterSubmit()
-      await init()
+      await init({ silent: true })
     } catch (err) {
       let message = '提交失败'
  
@@ -2326,7 +2311,7 @@ console.log('OID:', oid)
                     Order ID
                   </label>
                   <input
-                    value={orderId}
+                    value={orderId || '提交后自动生成'}
                     readOnly
                     className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none"
                   />

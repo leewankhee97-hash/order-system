@@ -194,18 +194,6 @@ export default function AdminProductsPage() {
     )
   }, [products, filters.product_type, filters.brand, filters.series])
 
-  const bulkBrandOptions = useMemo(() => {
-    return uniqueSorted(products.map((p) => p.brand))
-  }, [products])
-
-  const bulkSeriesOptions = useMemo(() => {
-    return uniqueSorted(
-      products
-        .filter((p) => !bulkForm.brand || p.brand === bulkForm.brand)
-        .map((p) => p.series)
-    )
-  }, [products, bulkForm.brand])
-
   const seriesPriceBrandOptions = useMemo(() => {
     return uniqueSorted(products.map((p) => p.brand))
   }, [products])
@@ -497,8 +485,8 @@ export default function AdminProductsPage() {
 
     try {
       const productType = bulkForm.product_type.trim()
-      const brand = bulkForm.brand.trim()
-      const series = bulkForm.series.trim()
+const brand = bulkForm.brand.trim().toUpperCase()
+const series = bulkForm.series.trim().toUpperCase()
       const price1 = Number(bulkForm.price_1 || 0)
       const price2 = Number(bulkForm.price_2 || 0)
       const price3 = Number(bulkForm.price_3 || 0)
