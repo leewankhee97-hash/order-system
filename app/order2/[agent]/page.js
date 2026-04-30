@@ -2614,7 +2614,8 @@ console.log('OID:', oid)
  
               {cart.length === 0 ? (
                 <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-4 text-sm text-[#a08874]">
-                  还没有普通产品
+                  🛒 还没有商品
+请添加产品到购物车
                 </div>
               ) : (
                 <div className="space-y-3">
