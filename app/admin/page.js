@@ -32,11 +32,23 @@ const [monthProfit, setMonthProfit] = useState(0)
   const [resetAgentId, setResetAgentId] = useState('')
   const [toast, setToast] = useState(null)
   const [resetLoading, setResetLoading] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+
+  useEffect(() => {
+    function checkMobile() {
+      setIsMobile(window.innerWidth <= 768)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     init()
@@ -529,59 +541,88 @@ async function saveCost(productId) {
     return { background: '#fff', border: '1px solid #ead8c8' }
   }
 
+  const pageWrap = {
+    width: '100%',
+    maxWidth: isMobile ? '100%' : 1280,
+    margin: '0 auto',
+    padding: isMobile ? '10px 8px 24px' : '0 0 40px',
+    minWidth: 0,
+    fontSize: isMobile ? 13 : 14,
+  }
+
   const statCard = {
-    padding: '20px',
-    borderRadius: '18px',
+    padding: isMobile ? '12px 12px' : '20px',
+    borderRadius: isMobile ? '14px' : '18px',
     border: '1px solid #d7bfa8',
     background: '#fff',
+    minWidth: 0,
   }
 
   const sectionCard = {
-    padding: '20px',
-    borderRadius: '18px',
+    padding: isMobile ? '12px' : '20px',
+    borderRadius: isMobile ? '14px' : '18px',
     border: '1px solid #d7bfa8',
     background: '#fff',
+    minWidth: 0,
   }
 
   const miniBtn = {
-    padding: '6px 10px',
+    padding: isMobile ? '6px 8px' : '6px 10px',
     borderRadius: '10px',
     border: '1px solid #d7bfa8',
     background: '#fffaf5',
     color: '#6f4e37',
     cursor: 'pointer',
     fontWeight: 700,
+    fontSize: isMobile ? 12 : 13,
+    minHeight: isMobile ? 32 : 34,
   }
 
   const saveBtn = {
-    padding: '8px 14px',
+    padding: isMobile ? '8px 10px' : '8px 14px',
     borderRadius: '10px',
     border: '1px solid #c89f7a',
     background: '#6f4e37',
     color: '#fff',
     cursor: 'pointer',
     fontWeight: 800,
+    fontSize: isMobile ? 12 : 13,
+    minHeight: isMobile ? 34 : 36,
+    width: isMobile ? '100%' : 'auto',
   }
 
   const categoryHeaderBtn = {
     border: '1px solid #d7bfa8',
     background: '#fff',
     color: '#6f4e37',
-    padding: '8px 12px',
+    padding: isMobile ? '7px 10px' : '8px 12px',
     borderRadius: 10,
     fontWeight: 800,
     cursor: 'pointer',
+    fontSize: isMobile ? 12 : 13,
   }
 
   const viewLinkStyle = {
     display: 'inline-block',
-    padding: '8px 12px',
+    padding: isMobile ? '7px 10px' : '8px 12px',
     borderRadius: 10,
     border: '1px solid #d7bfa8',
     background: '#fffaf5',
     color: '#6f4e37',
     textDecoration: 'none',
     fontWeight: 800,
+    fontSize: isMobile ? 12 : 13,
+  }
+
+  const inputStyle = {
+    width: isMobile ? '100%' : 100,
+    padding: isMobile ? '8px 9px' : '8px 10px',
+    borderRadius: 10,
+    border: '1px solid #d7bfa8',
+    outline: 'none',
+    fontSize: isMobile ? 12 : 13,
+    minHeight: 34,
+    boxSizing: 'border-box',
   }
 
   function renderStockGroup(grouped, type = 'low') {
@@ -598,11 +639,11 @@ async function saveCost(productId) {
       const isCollapsed = !!collapsedMap[category]
 
       return (
-        <div key={category} style={{ marginBottom: 20, border: '1px solid #ead8c8', borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
-          <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: isOut ? '#fff1f1' : '#fff8ea', borderBottom: isCollapsed ? 'none' : '1px solid #f0e0d3' }}>
+        <div key={category} style={{ marginBottom: isMobile ? 12 : 20, border: '1px solid #ead8c8', borderRadius: isMobile ? 14 : 16, overflow: 'hidden', background: '#fff' }}>
+          <div style={{ padding: isMobile ? '10px 12px' : '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: isMobile ? 8 : 12, flexWrap: 'wrap', background: isOut ? '#fff1f1' : '#fff8ea', borderBottom: isCollapsed ? 'none' : '1px solid #f0e0d3' }}>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 900 }}>{category}</div>
-              <div style={{ fontSize: 14, opacity: 0.8, marginTop: 4 }}>
+              <div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 900 }}>{category}</div>
+              <div style={{ fontSize: isMobile ? 12 : 14, opacity: 0.8, marginTop: 4 }}>
                 共 {totalCount} 个产品
               </div>
             </div>
@@ -619,9 +660,9 @@ async function saveCost(productId) {
           </div>
 
           {!isCollapsed && (
-            <div style={{ padding: 14 }}>
+            <div style={{ padding: isMobile ? 10 : 14 }}>
               {Object.entries(brands).map(([brand, items]) => (
-                <div key={brand} style={{ marginBottom: 12, padding: '12px', borderRadius: '14px', background: isOut ? '#fff8f8' : '#fffdf6', border: '1px solid #ead8c8' }}>
+                <div key={brand} style={{ marginBottom: isMobile ? 10 : 12, padding: isMobile ? '10px' : '12px', borderRadius: '14px', background: isOut ? '#fff8f8' : '#fffdf6', border: '1px solid #ead8c8' }}>
                   <div style={{ fontWeight: 900, marginBottom: 10, color: '#6f4e37', display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                     <span>{brand}</span>
                     <span style={{ fontSize: 13, opacity: 0.8 }}>{items.length} 个产品</span>
@@ -629,7 +670,7 @@ async function saveCost(productId) {
 
                   <div style={{ display: 'grid', gap: 10 }}>
                     {items.map((p) => (
-                      <div key={p.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) 110px minmax(140px, 220px) auto', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: '12px', background: '#fff', border: '1px solid #f0e0d3' }}>
+                      <div key={p.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(180px, 1fr) 110px minmax(140px, 220px) auto', gap: isMobile ? 8 : 10, alignItems: 'center', padding: isMobile ? '10px' : '10px 12px', borderRadius: '12px', background: '#fff', border: '1px solid #f0e0d3' }}>
                         <div style={{ fontWeight: 700 }}>
   <div>{p.name}</div>
   <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
@@ -648,7 +689,7 @@ async function saveCost(productId) {
                             placeholder="输入库存"
                             value={stockInputs[p.id] ?? ''}
                             onChange={(e) => handleStockInput(p.id, e.target.value)}
-                            style={{ width: 100, padding: '8px 10px', borderRadius: 10, border: '1px solid #d7bfa8', outline: 'none' }}
+                            style={inputStyle}
                           />
 <input
   type="number"
@@ -657,13 +698,7 @@ async function saveCost(productId) {
   placeholder="成本"
   value={costInputs[p.id] ?? ''}
   onChange={(e) => handleCostInput(p.id, e.target.value)}
-  style={{
-    width: 100,
-    padding: '8px 10px',
-    borderRadius: 10,
-    border: '1px solid #d7bfa8',
-    outline: 'none',
-  }}
+  style={inputStyle}
 />
 
 <button
@@ -703,12 +738,12 @@ async function saveCost(productId) {
   return (
     <>
       {toast && (
-        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, padding: '12px 16px', borderRadius: 12, background: toast.type === 'success' ? '#e6ffed' : '#ffecec', border: `1px solid ${toast.type === 'success' ? '#b7eb8f' : '#ffa39e'}`, color: toast.type === 'success' ? '#389e0d' : '#cf1322', fontWeight: 800, boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+        <div style={{ position: 'fixed', top: isMobile ? 10 : 20, right: isMobile ? 10 : 20, left: isMobile ? 10 : 'auto', zIndex: 9999, padding: isMobile ? '10px 12px' : '12px 16px', borderRadius: 12, background: toast.type === 'success' ? '#e6ffed' : '#ffecec', border: `1px solid ${toast.type === 'success' ? '#b7eb8f' : '#ffa39e'}`, color: toast.type === 'success' ? '#389e0d' : '#cf1322', fontWeight: 800, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: isMobile ? 13 : 14 }}>
           {toast.msg}
         </div>
       )}
 
-      <div style={{ minWidth: 0 }}>
+      <div style={pageWrap}>
         {notifications.length > 0 && (
           <div style={{ marginBottom: 16, padding: '14px 16px', borderRadius: 14, background: '#fff1f1', border: '1px solid #ffcccc' }}>
             <div style={{ fontWeight: 900, color: '#c0392b', marginBottom: 6 }}>
@@ -724,10 +759,10 @@ async function saveCost(productId) {
           </div>
         )}
 
-        <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 20 }}>后台管理</h1>
+        <h1 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 900, marginBottom: isMobile ? 12 : 20 }}>后台管理</h1>
 
-        <div style={{ marginBottom: 20, padding: 16, borderRadius: 16, border: '1px solid #ffcccc', background: '#fff5f5', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <select value={resetAgentId} onChange={(e) => setResetAgentId(e.target.value)} disabled={resetLoading} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #d7bfa8', minWidth: 220 }}>
+        <div style={{ marginBottom: isMobile ? 14 : 20, padding: isMobile ? 12 : 16, borderRadius: isMobile ? 14 : 16, border: '1px solid #ffcccc', background: '#fff5f5', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(220px, 1fr) auto auto', gap: isMobile ? 8 : 10, alignItems: 'center' }}>
+          <select value={resetAgentId} onChange={(e) => setResetAgentId(e.target.value)} disabled={resetLoading} style={{ padding: isMobile ? '9px 10px' : '10px 12px', borderRadius: 10, border: '1px solid #d7bfa8', minWidth: 0, width: '100%', fontSize: isMobile ? 13 : 14 }}>
             <option value="">选择 Agent</option>
             {agents.map((a) => (
               <option key={a.id} value={a.id}>
@@ -736,9 +771,9 @@ async function saveCost(productId) {
             ))}
           </select>
 
-          <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #d7bfa8' }} />
+          <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={{ padding: isMobile ? '9px 10px' : '10px 12px', borderRadius: 10, border: '1px solid #d7bfa8', width: '100%', fontSize: isMobile ? 13 : 14 }} />
 
-          <button type="button" onClick={handleResetAgent} disabled={resetLoading} style={{ padding: '10px 16px', background: resetLoading ? '#ccc' : '#ff4d4f', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 800, cursor: resetLoading ? 'not-allowed' : 'pointer' }}>
+          <button type="button" onClick={handleResetAgent} disabled={resetLoading} style={{ padding: isMobile ? '10px 12px' : '10px 16px', background: resetLoading ? '#ccc' : '#ff4d4f', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 800, cursor: resetLoading ? 'not-allowed' : 'pointer', width: '100%', fontSize: isMobile ? 13 : 14 }}>
             {resetLoading ? '重置中...' : '🧨 Reset Agent'}
           </button>
         </div>
@@ -749,42 +784,42 @@ async function saveCost(productId) {
           </div>
         ) : null}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: isMobile ? 8 : 16, marginBottom: isMobile ? 14 : 20 }}>
           <div style={statCard}>
             <div>今日销售</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>RM {todaySales.toFixed(2)}</div>
+            <div style={{ fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>RM {todaySales.toFixed(2)}</div>
           </div>
 
           <div style={statCard}>
             <div>本月销售</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>RM {monthSales.toFixed(2)}</div>
+            <div style={{ fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>RM {monthSales.toFixed(2)}</div>
           </div>
 <div style={statCard}>
   <div>今日利润</div>
-  <div style={{ fontSize: 24, fontWeight: 900, color: '#2e7d32' }}>
+  <div style={{ fontSize: isMobile ? 18 : 24, fontWeight: 900, color: '#2e7d32' }}>
     RM {todayProfit.toFixed(2)}
   </div>
 </div>
 
 <div style={statCard}>
   <div>本月利润</div>
-  <div style={{ fontSize: 24, fontWeight: 900, color: '#2e7d32' }}>
+  <div style={{ fontSize: isMobile ? 18 : 24, fontWeight: 900, color: '#2e7d32' }}>
     RM {monthProfit.toFixed(2)}
   </div>
 </div>
           <div style={statCard}>
             <div>低库存产品</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>{lowStock.length}</div>
+            <div style={{ fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>{lowStock.length}</div>
           </div>
 
           <div style={{ ...statCard, background: '#ffe9e9' }}>
             <div>缺货产品</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>{outStock.length}</div>
+            <div style={{ fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>{outStock.length}</div>
           </div>
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>📊 AI 商业分析</h2>
+          <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, marginBottom: isMobile ? 8 : 10 }}>📊 AI 商业分析</h2>
           <div style={sectionCard}>
             {insights.length === 0 && <div>暂无分析</div>}
             {insights.map((text, i) => (
@@ -796,22 +831,22 @@ async function saveCost(productId) {
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>🏆 Agent 排行榜</h2>
+          <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, marginBottom: isMobile ? 8 : 10 }}>🏆 Agent 排行榜</h2>
           <div style={sectionCard}>
             {agentRanking.length === 0 && <div>暂无数据</div>}
 
             {agentRanking.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(240px, 1fr))', gap: isMobile ? 8 : 12 }}>
                 {agentRanking.map((a, i) => (
-                  <div key={a.name} style={{ ...getRankCardStyle(i), borderRadius: 16, padding: '16px' }}>
+                  <div key={a.name} style={{ ...getRankCardStyle(i), borderRadius: isMobile ? 14 : 16, padding: isMobile ? '12px' : '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>{getRankBadge(i)}</div>
+                      <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900 }}>{getRankBadge(i)}</div>
                       <div style={{ fontSize: 13, fontWeight: 800, padding: '6px 10px', borderRadius: 999, border: '1px solid #d7bfa8', background: '#fffaf5' }}>
                         第 {i + 1} 名
                       </div>
                     </div>
 
-                    <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 10, wordBreak: 'break-word' }}>{a.name}</div>
+                    <div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 900, marginBottom: isMobile ? 8 : 10, wordBreak: 'break-word' }}>{a.name}</div>
 
                     <div style={{ display: 'grid', gap: 8 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
@@ -835,12 +870,12 @@ async function saveCost(productId) {
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>🔥 本月热卖产品</h2>
+          <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, marginBottom: isMobile ? 8 : 10 }}>🔥 本月热卖产品</h2>
           <div style={sectionCard}>
             {topProducts.length === 0 && <div>暂无数据</div>}
 
             {topProducts.map((p, i) => (
-              <div key={`${p.category}-${p.brand}-${p.name}`} style={{ display: 'flex', flexDirection: 'column', padding: '12px 10px', borderBottom: '1px solid #eee' }}>
+              <div key={`${p.category}-${p.brand}-${p.name}`} style={{ display: 'flex', flexDirection: 'column', padding: isMobile ? '10px 4px' : '12px 10px', borderBottom: '1px solid #eee' }}>
                 <div style={{ fontWeight: 900 }}>
                   {i + 1}. {p.name}
                 </div>
@@ -858,12 +893,12 @@ async function saveCost(productId) {
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>❌ OUT OF STOCK 分类总览</h2>
+          <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, marginBottom: isMobile ? 8 : 10 }}>❌ OUT OF STOCK 分类总览</h2>
           <div style={{ ...sectionCard, background: '#fffdfd' }}>{renderStockGroup(groupedOutStock, 'out')}</div>
         </div>
 
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 10 }}>⚠️ 低库存产品</h2>
+          <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, marginBottom: isMobile ? 8 : 10 }}>⚠️ 低库存产品</h2>
           <div style={{ ...sectionCard, background: '#fffdf8' }}>{renderStockGroup(groupedLowStock, 'low')}</div>
         </div>
       </div>
