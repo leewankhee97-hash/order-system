@@ -771,6 +771,7 @@ if (product.is_muar_only) {
       })
       .filter(Boolean)
       const bundleHasMuar = selectedItems.some((i) => i.is_muar_only)
+
 const cartHasMuar = cart.some((i) => i.is_muar_only)
 const cartHasNormal = cart.some((i) => !i.is_muar_only)
 
@@ -787,15 +788,18 @@ if (!bundleHasMuar && cartHasMuar) {
     if (selectedItems.length === 0) return
  
     const bundleCartItem = {
-      id: `bundle-${selectedBundle.id}-${Date.now()}`,
-      is_bundle: true,
-      bundle_rule_id: selectedBundle.id,
-      bundle_name: selectedBundle.name,
-      bundle_brand: selectedBundle.brand || '',
-      qty: bundleGroupCount,
-      price: bundleSinglePrice,
-      bundle_items: selectedItems,
-    }
+  id: `bundle-${selectedBundle.id}-${Date.now()}`,
+  is_bundle: true,
+  bundle_rule_id: selectedBundle.id,
+  bundle_name: selectedBundle.name,
+  bundle_brand: selectedBundle.brand || '',
+  qty: bundleGroupCount,
+  price: bundleSinglePrice,
+  bundle_items: selectedItems,
+
+  // ✅ 必须加这个（否则会出 bug）
+  is_muar_only: bundleHasMuar,
+}
  
     setCart((prev) => [...prev, bundleCartItem])
     setBundleSelect({})
