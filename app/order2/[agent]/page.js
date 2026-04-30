@@ -836,16 +836,34 @@ useEffect(() => {
   }, [products])
  
   const brandOptions = useMemo(() => {
-    if (!selectedType) return []
-    return [
-      ...new Set(
-        products
-          .filter((p) => getProductType(p) === selectedType)
-          .map((p) => p.brand)
-          .filter(Boolean)
-      ),
-    ]
-  }, [products, selectedType])
+  if (!selectedType) return []
+
+  const q = search.trim().toLowerCase()
+
+  return [
+    ...new Set(
+      products
+        .filter((p) => getProductType(p) === selectedType)
+        .filter((p) => {
+          if (!q) return true
+
+          const target = [
+            p.brand,
+            p.series,
+            p.name,
+            cleanProductName(p),
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+
+          return target.includes(q)
+        })
+        .map((p) => p.brand)
+        .filter(Boolean)
+    ),
+  ]
+}, [products, selectedType, search])
  
   const variantOptions = useMemo(() => {
     if (!selectedType || !selectedBrand) return []
