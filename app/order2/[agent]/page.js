@@ -303,8 +303,8 @@ export default function Page() {
   const [noBackup, setNoBackup] = useState(false)
  
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [muarNotice, setMuarNotice] = useState('')
+const [success, setSuccess] = useState('')
+const [muarNotice, setMuarNotice] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [copiedPreview, setCopiedPreview] = useState('')
  
@@ -601,9 +601,10 @@ useEffect(() => {
   useEffect(() => {
   if (!agentInfo) return
 
-  // ✅ 防跳号版本：下单前不预生成订单号
-  // 订单号只在 submit_order_atomic 成功后，由数据库返回真实 order_no
-  setOrderId('')
+  const prefix = agentInfo.code || agentInfo.name || 'ORDER'
+  const count = agentInfo.order_counter || 1
+
+  setOrderId(`${prefix}-${String(count).padStart(4, '0')}`)
 
   // ❌ 不要清 cart / backup / 表单
   // setCart([])
@@ -684,34 +685,37 @@ useEffect(() => {
       [product.id]: qty,
     }))
   }
- function showMuarNotice(message) {
-  setMuarNotice(message)
+ 
+  function showMuarNotice(message) {
+    setMuarNotice(message)
 
-  setTimeout(() => {
-    setMuarNotice('')
-  }, 3500)
-}
+    setTimeout(() => {
+      setMuarNotice('')
+    }, 3500)
+  }
+
   function addDraftToCart(product) {
     const qty = Number(draftQty[product.id] || 0)
     const maxStock = Number(product?.stock || 0)
  
     if (qty <= 0) return
+
     const hasMuarItem = cart.some((i) => i.is_muar_only)
-const hasNormalItem = cart.some((i) => !i.is_muar_only)
+    const hasNormalItem = cart.some((i) => !i.is_muar_only)
 
-if (product.is_muar_only && hasNormalItem) {
-  showMuarNotice('此产品是在 MUAR 出货，不可与其他产品一起下单，请分开下单')
-  return
-}
+    if (product.is_muar_only && hasNormalItem) {
+      showMuarNotice('此产品是在 MUAR 出货，不可与其他产品一起下单，请分开下单')
+      return
+    }
 
-if (!product.is_muar_only && hasMuarItem) {
-  alert('购物车已有 MUAR 出货产品，请分开下单')
-  return
-}
+    if (!product.is_muar_only && hasMuarItem) {
+      showMuarNotice('购物车已有 MUAR 出货产品，请分开下单')
+      return
+    }
 
-if (product.is_muar_only) {
-  alert('此产品是在 MUAR 出货，不可与其他产品一起下单')
-}
+    if (product.is_muar_only) {
+      showMuarNotice('此产品是在 MUAR 出货，不可与其他产品一起下单')
+    }
  
     const lockedPrice = getAgentPrice(product)
  
@@ -732,15 +736,15 @@ if (product.is_muar_only) {
       }
  
       return [
-  ...prev,
-  {
-    ...product,
-    qty: qty > maxStock ? maxStock : qty,
-    price: lockedPrice,
-    is_bundle: false,
-    is_muar_only: Boolean(product.is_muar_only),
-  },
-]
+        ...prev,
+        {
+          ...product,
+          qty: qty > maxStock ? maxStock : qty,
+          price: lockedPrice,
+          is_bundle: false,
+          is_muar_only: Boolean(product.is_muar_only),
+        },
+      ]
     })
  
     setDraftQty((prev) => ({
@@ -753,53 +757,51 @@ if (product.is_muar_only) {
     if (!selectedBundle) return
     if (bundleGroupCount <= 0) return
     if (bundleCount <= 0) return
-
+ 
     const selectedItems = Object.entries(bundleSelect)
       .map(([pid, qty]) => {
         const p = products.find((x) => String(x.id) === String(pid))
         if (!p || Number(qty || 0) <= 0) return null
  
         return {
-  product_id: p.id,
-  product_name: cleanProductName(p),
-  brand: p.brand || '',
-  series: p.series || '',
-  qty: Number(qty || 0),
-  stock: Number(p.stock || 0),
-  is_muar_only: Boolean(p.is_muar_only), // 👈 加这一行
-}
+          product_id: p.id,
+          product_name: cleanProductName(p),
+          brand: p.brand || '',
+          series: p.series || '',
+          qty: Number(qty || 0),
+          stock: Number(p.stock || 0),
+          is_muar_only: Boolean(p.is_muar_only),
+        }
       })
       .filter(Boolean)
-      const bundleHasMuar = selectedItems.some((i) => i.is_muar_only)
-
-const cartHasMuar = cart.some((i) => i.is_muar_only)
-const cartHasNormal = cart.some((i) => !i.is_muar_only)
-
-if (bundleHasMuar && cartHasNormal) {
-  alert('此 Bundle 内含 MUAR 出货产品，不可与其他产品一起下单')
-  return
-}
-
-if (!bundleHasMuar && cartHasMuar) {
-  alert('购物车已有 MUAR 出货产品，请分开下单')
-  return
-}
  
     if (selectedItems.length === 0) return
+
+    const bundleHasMuar = selectedItems.some((i) => i.is_muar_only)
+    const cartHasMuar = cart.some((i) => i.is_muar_only)
+    const cartHasNormal = cart.some((i) => !i.is_muar_only)
+
+    if (bundleHasMuar && cartHasNormal) {
+      showMuarNotice('此 Bundle 内含 MUAR 出货产品，不可与其他产品一起下单')
+      return
+    }
+
+    if (!bundleHasMuar && cartHasMuar) {
+      showMuarNotice('购物车已有 MUAR 出货产品，请分开下单')
+      return
+    }
  
     const bundleCartItem = {
-  id: `bundle-${selectedBundle.id}-${Date.now()}`,
-  is_bundle: true,
-  bundle_rule_id: selectedBundle.id,
-  bundle_name: selectedBundle.name,
-  bundle_brand: selectedBundle.brand || '',
-  qty: bundleGroupCount,
-  price: bundleSinglePrice,
-  bundle_items: selectedItems,
-
-  // ✅ 必须加这个（否则会出 bug）
-  is_muar_only: bundleHasMuar,
-}
+      id: `bundle-${selectedBundle.id}-${Date.now()}`,
+      is_bundle: true,
+      bundle_rule_id: selectedBundle.id,
+      bundle_name: selectedBundle.name,
+      bundle_brand: selectedBundle.brand || '',
+      qty: bundleGroupCount,
+      price: bundleSinglePrice,
+      bundle_items: selectedItems,
+      is_muar_only: bundleHasMuar,
+    }
  
     setCart((prev) => [...prev, bundleCartItem])
     setBundleSelect({})
@@ -1503,6 +1505,14 @@ const backupEntries = Object.entries(backupSelections).filter(
       setError('请选择产品或bundle')
       return
     }
+
+    const hasMuar = cart.some((i) => i.is_muar_only)
+    const hasNormal = cart.some((i) => !i.is_muar_only)
+
+    if (hasMuar && hasNormal) {
+      setError('MUAR 产品不可与普通产品混单，请分开下单')
+      return
+    }
  
     if (delivery === '自取') {
       if (!date || !time) {
@@ -1533,116 +1543,130 @@ const backupEntries = Object.entries(backupSelections).filter(
       setError('请选择备选口味，或勾选【不选择备选】')
       return
     }
-
     const confirmText = [
-      '确认提交订单？',
-      '',
-      `配送方式：${delivery}`,
-      `产品数量：${cartQty} 件`,
-      `备选状态：${noBackup ? '不选择备选' : hasAnyBackupSelected ? '已选择备选' : '未完成'}`,
-      `总额：RM ${money(total)}`,
-    ].join('\n')
+  '确认提交订单？',
+  '',
+  `配送方式：${delivery}`,
+  `产品数量：${cartQty} 件`,
+  `备选状态：${noBackup ? '不选择备选' : hasAnyBackupSelected ? '已选择备选' : '未完成'}`,
+  `总额：RM ${money(total)}`,
+].join('\n')
 
-    const ok = window.confirm(confirmText)
+const ok = window.confirm(confirmText)
 
-    if (!ok) {
-      return
-    }
+if (!ok) {
+  return
+}
+ try {
+  setSubmitting(true)
+  setError('')
+  setSuccess('')
+  setSummaryCopied(false)
+  setShowSummaryModal(false)
+   console.log('SUBMIT agent_id:', agentInfo.id, typeof agentInfo.id)
 
-    try {
-      setSubmitting(true)
-      setError('')
-      setSuccess('')
-      setSummaryCopied(false)
-      setShowSummaryModal(false)
+const prefix = agentInfo.code || agentInfo.name || 'ORDER'
 
-      const agentCode = String(agentInfo.code || agentInfo.agent_slug || agentInfo.slug || agentInfo.name || 'ORDER')
-        .trim()
-        .toUpperCase()
-      const agentName = String(agentInfo.name || agentInfo.agent_name || agentCode || 'ORDER').trim()
+const { data: oid, error: orderIdError } = await supabase.rpc(
+  'create_agent_order_id',
+  {
+    agent_id_input: Number(agentInfo.id), // ✅ 这里一定要 Number
+  }
+)
 
-      if (!agentCode) {
-        throw new Error('代理 Code 不存在，无法生成订单号')
-      }
-
+if (orderIdError) throw orderIdError
+console.log('FINAL agent_id:', agentInfo.id, typeof agentInfo.id)
+console.log('OID:', oid)
+ 
+      const { data: order, error: orderError } = await supabase
+  .from('orders')
+  .insert({
+   agent_id: Number(agentInfo.id),
+    agent_name: prefix,
+    delivery_method: delivery,
+    pickup_order_id: String(oid),
+          pickup_date: delivery === '自取' ? date || null : null,
+          pickup_time: delivery === '自取' ? time || null : null,
+          recipient_name: name || null,
+          recipient_phone: phone || null,
+          recipient_address: address || null,
+          state: state || null,
+          postcode: postcode || null,
+          shipping_fee: shippingFee === 'ASK' ? null : shippingFee,
+          total_amount: total,
+        })
+        .select()
+        .single()
+ 
+      if (orderError) throw orderError
+ 
       const items = []
-
+ 
       cart.forEach((i) => {
         if (i.is_bundle) {
           ;(i.bundle_items || []).forEach((bi) => {
             items.push({
+              order_id: order.id,
               product_id: bi.product_id,
               product_name: bi.product_name,
               qty: Number(bi.qty || 0),
               unit_price: 0,
               subtotal: 0,
               item_type: 'BUNDLE_ITEM',
-              bundle_rule_id: i.bundle_rule_id || null,
-              bundle_name: i.bundle_name || null,
+              bundle_rule_id: i.bundle_rule_id,
+              bundle_name: i.bundle_name,
             })
           })
         } else {
           items.push({
+            order_id: order.id,
             product_id: i.id,
             product_name: cleanProductName(i),
-            qty: Number(i.qty || 0),
-            unit_price: Number(i.price || 0),
+            qty: i.qty,
+            unit_price: i.price,
             subtotal: Number(i.qty || 0) * Number(i.price || 0),
             item_type: 'NORMAL',
-            bundle_rule_id: null,
-            bundle_name: null,
           })
         }
       })
-
-      if (items.length === 0) {
-        throw new Error('订单没有有效产品')
-      }
-
-      const { data: submitResult, error: submitError } = await supabase.rpc(
-        'submit_order_atomic',
+ 
+      const { error: itemError } = await supabase.from('order_items').insert(items)
+      if (itemError) throw itemError
+ 
+      for (const i of cart) {
+  if (i.is_bundle) {
+    for (const bi of i.bundle_items || []) {
+      const { error: bundleStockError } = await supabase.rpc(
+        'decrement_stock',
         {
-          agent_code_input: agentCode,
-          agent_name_input: agentName,
-          order_payload: {
-            delivery_method: delivery,
-            pickup_date: delivery === '自取' ? date || null : null,
-            pickup_time: delivery === '自取' ? time || null : null,
-            customer_name: name || null,
-            customer_phone: phone || null,
-            customer_address: address || null,
-            address: address || null,
-            postcode: postcode || null,
-            state: state || null,
-            shipping_fee: shippingFee === 'ASK' ? null : Number(shippingFee || 0),
-            total_amount: Number(total || 0),
-          },
-          items_payload: items,
+          product_id_input: bi.product_id,
+          qty_input: Number(bi.qty || 0),
         }
       )
 
-      if (submitError) throw submitError
-
-      const oid =
-        submitResult?.order_no ||
-        submitResult?.orderNo ||
-        submitResult?.pickup_order_id ||
-        submitResult?.[0]?.order_no ||
-        ''
-
-      if (!oid) {
-        throw new Error('订单已提交，但数据库没有返回 order_no')
+      if (bundleStockError) throw bundleStockError
+    }
+  } else {
+    const { error: stockError } = await supabase.rpc(
+      'decrement_stock',
+      {
+        product_id_input: i.id,
+        qty_input: Number(i.qty || 0),
       }
+    )
 
+    if (stockError) throw stockError
+  }
+}
+ 
       const copiedSummary = buildCopiedSummary(oid)
-      setOrderId(oid)
       setCopiedPreview(copiedSummary)
       setShowSummaryModal(true)
       setSummaryCopied(false)
       setSuccess(`成功：${oid}`)
  
       resetFormAfterSubmit()
-      await init({ silent: true })
+      await init()
     } catch (err) {
       let message = '提交失败'
  
@@ -1671,15 +1695,13 @@ const backupEntries = Object.entries(backupSelections).filter(
   }
  
   return (
-  <main className="min-h-screen bg-[linear-gradient(180deg,#fffaf5_0%,#f7ede3_75%,#ead8c7_100%)] text-[#5a4634]">
-
-    {muarNotice ? (
-      <div className="fixed left-1/2 top-5 z-[10000] w-[92%] max-w-md -translate-x-1/2 rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-600 shadow-xl">
-        🚚 {muarNotice}
-      </div>
-    ) : null}
-
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#fffaf5_0%,#f7efe6_35%,#f2e5d9_70%,#ead8c7_100%)] text-[#5c4333]">
+      {muarNotice ? (
+  <div className="fixed left-1/2 top-5 z-[10000] w-[92%] max-w-md -translate-x-1/2 rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-600 shadow-xl">
+    🚚 {muarNotice}
+  </div>
+) : null}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-80px] top-[-60px] h-72 w-72 rounded-full bg-[#f8e7d5]/60 blur-3xl" />
         <div className="absolute right-[-60px] top-20 h-72 w-72 rounded-full bg-[#ead0b8]/50 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#f3dfcd]/40 blur-3xl" />
@@ -1879,6 +1901,12 @@ const backupEntries = Object.entries(backupSelections).filter(
                           <div className="mt-1 text-xs text-[#a88b77]">
                             {p.series || '-'} · {getVariantLabel(p)}
                           </div>
+
+                          {p.is_muar_only ? (
+                            <div className="mt-2 inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-500">
+                              🚚 MUAR 出货 · 不可混单
+                            </div>
+                          ) : null}
                         </div>
  
                         <div className={`mt-3 inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockInfo.badge}`}>
@@ -2140,6 +2168,12 @@ const backupEntries = Object.entries(backupSelections).filter(
                               {selectedBundleProduct.series || '-'} ·{' '}
                               {getVariantLabel(selectedBundleProduct)}
                             </div>
+
+                            {selectedBundleProduct.is_muar_only ? (
+                              <div className="mt-2 inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-500">
+                                🚚 MUAR 出货 · 不可混单
+                              </div>
+                            ) : null}
  
                             <div
                               className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${stockLabel(selectedBundleProduct.stock).badge}`}
@@ -2360,7 +2394,7 @@ const backupEntries = Object.entries(backupSelections).filter(
                     Order ID
                   </label>
                   <input
-                    value={orderId || '提交后自动生成'}
+                    value={orderId}
                     readOnly
                     className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none"
                   />
@@ -2542,6 +2576,11 @@ const backupEntries = Object.entries(backupSelections).filter(
                             <div className="mt-2 text-base font-bold text-[#24502b]">
                               {item.bundle_name}
                             </div>
+                            {item.is_muar_only ? (
+                              <div className="mt-2 text-xs font-bold text-red-500">
+                                🚚 MUAR Bundle（不可混单）
+                              </div>
+                            ) : null}
                             <div className="mt-2 text-sm text-[#3f6a45]">
                               {item.qty} 组 × RM {money(item.price)}
                             </div>
@@ -2586,6 +2625,11 @@ const backupEntries = Object.entries(backupSelections).filter(
                             <div className="mt-2 text-base font-bold text-[#5f4432]">
                               {cleanProductName(item)}
                             </div>
+                            {item.is_muar_only ? (
+                              <div className="mt-1 text-xs font-bold text-red-500">
+                                🚚 MUAR 出货（不可混单）
+                              </div>
+                            ) : null}
                             <div className="mt-2 text-sm text-[#7b5740]">RM {money(item.price)}</div>
                           </div>
  

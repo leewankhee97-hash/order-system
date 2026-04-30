@@ -246,6 +246,7 @@ export default function AdminProductsPage() {
           String(p.stock ?? ''),
           stockStatus(p.stock).text,
           p.is_muar_only ? 'muar muar出货 不可混单' : '',
+        
         ]
           .join(' ')
           .toLowerCase()
@@ -896,12 +897,12 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                       <td style={tdStyle}>{p.price_3 ?? 0}</td>
                       <td style={tdStyle}>RM {Number(p.cost || 0).toFixed(2)}</td>
                       <td style={tdStyle}>
-                        {p.is_muar_only ? (
-                          <span style={muarBadgeStyle}>MUAR 出货</span>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
+  {p.is_muar_only ? (
+    <span style={muarBadgeStyle}>MUAR 出货</span>
+  ) : (
+    '-'
+  )}
+</td>
  
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1422,11 +1423,13 @@ STRAWBERRY`}
               style={inputStyle}
             />
             <input
-              placeholder="Cost"
-              value={seriesPriceForm.cost}
-              onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
-              style={inputStyle}
-            /><label style={{ ...checkboxBoxStyle, marginTop: 12 }}>
+  placeholder="Cost"
+  value={seriesPriceForm.cost}
+  onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
+  style={inputStyle}
+/>
+
+<label style={{ ...checkboxBoxStyle, marginTop: 12 }}>
   <input
     type="checkbox"
     checked={Boolean(seriesPriceForm.is_muar_only)}
