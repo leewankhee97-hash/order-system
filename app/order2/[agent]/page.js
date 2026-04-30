@@ -304,6 +304,7 @@ export default function Page() {
  
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [muarNotice, setMuarNotice] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [copiedPreview, setCopiedPreview] = useState('')
  
@@ -683,7 +684,13 @@ useEffect(() => {
       [product.id]: qty,
     }))
   }
- 
+ function showMuarNotice(message) {
+  setMuarNotice(message)
+
+  setTimeout(() => {
+    setMuarNotice('')
+  }, 3500)
+}
   function addDraftToCart(product) {
     const qty = Number(draftQty[product.id] || 0)
     const maxStock = Number(product?.stock || 0)
@@ -693,7 +700,7 @@ useEffect(() => {
 const hasNormalItem = cart.some((i) => !i.is_muar_only)
 
 if (product.is_muar_only && hasNormalItem) {
-  alert('此产品是在 MUAR 出货，不可与其他产品一起下单，请分开下单')
+  showMuarNotice('此产品是在 MUAR 出货，不可与其他产品一起下单，请分开下单')
   return
 }
 
@@ -1660,8 +1667,15 @@ const backupEntries = Object.entries(backupSelections).filter(
   }
  
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#fffaf5_0%,#f7efe6_35%,#f2e5d9_70%,#ead8c7_100%)] text-[#5c4333]">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+  <main className="min-h-screen bg-[linear-gradient(180deg,#fffaf5_0%,#f7ede3_75%,#ead8c7_100%)] text-[#5a4634]">
+
+    {muarNotice ? (
+      <div className="fixed left-1/2 top-5 z-[10000] w-[92%] max-w-md -translate-x-1/2 rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-600 shadow-xl">
+        🚚 {muarNotice}
+      </div>
+    ) : null}
+
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-80px] top-[-60px] h-72 w-72 rounded-full bg-[#f8e7d5]/60 blur-3xl" />
         <div className="absolute right-[-60px] top-20 h-72 w-72 rounded-full bg-[#ead0b8]/50 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#f3dfcd]/40 blur-3xl" />
