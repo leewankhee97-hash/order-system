@@ -1438,17 +1438,6 @@ STRAWBERRY`}
 </label>
           </div>
  
-          <label style={{ ...checkboxBoxStyle, marginTop: 12 }}>
-            <input
-              type="checkbox"
-              checked={Boolean(seriesPriceForm.is_muar_only)}
-              onChange={(e) =>
-                handleSeriesPriceChange('is_muar_only', e.target.checked)
-              }
-            />
-            <span>MUAR 出货（不可混单）</span>
-          </label>
- 
           <div style={tipBoxStyle}>
             这个功能会把所有 <b>Brand + Series 完全相同</b> 的产品一起更新成同一套代理价格。
             <br />
