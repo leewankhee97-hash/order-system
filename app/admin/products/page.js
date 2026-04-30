@@ -1,10 +1,10 @@
 'use client'
-
+ 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-
+ 
 const PRODUCT_TYPES = ['烟弹', '烟杆', '一次性']
-
+ 
 const emptyForm = {
   product_type: '烟弹',
   brand: '',
@@ -19,7 +19,7 @@ const emptyForm = {
   cost: '',
   is_muar_only: false,
 }
-
+ 
 const emptyBulkForm = {
   product_type: '烟弹',
   brand: '',
@@ -29,9 +29,10 @@ const emptyBulkForm = {
   price_3: '',
   stock: '',
   cost: '',
+  is_muar_only: false,
   flavorsText: '',
 }
-
+ 
 const emptySeriesPriceForm = {
   brand: '',
   series: '',
@@ -40,14 +41,14 @@ const emptySeriesPriceForm = {
   price_3: '',
   cost: '',
 }
-
+ 
 const emptyFilters = {
   product_type: '',
   brand: '',
   series: '',
   flavor: '',
 }
-
+ 
 function makeSku(brand, series, flavor) {
   return `${brand || ''}-${series || ''}-${flavor || ''}`
     .trim()
@@ -55,25 +56,25 @@ function makeSku(brand, series, flavor) {
     .replace(/[^\w\u4e00-\u9fff-]/g, '')
     .toUpperCase()
 }
-
+ 
 function makeName(flavor) {
   return String(flavor || '').trim()
 }
-
+ 
 function getVariantLabel(productType) {
   return productType === '烟杆' ? '颜色' : '口味'
 }
-
+ 
 function uniqueSorted(arr) {
   return [...new Set((arr || []).filter(Boolean))].sort((a, b) =>
     String(a).localeCompare(String(b), 'zh-Hans-CN', { sensitivity: 'base' })
   )
 }
-
-
+ 
+ 
 function stockStatus(stock) {
   const s = Number(stock || 0)
-
+ 
   if (s <= 0) {
     return {
       text: 'OUT',
@@ -82,7 +83,7 @@ function stockStatus(stock) {
       border: '#fecdd3',
     }
   }
-
+ 
   if (s <= 10) {
     return {
       text: 'VERY LOW',
@@ -91,7 +92,7 @@ function stockStatus(stock) {
       border: '#fdba74',
     }
   }
-
+ 
   if (s <= 30) {
     return {
       text: 'LOW',
@@ -100,7 +101,7 @@ function stockStatus(stock) {
       border: '#fcd34d',
     }
   }
-
+ 
   return {
     text: 'IN',
     color: '#0891b2',
@@ -108,7 +109,7 @@ function stockStatus(stock) {
     border: '#a5f3fc',
   }
 }
-
+ 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([])
   const [form, setForm] = useState(emptyForm)
@@ -127,26 +128,26 @@ export default function AdminProductsPage() {
   const [restockingId, setRestockingId] = useState('')
   const [stockSavingId, setStockSavingId] = useState('')
   const [stockInputs, setStockInputs] = useState({})
-
+ 
   useEffect(() => {
     fetchProducts()
   }, [])
-
+ 
   useEffect(() => {
     function handleResize() {
       setIsMobile(window.innerWidth < 1100)
     }
-
+ 
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-
+ 
   }, [])
-
+ 
   async function fetchProducts() {
     setLoading(true)
     setMessage('')
-
+ 
     const { data, error } = await supabase
       .from('products')
       .select('*')
@@ -154,20 +155,20 @@ export default function AdminProductsPage() {
       .order('brand', { ascending: true })
       .order('series', { ascending: true })
       .order('name', { ascending: true })
-
+ 
     if (error) {
       setMessage(error.message)
     } else {
       setProducts(data || [])
     }
-
+ 
     setLoading(false)
   }
-
+ 
   const filterProductTypeOptions = useMemo(() => {
     return uniqueSorted(products.map((p) => p.product_type))
   }, [products])
-
+ 
   const filterBrandOptions = useMemo(() => {
     return uniqueSorted(
       products
@@ -175,7 +176,7 @@ export default function AdminProductsPage() {
         .map((p) => p.brand)
     )
   }, [products, filters.product_type])
-
+ 
   const filterSeriesOptions = useMemo(() => {
     return uniqueSorted(
       products
@@ -184,7 +185,7 @@ export default function AdminProductsPage() {
         .map((p) => p.series)
     )
   }, [products, filters.product_type, filters.brand])
-
+ 
   const filterFlavorOptions = useMemo(() => {
     return uniqueSorted(
       products
@@ -194,12 +195,24 @@ export default function AdminProductsPage() {
         .map((p) => p.flavor)
     )
   }, [products, filters.product_type, filters.brand, filters.series])
-
+ 
+  const bulkBrandOptions = useMemo(() => {
+    return uniqueSorted(products.map((p) => p.brand))
+  }, [products])
+ 
+  const bulkSeriesOptions = useMemo(() => {
+    return uniqueSorted(
+      products
+        .filter((p) => !bulkForm.brand || p.brand === bulkForm.brand)
+        .map((p) => p.series)
+    )
+  }, [products, bulkForm.brand])
+ 
   const seriesPriceBrandOptions = useMemo(() => {
     return uniqueSorted(products.map((p) => p.brand))
   }, [products])
-
-
+ 
+ 
   const seriesPriceSeriesOptions = useMemo(() => {
     return uniqueSorted(
       products
@@ -207,16 +220,16 @@ export default function AdminProductsPage() {
         .map((p) => p.series)
     )
   }, [products, seriesPriceForm.brand])
-
+ 
   const filteredProducts = useMemo(() => {
     const keyword = search.trim().toLowerCase()
-
+ 
     return products.filter((p) => {
       if (filters.product_type && p.product_type !== filters.product_type) return false
       if (filters.brand && p.brand !== filters.brand) return false
       if (filters.series && p.series !== filters.series) return false
       if (filters.flavor && p.flavor !== filters.flavor) return false
-
+ 
       if (keyword) {
         const target = [
           p.product_type,
@@ -231,70 +244,71 @@ export default function AdminProductsPage() {
           String(p.cost ?? ''),
           String(p.stock ?? ''),
           stockStatus(p.stock).text,
+          p.is_muar_only ? 'muar muar出货 不可混单' : '',
         ]
           .join(' ')
           .toLowerCase()
-
+ 
         if (!target.includes(keyword)) return false
       }
-
+ 
       return true
     })
   }, [products, filters, search])
-
+ 
   const stockStats = useMemo(() => {
     const out = products.filter((p) => Number(p.stock || 0) <= 0).length
     const veryLow = products.filter((p) => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 10).length
     const low = products.filter((p) => Number(p.stock || 0) > 10 && Number(p.stock || 0) <= 30).length
     const inStock = products.filter((p) => Number(p.stock || 0) > 30).length
-
+ 
     return { out, veryLow, low, inStock }
   }, [products])
-
+ 
   function handleChange(key, value) {
     setForm((prev) => {
       const next = { ...prev, [key]: value }
-
+ 
       if (key === 'product_type' && next.name.trim() === '') {
         next.name = ''
       }
-
+ 
       return next
     })
   }
-
+ 
   function handleBulkChange(key, value) {
     setBulkForm((prev) => ({ ...prev, [key]: value }))
   }
-
+ 
   function handleSeriesPriceChange(key, value) {
     setSeriesPriceForm((prev) => ({ ...prev, [key]: value }))
   }
-
-
+ 
+ 
   function handleFilterChange(key, value) {
     setFilters((prev) => {
       const next = { ...prev, [key]: value }
-
+ 
       if (key === 'product_type') {
         next.brand = ''
         next.series = ''
         next.flavor = ''
       }
-
+ 
       if (key === 'brand') {
         next.series = ''
         next.flavor = ''
       }
-
+ 
       if (key === 'series') {
         next.flavor = ''
       }
-
+ 
       return next
     })
   }
-
+ 
   function handleEdit(product) {
     setEditingId(product.id)
     setForm({
@@ -309,10 +323,11 @@ export default function AdminProductsPage() {
       price_3: product.price_3 ?? '',
       stock: product.stock ?? '',
       cost: product.cost ?? '',
+      is_muar_only: Boolean(product.is_muar_only),
     })
     setMessage('')
     setActiveTab('single')
-
+ 
     setTimeout(() => {
       const el = document.getElementById('single-form-panel')
       if (el) {
@@ -320,7 +335,7 @@ export default function AdminProductsPage() {
       }
     }, 120)
   }
-
+ 
   function handleEditSeriesPrice(product) {
     setSeriesPriceForm({
       brand: product.brand || '',
@@ -329,10 +344,11 @@ export default function AdminProductsPage() {
       price_2: product.price_2 ?? '',
       price_3: product.price_3 ?? '',
       cost: product.cost ?? '',
+      is_muar_only: Boolean(product.is_muar_only),
     })
     setMessage('')
     setActiveTab('bulk')
-
+ 
     setTimeout(() => {
       const el = document.getElementById('series-price-panel')
       if (el) {
@@ -340,110 +356,110 @@ export default function AdminProductsPage() {
       }
     }, 120)
   }
-
-
+ 
+ 
   function handleReset() {
     setEditingId('')
     setForm(emptyForm)
     setMessage('')
   }
-
+ 
   function handleBulkReset() {
     setBulkForm(emptyBulkForm)
     setMessage('')
   }
-
+ 
   function handleSeriesPriceReset() {
     setSeriesPriceForm(emptySeriesPriceForm)
     setMessage('')
   }
-
+ 
   function handleFilterReset() {
     setFilters(emptyFilters)
     setSearch('')
   }
-
+ 
   function handleStockInputChange(id, value) {
     setStockInputs((prev) => ({
       ...prev,
       [id]: value,
     }))
   }
-
+ 
   async function saveInlineStock(id) {
     const raw = stockInputs[id]
     const nextStock = Number(raw)
-
+ 
     if (raw === undefined || raw === '' || Number.isNaN(nextStock) || nextStock < 0) {
       setMessage('请输入正确库存')
       return
     }
-
+ 
     setStockSavingId(id)
     setMessage('')
-
+ 
     const { error } = await supabase
       .from('products')
       .update({ stock: nextStock })
       .eq('id', id)
-
+ 
     if (error) {
       setMessage(error.message || '更新库存失败')
       setStockSavingId('')
       return
     }
-
+ 
     setMessage('库存已更新')
     setStockInputs((prev) => ({
       ...prev,
       [id]: '',
     }))
-
+ 
     await fetchProducts()
     setStockSavingId('')
   }
-
+ 
   async function quickRestock(id, addQty) {
     const p = products.find((x) => x.id === id)
     if (!p) return
-
+ 
     const newStock = Number(p.stock || 0) + Number(addQty || 0)
-
+ 
     setRestockingId(id)
     setMessage('')
-
-
+ 
+ 
     const { error } = await supabase
       .from('products')
       .update({ stock: newStock })
       .eq('id', id)
-
+ 
     if (error) {
       setMessage(error.message || '快速补货失败')
     } else {
       setMessage(`已补货 +${addQty}`)
       await fetchProducts()
     }
-
+ 
     setRestockingId('')
   }
-
+ 
   async function handleSubmit(e) {
     e.preventDefault()
     setSaving(true)
     setMessage('')
-
+ 
     try {
       const productType = form.product_type.trim()
       const brand = form.brand.trim()
       const series = form.series.trim()
       const flavor = form.flavor.trim()
-
+ 
       if (!productType) throw new Error('请选择分类')
       if (!brand) throw new Error('请填写品牌')
       if (!series) throw new Error('请填写系列')
       if (!flavor) throw new Error(`请填写${getVariantLabel(productType)}`)
-
+ 
       const payload = {
         product_type: productType,
         brand,
@@ -456,18 +472,18 @@ export default function AdminProductsPage() {
         price_3: Number(form.price_3 || 0),
         stock: Number(form.stock || 0),
         cost: Number(form.cost || 0),
-        is_muar_only: form.is_muar_only || false,
+        is_muar_only: Boolean(form.is_muar_only),
       }
-
+ 
       let res
       if (editingId) {
         res = await supabase.from('products').update(payload).eq('id', editingId)
       } else {
         res = await supabase.from('products').insert(payload)
       }
-
+ 
       if (res.error) throw res.error
-
+ 
       setMessage(editingId ? '产品已更新' : '产品已新增')
       handleReset()
       fetchProducts()
@@ -478,37 +494,37 @@ export default function AdminProductsPage() {
       setSaving(false)
     }
   }
-
+ 
   async function handleBulkSubmit(e) {
     e.preventDefault()
     setBulkSaving(true)
     setMessage('')
-
-
+ 
+ 
     try {
       const productType = bulkForm.product_type.trim()
-const brand = bulkForm.brand.trim().toUpperCase()
-const series = bulkForm.series.trim().toUpperCase()
+      const brand = bulkForm.brand.trim()
+      const series = bulkForm.series.trim()
       const price1 = Number(bulkForm.price_1 || 0)
       const price2 = Number(bulkForm.price_2 || 0)
       const price3 = Number(bulkForm.price_3 || 0)
       const stock = Number(bulkForm.stock || 0)
       const cost = Number(bulkForm.cost || 0)
-
+ 
       if (!productType) throw new Error('请选择分类')
       if (!brand) throw new Error('请输入 Brand')
 if (!series) throw new Error('请输入 Series')
       if (!bulkForm.flavorsText.trim()) {
         throw new Error(`请填写${getVariantLabel(productType)}内容`)
       }
-
+ 
       const flavors = bulkForm.flavorsText
         .split('\n')
         .map((line) => line.trim())
         .filter(Boolean)
-
+ 
       if (flavors.length === 0) throw new Error(`没有可新增的${getVariantLabel(productType)}`)
-
+ 
       const rows = flavors.map((flavor) => ({
         product_type: productType,
         brand,
@@ -521,12 +537,13 @@ if (!series) throw new Error('请输入 Series')
         price_3: price3,
         stock,
         cost,
+        is_muar_only: Boolean(bulkForm.is_muar_only),
       }))
-
+ 
       const { error } = await supabase.from('products').insert(rows)
-
+ 
       if (error) throw error
-
+ 
       setMessage(`成功新增 ${rows.length} 个产品`)
       handleBulkReset()
       fetchProducts()
@@ -537,12 +554,12 @@ if (!series) throw new Error('请输入 Series')
       setBulkSaving(false)
     }
   }
-
+ 
   async function handleSeriesPriceSubmit(e) {
     e.preventDefault()
     setSeriesSaving(true)
     setMessage('')
-
+ 
     try {
       const brand = seriesPriceForm.brand.trim()
       const series = seriesPriceForm.series.trim()
@@ -550,60 +567,60 @@ if (!series) throw new Error('请输入 Series')
       const price2 = Number(seriesPriceForm.price_2)
       const price3 = Number(seriesPriceForm.price_3)
       const cost = Number(seriesPriceForm.cost || 0)
-
+ 
       if (!brand) throw new Error('请选择 Brand')
       if (!series) throw new Error('请选择 Series')
-
+ 
       const hasAnyPrice =
   seriesPriceForm.price_1 !== '' ||
   seriesPriceForm.price_2 !== '' ||
   seriesPriceForm.price_3 !== ''
-
+ 
 const hasCost = seriesPriceForm.cost !== ''
-
+ 
 if (!hasAnyPrice && !hasCost) {
   throw new Error('请至少填写价格或成本其中一项')
 }
-
+ 
       if (Number.isNaN(price1) || Number.isNaN(price2) || Number.isNaN(price3)) {
         throw new Error('价格格式不正确')
       }
-
+ 
       if (seriesPriceForm.cost !== '' && Number.isNaN(cost)) {
         throw new Error('成本格式不正确')
       }
-
+ 
       const { data: matchedProducts, error: checkError } = await supabase
         .from('products')
         .select('id, brand, series')
         .eq('brand', brand)
         .eq('series', series)
-
+ 
       if (checkError) throw checkError
-
+ 
       if (!matchedProducts || matchedProducts.length === 0) {
         throw new Error(`找不到 brand = ${brand} 且 series = ${series} 的产品`)
       }
-
+ 
       const payload = {}
-
+ 
 if (seriesPriceForm.price_1 !== '') payload.price_1 = price1
 if (seriesPriceForm.price_2 !== '') payload.price_2 = price2
 if (seriesPriceForm.price_3 !== '') payload.price_3 = price3
 if (seriesPriceForm.cost !== '') payload.cost = cost
-
+ 
       if (seriesPriceForm.cost !== '') {
         payload.cost = cost
       }
-
+ 
       const { error } = await supabase
         .from('products')
         .update(payload)
         .eq('brand', brand)
         .eq('series', series)
-
+ 
       if (error) throw error
-
+ 
       setMessage('修改成功')
       handleSeriesPriceReset()
       fetchProducts()
@@ -614,13 +631,13 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
       setSeriesSaving(false)
     }
   }
-
+ 
   async function handleDelete(id) {
     const ok = window.confirm('确定删除这个产品？')
     if (!ok) return
-
+ 
     const { error } = await supabase.from('products').delete().eq('id', id)
-
+ 
     if (error) {
       setMessage(error.message)
     } else {
@@ -629,10 +646,10 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
       }
       setMessage('产品已删除')
       fetchProducts()
-
+ 
     }
   }
-
+ 
   function renderFilterBar() {
     return (
       <div
@@ -655,7 +672,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
           }}
         >
           <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0 }}>快速查找 / 编辑产品</h2>
-
+ 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -689,7 +706,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
             </button>
           </div>
         </div>
-
+ 
         <div
           style={{
             display: 'grid',
@@ -700,11 +717,11 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
           <input
             placeholder="搜索 SKU / Name / Brand / Series / 口味"
             value={search}
-
+ 
             onChange={(e) => setSearch(e.target.value)}
             style={inputStyle}
           />
-
+ 
           <select
             value={filters.product_type}
             onChange={(e) => handleFilterChange('product_type', e.target.value)}
@@ -717,7 +734,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
               </option>
             ))}
           </select>
-
+ 
           <select
             value={filters.brand}
             onChange={(e) => handleFilterChange('brand', e.target.value)}
@@ -730,7 +747,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
               </option>
             ))}
           </select>
-
+ 
           <select
             value={filters.series}
             onChange={(e) => handleFilterChange('series', e.target.value)}
@@ -743,7 +760,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
               </option>
             ))}
           </select>
-
+ 
           <select
             value={filters.flavor}
             onChange={(e) => handleFilterChange('flavor', e.target.value)}
@@ -757,38 +774,38 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
             ))}
           </select>
         </div>
-
+ 
         <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
           <button type="button" style={secondaryButton} onClick={handleFilterReset}>
             清空筛选
           </button>
           <div style={filterResultStyle}>当前找到 {filteredProducts.length} 个产品</div>
         </div>
-
+ 
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, minmax(0, 1fr))',
             gap: 12,
             marginTop: 16,
-
+ 
           }}
         >
           <div style={stockStatCardStyle}>
             <div style={stockStatLabelStyle}>OUT OF STOCK</div>
             <div style={{ ...stockStatValueStyle, color: '#dc2626' }}>{stockStats.out}</div>
           </div>
-
+ 
           <div style={stockStatCardStyle}>
             <div style={stockStatLabelStyle}>VERY LOW</div>
             <div style={{ ...stockStatValueStyle, color: '#dc2626' }}>{stockStats.veryLow}</div>
           </div>
-
+ 
           <div style={stockStatCardStyle}>
             <div style={stockStatLabelStyle}>LOW</div>
             <div style={{ ...stockStatValueStyle, color: '#d97706' }}>{stockStats.low}</div>
           </div>
-
+ 
           <div style={stockStatCardStyle}>
             <div style={stockStatLabelStyle}>IN STOCK</div>
             <div style={{ ...stockStatValueStyle, color: '#0891b2' }}>{stockStats.inStock}</div>
@@ -797,7 +814,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
       </div>
     )
   }
-
+ 
   function renderListPanel() {
     return (
       <div
@@ -834,6 +851,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                     'LV2',
                     'LV3',
                     'Cost',
+                    'MUAR',
                     '库存状态',
                     '快速补货',
                     '手动库存',
@@ -842,7 +860,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                     <th key={h} style={thStyle}>
                       {h}
                     </th>
-
+ 
                   ))}
                 </tr>
               </thead>
@@ -850,7 +868,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                 {filteredProducts.map((p) => {
                   const isEditing = editingId === p.id
                   const status = stockStatus(p.stock)
-
+ 
                   return (
                     <tr
                       key={p.id}
@@ -877,7 +895,14 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                       <td style={tdStyle}>{p.price_2 ?? 0}</td>
                       <td style={tdStyle}>{p.price_3 ?? 0}</td>
                       <td style={tdStyle}>RM {Number(p.cost || 0).toFixed(2)}</td>
-
+                      <td style={tdStyle}>
+                        {p.is_muar_only ? (
+                          <span style={muarBadgeStyle}>MUAR 出货</span>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+ 
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           <div style={{ fontWeight: 800 }}>{p.stock ?? 0}</div>
@@ -901,7 +926,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                           </div>
                         </div>
                       </td>
-
+ 
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <button
@@ -913,10 +938,10 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                               quickRestock(p.id, 10)
                             }}
                           >
-
+ 
                             +10
                           </button>
-
+ 
                           <button
                             type="button"
                             style={miniBtn}
@@ -928,7 +953,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                           >
                             +50
                           </button>
-
+ 
                           <button
                             type="button"
                             style={miniBtn}
@@ -940,7 +965,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                           >
                             +100
                           </button>
-
+ 
                           {Number(p.stock || 0) <= 0 ? (
                             <button
                               type="button"
@@ -956,7 +981,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                           ) : null}
                         </div>
                       </td>
-
+ 
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                           <input
@@ -975,7 +1000,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                               color: '#6f4e37',
                             }}
                           />
-
+ 
                           <button
                             type="button"
                             style={smallPrimaryButton}
@@ -984,13 +1009,13 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                               e.stopPropagation()
                               saveInlineStock(p.id)
                             }}
-
+ 
                           >
                             {stockSavingId === p.id ? '保存中' : '保存'}
                           </button>
                         </div>
                       </td>
-
+ 
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button
@@ -1028,10 +1053,10 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                     </tr>
                   )
                 })}
-
+ 
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={14} style={tdStyle}>
+                    <td colSpan={15} style={tdStyle}>
                       没有找到符合筛选条件的产品
                     </td>
                   </tr>
@@ -1043,7 +1068,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
       </div>
     )
   }
-
+ 
   function renderSingleForm() {
     return (
       <form
@@ -1055,16 +1080,16 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
           borderRadius: 20,
           padding: 20,
         }}
-
+ 
       >
         <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
           {editingId ? '单个编辑产品' : '单个新增 / 编辑产品'}
         </h2>
-
+ 
         {editingId ? (
           <div style={editingTipStyle}>当前已选中产品，修改后点击【更新产品】即可保存</div>
         ) : null}
-
+ 
         <div
           style={{
             display: 'grid',
@@ -1083,92 +1108,88 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
               </option>
             ))}
           </select>
-
+ 
           <input
             placeholder="Brand"
             value={form.brand}
             onChange={(e) => handleChange('brand', e.target.value)}
             style={inputStyle}
           />
-
+ 
           <input
             placeholder="Series"
             value={form.series}
             onChange={(e) => handleChange('series', e.target.value)}
             style={inputStyle}
           />
-
+ 
           <input
             placeholder={form.product_type === '烟杆' ? '颜色' : '口味'}
             value={form.flavor}
             onChange={(e) => handleChange('flavor', e.target.value)}
             style={inputStyle}
           />
-
+ 
           <input
             placeholder="Name（可留空，默认只用口味/颜色）"
             value={form.name}
             onChange={(e) => handleChange('name', e.target.value)}
             style={inputStyle}
           />
-
+ 
           <input
             placeholder="SKU（可留空自动生成）"
             value={form.sku}
             onChange={(e) => handleChange('sku', e.target.value)}
             style={inputStyle}
           />
-
+ 
           <input
             placeholder="LV1 Price"
             value={form.price_1}
             onChange={(e) => handleChange('price_1', e.target.value)}
             style={inputStyle}
           />
-
-
+ 
+ 
           <input
             placeholder="LV2 Price"
             value={form.price_2}
             onChange={(e) => handleChange('price_2', e.target.value)}
             style={inputStyle}
           />
-
+ 
           <input
             placeholder="LV3 Price"
             value={form.price_3}
             onChange={(e) => handleChange('price_3', e.target.value)}
             style={inputStyle}
           />
-
+ 
           <input
             placeholder="Stock"
             value={form.stock}
             onChange={(e) => handleChange('stock', e.target.value)}
             style={inputStyle}
           />
-
+ 
           <input
             placeholder="Cost（成本）"
             value={form.cost}
             onChange={(e) => handleChange('cost', e.target.value)}
             style={inputStyle}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-  <input
-    type="checkbox"
-    checked={form.is_muar_only || false}
-    onChange={(e) =>
-      setForm((prev) => ({
-        ...prev,
-        is_muar_only: e.target.checked,
-      }))
-    }
-  />
-  <span>MUAR 出货（不可混单）</span>
-</div>
+ 
+          <label style={checkboxBoxStyle}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.is_muar_only)}
+              onChange={(e) => handleChange('is_muar_only', e.target.checked)}
+            />
+            <span>MUAR 出货（不可混单）</span>
+          </label>
         </div>
-
+ 
         <div style={tipBoxStyle}>
           自动生成规则：
           <br />
@@ -1176,12 +1197,12 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
           <br />
           SKU = 品牌-系列-{getVariantLabel(form.product_type)}
         </div>
-
+ 
         <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
           <button type="submit" style={primaryButton} disabled={saving}>
             {saving ? '保存中...' : editingId ? '更新产品' : '新增产品'}
           </button>
-
+ 
           <button type="button" style={secondaryButton} onClick={handleReset}>
             {editingId ? '取消编辑' : '清空'}
           </button>
@@ -1189,7 +1210,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
       </form>
     )
   }
-
+ 
   function renderBulkPanel() {
     return (
       <div
@@ -1209,8 +1230,8 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
           }}
         >
           <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>一键批量新增产品</h2>
-
-
+ 
+ 
           <div
             style={{
               display: 'grid',
@@ -1230,7 +1251,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                 </option>
               ))}
             </select>
-
+ 
             
               <input
   placeholder="输入 Brand，例如 SP2"
@@ -1238,51 +1259,60 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
   onChange={(e) => handleBulkChange('brand', e.target.value)}
   style={inputStyle}
 />
-
+ 
 <input
   placeholder="输入 Series，例如 CRYSTAL PLUS"
   value={bulkForm.series}
   onChange={(e) => handleBulkChange('series', e.target.value)}
   style={inputStyle}
 />
-
+ 
             <input
               placeholder="LV1 默认价格，例如 14.8"
               value={bulkForm.price_1}
               onChange={(e) => handleBulkChange('price_1', e.target.value)}
               style={inputStyle}
             />
-
+ 
             <input
               placeholder="LV2 默认价格，例如 15.5"
               value={bulkForm.price_2}
               onChange={(e) => handleBulkChange('price_2', e.target.value)}
               style={inputStyle}
             />
-
+ 
             <input
               placeholder="LV3 默认价格，例如 16"
               value={bulkForm.price_3}
               onChange={(e) => handleBulkChange('price_3', e.target.value)}
               style={inputStyle}
             />
-
-
+ 
+ 
             <input
               placeholder="默认库存，例如 100"
               value={bulkForm.stock}
               onChange={(e) => handleBulkChange('stock', e.target.value)}
               style={inputStyle}
             />
-
+ 
             <input
               placeholder="默认成本，例如 8.5"
               value={bulkForm.cost}
               onChange={(e) => handleBulkChange('cost', e.target.value)}
               style={inputStyle}
             />
+ 
+            <label style={checkboxBoxStyle}>
+              <input
+                type="checkbox"
+                checked={Boolean(bulkForm.is_muar_only)}
+                onChange={(e) => handleBulkChange('is_muar_only', e.target.checked)}
+              />
+              <span>MUAR 出货（不可混单）</span>
+            </label>
           </div>
-
+ 
           <textarea
             placeholder={`每行一个${getVariantLabel(bulkForm.product_type)}，例如：
 LUSH ICE
@@ -1299,7 +1329,7 @@ STRAWBERRY`}
               resize: 'vertical',
             }}
           />
-
+ 
           <div style={tipBoxStyle}>
             自动生成规则：
             <br />
@@ -1308,8 +1338,10 @@ STRAWBERRY`}
             SKU = 品牌-系列-{getVariantLabel(bulkForm.product_type)}
             <br />
             LV1 / LV2 / LV3 / Cost 会套用你上面填写的默认值
+            <br />
+            如果勾选 MUAR 出货，整批新增都会标记为不可混单
           </div>
-
+ 
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
             <button type="submit" style={primaryButton} disabled={bulkSaving}>
               {bulkSaving ? '上传中...' : '一键新增到 Supabase'}
@@ -1319,7 +1351,7 @@ STRAWBERRY`}
             </button>
           </div>
         </form>
-
+ 
         <form
           id="series-price-panel"
           onSubmit={handleSeriesPriceSubmit}
@@ -1333,12 +1365,12 @@ STRAWBERRY`}
           <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 16 }}>
             按 Brand + Series 一键修改全部价格 / 成本
           </h2>
-
+ 
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1.2fr 1fr 1fr 1fr 1fr',
-
+ 
               gap: 12,
             }}
           >
@@ -1357,7 +1389,7 @@ STRAWBERRY`}
                 </option>
               ))}
             </select>
-
+ 
             <select
               value={seriesPriceForm.series}
               onChange={(e) => handleSeriesPriceChange('series', e.target.value)}
@@ -1370,7 +1402,7 @@ STRAWBERRY`}
                 </option>
               ))}
             </select>
-
+ 
             <input
               placeholder="LV1"
               value={seriesPriceForm.price_1}
@@ -1396,37 +1428,37 @@ STRAWBERRY`}
               style={inputStyle}
             />
           </div>
-
+ 
           <div style={tipBoxStyle}>
             这个功能会把所有 <b>Brand + Series 完全相同</b> 的产品一起更新成同一套代理价格。
             <br />
             如果 Cost 有填写，也会一起更新整组成本；如果 Cost 留空，则不会改成本。
           </div>
-
+ 
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
             <button type="submit" style={primaryButton} disabled={seriesSaving}>
               {seriesSaving ? '更新中...' : '一键更新该 Brand + Series 全部价格 / 成本'}
             </button>
             <button type="button" style={secondaryButton} onClick={handleSeriesPriceReset}>
               清空
-
+ 
             </button>
           </div>
         </form>
       </div>
     )
   }
-
+ 
   return (
     <div style={{ minWidth: 0 }}>
       <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 20 }}>产品管理</h1>
-
+ 
       {renderFilterBar()}
-
+ 
       {message && <div style={messageStyle}>{message}</div>}
-
+ 
       {activeTab === 'list' && renderListPanel()}
-
+ 
       {activeTab === 'single' && (
         <div
           style={{
@@ -1447,12 +1479,12 @@ STRAWBERRY`}
           </div>
         </div>
       )}
-
+ 
       {activeTab === 'bulk' && renderBulkPanel()}
     </div>
   )
 }
-
+ 
 const inputStyle = {
   width: '100%',
   height: 46,
@@ -1464,7 +1496,7 @@ const inputStyle = {
   color: '#6f4e37',
   fontSize: 15,
 }
-
+ 
 const primaryButton = {
   height: 46,
   padding: '0 18px',
@@ -1475,19 +1507,19 @@ const primaryButton = {
   fontWeight: 800,
   cursor: 'pointer',
 }
-
+ 
 const secondaryButton = {
   height: 46,
   padding: '0 18px',
   borderRadius: 14,
-
+ 
   border: '1px solid #d7bfa8',
   background: '#fff8f1',
   color: '#6f4e37',
   fontWeight: 800,
   cursor: 'pointer',
 }
-
+ 
 const smallPrimaryButton = {
   height: 34,
   padding: '0 12px',
@@ -1498,7 +1530,7 @@ const smallPrimaryButton = {
   fontWeight: 700,
   cursor: 'pointer',
 }
-
+ 
 const smallSecondaryButton = {
   height: 34,
   padding: '0 12px',
@@ -1509,7 +1541,7 @@ const smallSecondaryButton = {
   fontWeight: 700,
   cursor: 'pointer',
 }
-
+ 
 const smallDangerButton = {
   height: 34,
   padding: '0 12px',
@@ -1520,7 +1552,7 @@ const smallDangerButton = {
   fontWeight: 700,
   cursor: 'pointer',
 }
-
+ 
 const miniBtn = {
   height: 28,
   padding: '0 8px',
@@ -1532,7 +1564,7 @@ const miniBtn = {
   fontSize: 12,
   cursor: 'pointer',
 }
-
+ 
 const dangerMiniBtn = {
   height: 28,
   padding: '0 8px',
@@ -1544,24 +1576,24 @@ const dangerMiniBtn = {
   fontSize: 12,
   cursor: 'pointer',
 }
-
+ 
 const thStyle = {
   textAlign: 'left',
   padding: '14px 12px',
   borderBottom: '1px solid #ead7c4',
   whiteSpace: 'nowrap',
   fontWeight: 800,
-
+ 
   color: '#6f4e37',
 }
-
+ 
 const tdStyle = {
   padding: '12px',
   borderBottom: '1px solid #f0e3d6',
   whiteSpace: 'nowrap',
   verticalAlign: 'top',
 }
-
+ 
 const messageStyle = {
   marginBottom: 16,
   padding: 12,
@@ -1569,7 +1601,7 @@ const messageStyle = {
   background: '#f8f0e8',
   border: '1px solid #d8b99d',
 }
-
+ 
 const tipBoxStyle = {
   marginTop: 12,
   padding: 12,
@@ -1579,7 +1611,7 @@ const tipBoxStyle = {
   fontSize: 14,
   lineHeight: 1.8,
 }
-
+ 
 const editingTipStyle = {
   marginBottom: 12,
   padding: 12,
@@ -1589,7 +1621,7 @@ const editingTipStyle = {
   fontSize: 14,
   lineHeight: 1.6,
 }
-
+ 
 const filterResultStyle = {
   height: 46,
   display: 'flex',
@@ -1600,7 +1632,7 @@ const filterResultStyle = {
   border: '1px solid #ead7c4',
   fontWeight: 700,
 }
-
+ 
 const tabButtonStyle = {
   height: 42,
   padding: '0 16px',
@@ -1611,30 +1643,60 @@ const tabButtonStyle = {
   fontWeight: 800,
   cursor: 'pointer',
 }
-
+ 
 const activeTabButtonStyle = {
   background: '#a47c57',
   color: '#fff',
   border: '1px solid #a47c57',
 }
-
+ 
+ 
+const checkboxBoxStyle = {
+  minHeight: 46,
+  borderRadius: 14,
+  border: '1px solid #d7bfa8',
+  background: '#fff8f1',
+  padding: '0 12px',
+  color: '#6f4e37',
+  fontSize: 15,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  fontWeight: 800,
+}
+ 
+const muarBadgeStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900,
+  color: '#b91c1c',
+  background: '#fff1f2',
+  border: '1px solid #fecdd3',
+  whiteSpace: 'nowrap',
+}
+ 
 const stockStatCardStyle = {
   background: '#fff',
   border: '1px solid #ead7c4',
   borderRadius: 16,
-
+ 
   padding: 16,
 }
-
+ 
 const stockStatLabelStyle = {
   color: '#8a6a54',
   fontWeight: 800,
   marginBottom: 8,
   fontSize: 13,
 }
-
+ 
 const stockStatValueStyle = {
   fontSize: 24,
   fontWeight: 900,
 }
-
+ 
