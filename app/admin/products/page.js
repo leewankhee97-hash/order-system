@@ -579,9 +579,7 @@ if (!series) throw new Error('请输入 Series')
  
 const hasCost = seriesPriceForm.cost !== ''
  
-if (!hasAnyPrice && !hasCost) {
-  throw new Error('请至少填写价格或成本其中一项')
-}
+// 允许只更新 MUAR 状态，不强制一定要填写价格或成本
  
       if (Number.isNaN(price1) || Number.isNaN(price2) || Number.isNaN(price3)) {
         throw new Error('价格格式不正确')
@@ -604,6 +602,7 @@ if (!hasAnyPrice && !hasCost) {
       }
  
       const payload = {}
+      payload.is_muar_only = Boolean(seriesPriceForm.is_muar_only)
  
 if (seriesPriceForm.price_1 !== '') payload.price_1 = price1
 if (seriesPriceForm.price_2 !== '') payload.price_2 = price2
@@ -1427,13 +1426,35 @@ STRAWBERRY`}
               value={seriesPriceForm.cost}
               onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
               style={inputStyle}
-            />
+            /><label style={{ ...checkboxBoxStyle, marginTop: 12 }}>
+  <input
+    type="checkbox"
+    checked={Boolean(seriesPriceForm.is_muar_only)}
+    onChange={(e) =>
+      handleSeriesPriceChange('is_muar_only', e.target.checked)
+    }
+  />
+  <span>MUAR 出货（不可混单）</span>
+</label>
           </div>
+ 
+          <label style={{ ...checkboxBoxStyle, marginTop: 12 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(seriesPriceForm.is_muar_only)}
+              onChange={(e) =>
+                handleSeriesPriceChange('is_muar_only', e.target.checked)
+              }
+            />
+            <span>MUAR 出货（不可混单）</span>
+          </label>
  
           <div style={tipBoxStyle}>
             这个功能会把所有 <b>Brand + Series 完全相同</b> 的产品一起更新成同一套代理价格。
             <br />
             如果 Cost 有填写，也会一起更新整组成本；如果 Cost 留空，则不会改成本。
+            <br />
+            勾选 MUAR 出货会把整组标记为不可混单；不勾选则会把整组取消 MUAR 标记。
           </div>
  
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
