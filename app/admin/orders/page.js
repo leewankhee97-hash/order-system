@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -115,8 +115,13 @@ function findOrderAgent(order, agents) {
     const orderAgentId = String(order.agent_id || '').trim()
     const agentId = String(agent.id || '').trim()
 
-    const orderAgentSlug = String(order.agent_slug || order.slug || '').trim().toLowerCase()
-    const agentSlug = String(getAgentSlug(agent) || '').trim().toLowerCase()
+    const orderAgentSlug = String(order.agent_slug || order.slug || '')
+      .trim()
+      .toLowerCase()
+
+    const agentSlug = String(getAgentSlug(agent) || '')
+      .trim()
+      .toLowerCase()
 
     return (
       (orderAgentId && agentId && orderAgentId === agentId) ||
@@ -125,7 +130,7 @@ function findOrderAgent(order, agents) {
   })
 }
 
-export default function AdminOrdersPage() {
+function AdminOrdersContent() {
   const searchParams = useSearchParams()
 
   const [orders, setOrders] = useState([])
@@ -239,6 +244,7 @@ export default function AdminOrdersPage() {
 
         for (const sub of bundleItems) {
           if (!sub?.product_id) continue
+
           productQtyMap[sub.product_id] =
             (productQtyMap[sub.product_id] || 0) + Number(sub.qty || 0)
         }
@@ -274,6 +280,7 @@ export default function AdminOrdersPage() {
     const ok = window.confirm(
       `确定删除订单 ${orderNo || ''}？\n\n会同时：\n1. 删除 order_items\n2. 删除 orders\n3. 自动回补库存`
     )
+
     if (!ok) return
 
     try {
@@ -344,12 +351,16 @@ export default function AdminOrdersPage() {
         agentFilter === 'all' ||
         String(order.agent_id || '') === String(agentFilter) ||
         String(agent?.id || '') === String(agentFilter) ||
-        String(order.agent_slug || '').toLowerCase() === String(agentFilter).toLowerCase() ||
-        String(agentSlug || '').toLowerCase() === String(agentFilter).toLowerCase()
+        String(order.agent_slug || '').toLowerCase() ===
+          String(agentFilter).toLowerCase() ||
+        String(agentSlug || '').toLowerCase() ===
+          String(agentFilter).toLowerCase()
 
       return matchesKeyword && matchesStatus && matchesDelivery && matchesAgent
     })
   }, [orders, agents, search, statusFilter, deliveryFilter, agentFilter])
+
+  const activeAgent = agents.find((a) => String(a.id) === String(agentFilter))
 
   return (
     <main
@@ -377,6 +388,7 @@ export default function AdminOrdersPage() {
             <Link href="/admin" style={secondaryLinkStyle}>
               返回后台首页
             </Link>
+
             <button type="button" onClick={refreshAll} style={primaryButton}>
               刷新订单
             </button>
@@ -441,9 +453,8 @@ export default function AdminOrdersPage() {
         {agentFilter !== 'all' ? (
           <div style={activeFilterStyle}>
             当前查看代理订单：
-            <strong style={{ marginLeft: 6 }}>
-              {getAgentName(agents.find((a) => String(a.id) === String(agentFilter)))}
-            </strong>
+            <strong style={{ marginLeft: 6 }}>{getAgentName(activeAgent)}</strong>
+
             <button
               type="button"
               onClick={() => setAgentFilter('all')}
@@ -463,7 +474,13 @@ export default function AdminOrdersPage() {
             <div>没有找到订单</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1450 }}>
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  minWidth: 1450,
+                }}
+              >
                 <thead>
                   <tr>
                     <th style={thStyle}>下单时间</th>
@@ -480,6 +497,7 @@ export default function AdminOrdersPage() {
                     <th style={thStyle}>操作</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {filteredOrders.map((order) => {
                     const agent = findOrderAgent(order, agents)
@@ -487,28 +505,48 @@ export default function AdminOrdersPage() {
                     return (
                       <tr key={order.id}>
                         <td style={tdStyle}>{formatDateTime(order.created_at)}</td>
+
                         <td style={tdStyle}>
-                          <div style={{ fontWeight: 800 }}>{order.order_no || '-'}</div>
-                        </td>
-                        <td style={tdStyle}>
-                          <div style={{ fontWeight: 800 }}>{getAgentName(agent)}</div>
-                          <div style={{ fontSize: 12, color: '#8a6a54', marginTop: 3 }}>
-                            {getAgentSlug(agent) || order.agent_slug || order.agent_id || '-'}
+                          <div style={{ fontWeight: 800 }}>
+                            {order.order_no || '-'}
                           </div>
                         </td>
+
+                        <td style={tdStyle}>
+                          <div style={{ fontWeight: 800 }}>
+                            {getAgentName(agent)}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: '#8a6a54',
+                              marginTop: 3,
+                            }}
+                          >
+                            {getAgentSlug(agent) ||
+                              order.agent_slug ||
+                              order.agent_id ||
+                              '-'}
+                          </div>
+                        </td>
+
                         <td style={tdStyle}>{order.customer_name || '-'}</td>
                         <td style={tdStyle}>{order.customer_phone || '-'}</td>
                         <td style={tdStyle}>{order.delivery_method || '-'}</td>
                         <td style={tdStyle}>{formatMoney(order.subtotal)}</td>
                         <td style={tdStyle}>{formatMoney(order.delivery_fee)}</td>
+
                         <td style={tdStyle}>
                           <div style={{ fontWeight: 800 }}>
                             {formatMoney(order.total_amount)}
                           </div>
                         </td>
+
                         <td style={tdStyle}>
                           <StatusBadge status={order.status} />
                         </td>
+
                         <td style={tdStyle}>
                           <select
                             value={order.status || 'pending'}
@@ -527,6 +565,7 @@ export default function AdminOrdersPage() {
                             <option value="cancelled">cancelled</option>
                           </select>
                         </td>
+
                         <td style={tdStyle}>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             <Link
@@ -543,7 +582,8 @@ export default function AdminOrdersPage() {
                               style={{
                                 ...smallDangerButton,
                                 opacity: deletingId === order.id ? 0.6 : 1,
-                                cursor: deletingId === order.id ? 'not-allowed' : 'pointer',
+                                cursor:
+                                  deletingId === order.id ? 'not-allowed' : 'pointer',
                               }}
                             >
                               {deletingId === order.id ? '删除中...' : '删除订单'}
@@ -560,6 +600,14 @@ export default function AdminOrdersPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function AdminOrdersPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 24 }}>读取中...</div>}>
+      <AdminOrdersContent />
+    </Suspense>
   )
 }
 
