@@ -1344,6 +1344,16 @@ function buildCopiedSummary(oid) {
   const lines = []
   const itemTotal = normalTotal + bundleCartTotal
 
+  const deliveryTitle =
+    delivery === 'LALAMOVE'
+      ? 'LALAMOVE🚗'
+      : delivery === '邮寄'
+        ? '邮寄📦'
+        : '自取🏠'
+
+  lines.push(deliveryTitle)
+  lines.push('')
+
   // ✅ 1. 先显示普通产品 + 价格 + 小计
   buildGroupedNormalItems(cart).forEach((group, gIndex) => {
     if (gIndex !== 0) {
@@ -1462,11 +1472,10 @@ function buildCopiedSummary(oid) {
   }
 
   if (delivery === 'LALAMOVE') {
-    lines.push(`收件人：${name || '-'}`)
-    lines.push(`电话：${phone || '-'}`)
-    lines.push(`地址：${address || '-'}`)
-    lines.push(`Lalamove费用：RM${money(shipping || 0)}`)
-  }
+  lines.push(`收件人：${name || '-'}`)
+  lines.push(`电话：${phone || '-'}`)
+  lines.push(`地址：${address || '-'}`)
+}
 
   if (delivery === '自取') {
     lines.push(`订单编号：${oid || '-'}`)
