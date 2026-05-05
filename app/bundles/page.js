@@ -468,11 +468,6 @@ export default function BundleAdminPage() {
         return
       }
 
-      if (!form.series.trim()) {
-        setError('Series is required.')
-        return
-      }
-
       if (num(form.buy_qty) < 0 || num(form.free_qty) < 0 || num(form.min_select_qty) <= 0) {
         setError('Quantity fields are invalid.')
         return

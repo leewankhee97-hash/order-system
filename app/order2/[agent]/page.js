@@ -2508,7 +2508,7 @@ console.log('OID:', oid)
                     </button>
                   </div>
  
-                  {selectedBundle?.bundle_type === 'fixed_combo' ? null : bundleProducts.length === 0 ? (
+                  {selectedBundle?.bundle_type !== 'fixed_combo' && bundleProducts.length === 0 ? (
                     <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">
                       这个 Bundle 目前没有匹配到产品。请检查{' '}
                       <strong>bundle_rules.brand</strong> 是否和{' '}
