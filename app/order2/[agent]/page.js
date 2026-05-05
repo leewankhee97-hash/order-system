@@ -1620,7 +1620,6 @@ function buildCopiedSummary(oid) {
         : '自取🏠'
  
   lines.push(deliveryTitle)
-  lines.push('')
  
   // ✅ 1. 先显示普通产品 + 价格 + 小计
   buildGroupedNormalItems(cart).forEach((group, gIndex) => {
@@ -1691,10 +1690,6 @@ function buildCopiedSummary(oid) {
         ;(item.bundle_random_gifts || []).forEach((gift) => {
           lines.push(`• ${gift.label} ×${gift.qty}（${gift.note || '随机发货'}）`)
         })
-      }
- 
-      if (item.gift_note) {
-        lines.push(`备注：${item.gift_note}`)
       }
  
       lines.push(`🧮 小计：RM${money(subtotal)}`)
