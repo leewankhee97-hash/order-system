@@ -311,7 +311,7 @@ const [muarNotice, setMuarNotice] = useState('')
  
   const [summaryCopied, setSummaryCopied] = useState(false)
 const [showSummaryModal, setShowSummaryModal] = useState(false)
-
+ 
 const DRAFT_STORAGE_KEY = `order2_draft_${String(agent || '').trim()}`
 const [draftLoaded, setDraftLoaded] = useState(false)
  
@@ -352,17 +352,17 @@ const [draftLoaded, setDraftLoaded] = useState(false)
   }, [agent])
   useEffect(() => {
   if (typeof window === 'undefined') return
-
+ 
   const saved = window.localStorage.getItem(DRAFT_STORAGE_KEY)
-
+ 
   if (!saved) {
     setDraftLoaded(true)
     return
   }
-
+ 
   try {
     const draft = JSON.parse(saved)
-
+ 
     setCart(Array.isArray(draft.cart) ? draft.cart : [])
     setDelivery(draft.delivery || '自取')
     setDate(draft.date || '')
@@ -378,14 +378,14 @@ const [draftLoaded, setDraftLoaded] = useState(false)
   } catch (err) {
     console.error('LOAD DRAFT ERROR:', err)
   }
-
+ 
   setDraftLoaded(true)
 }, [DRAFT_STORAGE_KEY])
 useEffect(() => {
   if (typeof window === 'undefined') return
   if (!draftLoaded) return
   if (showSummaryModal) return
-
+ 
   const draft = {
     cart,
     delivery,
@@ -400,7 +400,7 @@ useEffect(() => {
     backupSelections,
     noBackup,
   }
-
+ 
   window.localStorage.setItem(
     DRAFT_STORAGE_KEY,
     JSON.stringify(draft)
@@ -601,17 +601,17 @@ useEffect(() => {
  
   useEffect(() => {
   if (!agentInfo) return
-
+ 
   const prefix = agentInfo.code || agentInfo.name || 'ORDER'
   const count = agentInfo.order_counter || 1
-
+ 
   setOrderId(`${prefix}-${String(count).padStart(4, '0')}`)
-
+ 
   // ❌ 不要清 cart / backup / 表单
   // setCart([])
   // setBackupSelections({})
   // setNoBackup(false)
-
+ 
   // ✅ 只清 bundle 相关
   setBundleSelect({})
   setSelectedBundle(null)
@@ -689,31 +689,31 @@ useEffect(() => {
  
   function showMuarNotice(message) {
     setMuarNotice(message)
-
+ 
     setTimeout(() => {
       setMuarNotice('')
     }, 3500)
   }
-
+ 
   function addDraftToCart(product) {
     const qty = Number(draftQty[product.id] || 0)
     const maxStock = Number(product?.stock || 0)
  
     if (qty <= 0) return
-
+ 
     const hasMuarItem = cart.some((i) => i.is_muar_only)
     const hasNormalItem = cart.some((i) => !i.is_muar_only)
-
+ 
     if (product.is_muar_only && hasNormalItem) {
       showMuarNotice('此产品是在 MUAR 出货，不可与其他产品一起下单，请分开下单')
       return
     }
-
+ 
     if (!product.is_muar_only && hasMuarItem) {
       showMuarNotice('购物车已有 MUAR 出货产品，请分开下单')
       return
     }
-
+ 
     if (product.is_muar_only) {
       showMuarNotice('此产品是在 MUAR 出货，不可与其他产品一起下单')
     }
@@ -777,16 +777,16 @@ useEffect(() => {
       .filter(Boolean)
  
     if (selectedItems.length === 0) return
-
+ 
     const bundleHasMuar = selectedItems.some((i) => i.is_muar_only)
     const cartHasMuar = cart.some((i) => i.is_muar_only)
     const cartHasNormal = cart.some((i) => !i.is_muar_only)
-
+ 
     if (bundleHasMuar && cartHasNormal) {
       showMuarNotice('此 Bundle 内含 MUAR 出货产品，不可与其他产品一起下单')
       return
     }
-
+ 
     if (!bundleHasMuar && cartHasMuar) {
       showMuarNotice('购物车已有 MUAR 出货产品，请分开下单')
       return
@@ -838,15 +838,15 @@ useEffect(() => {
  
   const brandOptions = useMemo(() => {
   const q = search.trim().toLowerCase()
-
+ 
   return [
     ...new Set(
       products
         .filter((p) => {
           if (selectedType && getProductType(p) !== selectedType) return false
-
+ 
           if (!q) return true
-
+ 
           const target = [
             p.brand,
             p.series,
@@ -856,7 +856,7 @@ useEffect(() => {
             .filter(Boolean)
             .join(' ')
             .toLowerCase()
-
+ 
           return target.includes(q)
         })
         .map((p) => p.brand)
@@ -904,10 +904,10 @@ useEffect(() => {
  
   const filteredProducts = useMemo(() => {
   const q = search.trim().toLowerCase()
-
+ 
   return products.filter((p) => {
     const displayName = cleanProductName(p)
-
+ 
     const joined = [
       getProductType(p),
       p.brand,
@@ -918,7 +918,7 @@ useEffect(() => {
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
-
+ 
     // ✅ 搜索优先（重点）
     if (q) {
       if (!joined.includes(q)) return false
@@ -928,31 +928,31 @@ useEffect(() => {
       if (selectedBrand && !eqText(p.brand, selectedBrand)) return false
       if (selectedVariant && displayName !== selectedVariant) return false
     }
-
+ 
     if (Number(p.stock || 0) <= 0) return false
     if (p.is_active === false) return false
-
+ 
     return true
   }).sort((a, b) => {
   if (!q) return 0
-
+ 
   const getScore = (p) => {
     const brand = String(p.brand || '').toLowerCase()
     const series = String(p.series || '').toLowerCase()
     const name = String(p.name || '').toLowerCase()
     const cleanName = cleanProductName(p).toLowerCase()
-
+ 
     let score = 0
-
+ 
     if (brand === q) score += 100
     if (brand.includes(q)) score += 50
     if (series.includes(q)) score += 30
     if (name.includes(q)) score += 20
     if (cleanName.includes(q)) score += 10
-
+ 
     return score
   }
-
+ 
   return getScore(b) - getScore(a)
 })
 }, [products, selectedType, selectedBrand, selectedVariant, search])
@@ -1328,7 +1328,7 @@ useEffect(() => {
   setDraftQty({})
   setBackupSelections({})
   setNoBackup(false)
-
+ 
   // ✅ 清除本地草稿（重点）
   if (typeof window !== 'undefined') {
     window.localStorage.removeItem(DRAFT_STORAGE_KEY)
@@ -1342,86 +1342,41 @@ useEffect(() => {
  
 function buildCopiedSummary(oid) {
   const lines = []
-  const itemTotal = normalTotal + bundleCartTotal
  
-  lines.push('🧾 ORDER SUMMARY')
-  lines.push('')
-
-  // ✅ 配送信息
-lines.push(`配送方式：${delivery}`)
-lines.push(`订单编号：${oid}`)
-
-if (delivery === '自取') {
-  lines.push(`自取日期：${date || '-'}`)
-  lines.push(`自取时间：${time || '-'}`)
-}
-
-if (delivery === '邮寄') {
-  lines.push(`地区：${region}`)
-  lines.push(`收件人：${name || '-'}`)
-  lines.push(`电话：${phone || '-'}`)
-  lines.push(`地址：${address || '-'}`)
-  lines.push(`Postcode：${postcode || '-'}`)
-  lines.push(`State：${state || '-'}`)
-}
-
-if (delivery === 'LALAMOVE') {
-  lines.push(`收件人：${name || '-'}`)
-  lines.push(`电话：${phone || '-'}`)
-  lines.push(`地址：${address || '-'}`)
-  lines.push(`Lalamove费用：RM${money(shipping || 0)}`)
-}
-
-lines.push('')
- 
-  lines.push('━━━━━━━━━━━━━━━')
-lines.push('')
-lines.push('订单内容')
- 
+  // ✅ 1. 先显示普通产品，不显示价钱 / 小计
   buildGroupedNormalItems(cart).forEach((group, gIndex) => {
-  if (gIndex !== 0) {
-    lines.push('')
-  }
+    if (gIndex !== 0) {
+      lines.push('')
+    }
  
-  lines.push(`【${group.name}】`)
+    lines.push(`【${group.name}】`)
  
-  const priceMap = {}
- 
-  group.variants.forEach((variant) => {
-    const priceKey = money(variant.price)
-    if (!priceMap[priceKey]) priceMap[priceKey] = []
-    priceMap[priceKey].push(variant)
-  })
- 
-  Object.entries(priceMap).forEach(([price, variants]) => {
-    lines.push(`💰 RM${price}`)
- 
-    variants.forEach((variant) => {
+    group.variants.forEach((variant) => {
       lines.push(`• ${variant.name} ×${variant.qty}`)
     })
   })
  
-  lines.push(`🧮 小计：RM${money(group.subtotal)}`)
-})
- 
+  // ✅ 2. 显示 Bundle 产品
   cart
     .filter((item) => item.is_bundle)
     .forEach((item) => {
-      const subtotal = Number(item.qty || 0) * Number(item.price || 0)
- 
       lines.push('')
+ 
       lines.push(`${item.bundle_name}（BUNDLE）× ${item.qty}组`)
-      lines.push(`每组：RM${money(item.price)}`)
-      lines.push(`小计：RM${money(subtotal)}`)
       lines.push(`口味明细`)
  
       ;(item.bundle_items || []).forEach((bi) => {
         const split = splitBrandFlavor(bi.brand, bi.product_name)
-        if (split.brandLine) lines.push(split.brandLine)
-        lines.push(`- ${split.flavorLine} × ${bi.qty}`)
+ 
+        if (split.brandLine) {
+          lines.push(split.brandLine)
+        }
+ 
+        lines.push(`• ${split.flavorLine} ×${bi.qty}`)
       })
     })
  
+  // ✅ 3. 备注 / 备选口味
   lines.push('')
   lines.push(`备注`)
  
@@ -1429,20 +1384,18 @@ lines.push('订单内容')
     lines.push(`【不选择备选】`)
     lines.push(`如遇缺货，下一单扣`)
   } else {
-    // ✅ 新增：先拿 cart 里面的 brand
-const cartBrands = new Set(
-  cart.map((item) =>
-    normalizeText(item.is_bundle ? item.bundle_brand : item.brand)
-  )
-)
+    const cartBrands = new Set(
+      cart.map((item) =>
+        normalizeText(item.is_bundle ? item.bundle_brand : item.brand)
+      )
+    )
  
-// ✅ 再过滤 backup，只保留购物车里的品牌
-const backupEntries = Object.entries(backupSelections).filter(
-  ([brand, flavors]) =>
-    Array.isArray(flavors) &&
-    flavors.length > 0 &&
-    cartBrands.has(normalizeText(brand))
-)
+    const backupEntries = Object.entries(backupSelections).filter(
+      ([brand, flavors]) =>
+        Array.isArray(flavors) &&
+        flavors.length > 0 &&
+        cartBrands.has(normalizeText(brand))
+    )
  
     if (backupEntries.length > 0) {
       lines.push(`【备选口味/颜色】`)
@@ -1450,7 +1403,10 @@ const backupEntries = Object.entries(backupSelections).filter(
  
       backupEntries.forEach(([brand, flavors], index) => {
         lines.push(brand)
-        flavors.forEach((f) => lines.push(`• ${f}`))
+ 
+        flavors.forEach((f) => {
+          lines.push(`• ${f}`)
+        })
  
         if (index !== backupEntries.length - 1) {
           lines.push('')
@@ -1461,12 +1417,31 @@ const backupEntries = Object.entries(backupSelections).filter(
     }
   }
  
+  // ✅ 4. 分隔线
   lines.push('')
-  lines.push(`费用明细`)
-  lines.push(`物品总额：RM${money(itemTotal)}`)
-  lines.push(`运费：${shippingFee === 'ASK' ? '请问我查询运费' : `RM${money(shippingFee)}`}`)
-  lines.push('')
-  lines.push(`总额：RM${money(total)}`)
+  lines.push('━━━━━━━━━━━━━━━')
+ 
+  // ✅ 5. 最后才显示配送 / 收件资料
+  if (delivery === '邮寄') {
+    lines.push(`收件人：${name || '-'}`)
+    lines.push(`电话：${phone || '-'}`)
+    lines.push(`地址：${address || '-'}`)
+    lines.push(`Postcode：${postcode || '-'}`)
+    lines.push(`State：${state || '-'}`)
+  }
+ 
+  if (delivery === 'LALAMOVE') {
+    lines.push(`收件人：${name || '-'}`)
+    lines.push(`电话：${phone || '-'}`)
+    lines.push(`地址：${address || '-'}`)
+    lines.push(`Lalamove费用：RM${money(shipping || 0)}`)
+  }
+ 
+  if (delivery === '自取') {
+    lines.push(`订单编号：${oid || '-'}`)
+    lines.push(`自取日期：${date || '-'}`)
+    lines.push(`自取时间：${time || '-'}`)
+  }
  
   return lines.join('\n')
 }
@@ -1523,10 +1498,10 @@ const backupEntries = Object.entries(backupSelections).filter(
     const ok = window.confirm('你还没复制订单摘要，确定要关闭吗？')
     if (!ok) return
   }
-
+ 
   // 关闭 modal
   setShowSummaryModal(false)
-
+ 
   // 已复制 → 才 refresh
   if (summaryCopied) {
     setTimeout(() => {
@@ -1547,10 +1522,10 @@ const backupEntries = Object.entries(backupSelections).filter(
       setError('请选择产品或bundle')
       return
     }
-
+ 
     const hasMuar = cart.some((i) => i.is_muar_only)
     const hasNormal = cart.some((i) => !i.is_muar_only)
-
+ 
     if (hasMuar && hasNormal) {
       setError('MUAR 产品不可与普通产品混单，请分开下单')
       return
@@ -1593,9 +1568,9 @@ const backupEntries = Object.entries(backupSelections).filter(
   `备选状态：${noBackup ? '不选择备选' : hasAnyBackupSelected ? '已选择备选' : '未完成'}`,
   `总额：RM ${money(total)}`,
 ].join('\n')
-
+ 
 const ok = window.confirm(confirmText)
-
+ 
 if (!ok) {
   return
 }
@@ -1606,16 +1581,16 @@ if (!ok) {
   setSummaryCopied(false)
   setShowSummaryModal(false)
    console.log('SUBMIT agent_id:', agentInfo.id, typeof agentInfo.id)
-
+ 
 const prefix = agentInfo.code || agentInfo.name || 'ORDER'
-
+ 
 const { data: oid, error: orderIdError } = await supabase.rpc(
   'create_agent_order_id',
   {
     agent_id_input: Number(agentInfo.id), // ✅ 这里一定要 Number
   }
 )
-
+ 
 if (orderIdError) throw orderIdError
 console.log('FINAL agent_id:', agentInfo.id, typeof agentInfo.id)
 console.log('OID:', oid)
@@ -1685,7 +1660,7 @@ console.log('OID:', oid)
           qty_input: Number(bi.qty || 0),
         }
       )
-
+ 
       if (bundleStockError) throw bundleStockError
     }
   } else {
@@ -1696,7 +1671,7 @@ console.log('OID:', oid)
         qty_input: Number(i.qty || 0),
       }
     )
-
+ 
     if (stockError) throw stockError
   }
 }
@@ -1768,7 +1743,7 @@ console.log('OID:', oid)
                 <h1 className="mt-2 text-2xl font-black tracking-wide text-[#5f4432] md:text-4xl">
                   {agentInfo?.name || agentInfo?.code || '欢迎下单'}
                 </h1>
-
+ 
                 <p className="mt-2 text-sm text-[#9b7b63]">
                   欢迎来到下单系统，看来今天又要发大财了❤️
                 </p>
@@ -1824,7 +1799,7 @@ console.log('OID:', oid)
                     onChange={(e) => {
   const value = e.target.value
   setSearch(value)
-
+ 
   if (value.trim()) {
     setSelectedType('')
     setSelectedBrand('')
@@ -1916,7 +1891,7 @@ console.log('OID:', oid)
                 ) : null}
               </div>
 )}
-
+ 
 <div
   ref={productsGridRef}
                 className="mt-5 mb-4 rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-sm text-[#a08874]"
@@ -1957,7 +1932,7 @@ console.log('OID:', oid)
                           <div className="mt-1 text-xs text-[#a88b77]">
                             {p.series || '-'} · {getVariantLabel(p)}
                           </div>
-
+ 
                           {p.is_muar_only ? (
                             <div className="mt-2 inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-500">
                               🚚 MUAR 出货 · 不可混单
@@ -2224,7 +2199,7 @@ console.log('OID:', oid)
                               {selectedBundleProduct.series || '-'} ·{' '}
                               {getVariantLabel(selectedBundleProduct)}
                             </div>
-
+ 
                             {selectedBundleProduct.is_muar_only ? (
                               <div className="mt-2 inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-500">
                                 🚚 MUAR 出货 · 不可混单
@@ -2868,7 +2843,7 @@ console.log('OID:', oid)
             </section>
           </div>
         </form>
-
+ 
 {cart.length > 0 && !showSummaryModal && (
   <div className="fixed bottom-0 left-0 right-0 z-[9998] border-t border-[#eadacb] bg-white/95 px-4 py-3 shadow-[0_-10px_30px_rgba(121,88,63,0.15)] backdrop-blur md:hidden">
     <div className="mx-auto max-w-7xl">
@@ -2876,11 +2851,11 @@ console.log('OID:', oid)
         <div className="rounded-2xl border border-[#eadacb] bg-[#fffaf6] px-2 py-2">
           🛒 {cartQty} 件
         </div>
-
+ 
         <div className="rounded-2xl border border-[#eadacb] bg-[#fffaf6] px-2 py-2">
           {delivery}
         </div>
-
+ 
         <div
           className={`rounded-2xl border px-2 py-2 ${
             noBackup || hasAnyBackupSelected
@@ -2891,7 +2866,7 @@ console.log('OID:', oid)
           {noBackup || hasAnyBackupSelected ? '备选完成' : '备选未选'}
         </div>
       </div>
-
+ 
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <div className="text-xs font-semibold text-[#9b7b63]">
@@ -2901,7 +2876,7 @@ console.log('OID:', oid)
             RM {money(total)}
           </div>
         </div>
-
+ 
         <button
           type="button"
           onClick={() => {
@@ -2913,7 +2888,7 @@ console.log('OID:', oid)
         >
           看购物车
         </button>
-
+ 
         <button
           type="button"
           disabled={submitting}
@@ -2928,7 +2903,7 @@ console.log('OID:', oid)
     </div>
   </div>
 )}
-
+ 
 </div>
  
       {showSummaryModal && (
