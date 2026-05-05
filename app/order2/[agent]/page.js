@@ -1342,44 +1342,62 @@ useEffect(() => {
  
 function buildCopiedSummary(oid) {
   const lines = []
- 
-  // ✅ 1. 先显示普通产品，不显示价钱 / 小计
+  const itemTotal = normalTotal + bundleCartTotal
+
+  // ✅ 1. 先显示普通产品 + 价格 + 小计
   buildGroupedNormalItems(cart).forEach((group, gIndex) => {
     if (gIndex !== 0) {
       lines.push('')
     }
- 
+
     lines.push(`【${group.name}】`)
- 
+
+    const priceMap = {}
+
     group.variants.forEach((variant) => {
-      lines.push(`• ${variant.name} ×${variant.qty}`)
+      const priceKey = money(variant.price)
+      if (!priceMap[priceKey]) priceMap[priceKey] = []
+      priceMap[priceKey].push(variant)
     })
+
+    Object.entries(priceMap).forEach(([price, variants]) => {
+      lines.push(`💰 RM${price}`)
+
+      variants.forEach((variant) => {
+        lines.push(`• ${variant.name} ×${variant.qty}`)
+      })
+    })
+
+    lines.push(`🧮 小计：RM${money(group.subtotal)}`)
   })
- 
-  // ✅ 2. 显示 Bundle 产品
+
+  // ✅ 2. 显示 Bundle 产品 + 价格 + 小计
   cart
     .filter((item) => item.is_bundle)
     .forEach((item) => {
+      const subtotal = Number(item.qty || 0) * Number(item.price || 0)
+
       lines.push('')
- 
       lines.push(`${item.bundle_name}（BUNDLE）× ${item.qty}组`)
+      lines.push(`每组：RM${money(item.price)}`)
+      lines.push(`小计：RM${money(subtotal)}`)
       lines.push(`口味明细`)
- 
+
       ;(item.bundle_items || []).forEach((bi) => {
         const split = splitBrandFlavor(bi.brand, bi.product_name)
- 
+
         if (split.brandLine) {
           lines.push(split.brandLine)
         }
- 
+
         lines.push(`• ${split.flavorLine} ×${bi.qty}`)
       })
     })
- 
-  // ✅ 3. 备注 / 备选口味
+
+  // ✅ 3. 备注 / 备选
   lines.push('')
   lines.push(`备注`)
- 
+
   if (noBackup) {
     lines.push(`【不选择备选】`)
     lines.push(`如遇缺货，下一单扣`)
@@ -1389,25 +1407,25 @@ function buildCopiedSummary(oid) {
         normalizeText(item.is_bundle ? item.bundle_brand : item.brand)
       )
     )
- 
+
     const backupEntries = Object.entries(backupSelections).filter(
       ([brand, flavors]) =>
         Array.isArray(flavors) &&
         flavors.length > 0 &&
         cartBrands.has(normalizeText(brand))
     )
- 
+
     if (backupEntries.length > 0) {
       lines.push(`【备选口味/颜色】`)
       lines.push('')
- 
+
       backupEntries.forEach(([brand, flavors], index) => {
         lines.push(brand)
- 
+
         flavors.forEach((f) => {
           lines.push(`• ${f}`)
         })
- 
+
         if (index !== backupEntries.length - 1) {
           lines.push('')
         }
@@ -1416,12 +1434,25 @@ function buildCopiedSummary(oid) {
       lines.push(`-`)
     }
   }
- 
-  // ✅ 4. 分隔线
+
+  // ✅ 4. 费用明细
+  lines.push('')
+  lines.push(`费用明细`)
+  lines.push(`物品总额：RM${money(itemTotal)}`)
+  lines.push(
+    `运费：${
+      shippingFee === 'ASK'
+        ? '请问我查询运费'
+        : `RM${money(shippingFee)}`
+    }`
+  )
+  lines.push(`总额：RM${money(total)}`)
+
+  // ✅ 5. 分隔线
   lines.push('')
   lines.push('━━━━━━━━━━━━━━━')
- 
-  // ✅ 5. 最后才显示配送 / 收件资料
+
+  // ✅ 6. 最后显示收件 / 配送资料
   if (delivery === '邮寄') {
     lines.push(`收件人：${name || '-'}`)
     lines.push(`电话：${phone || '-'}`)
@@ -1429,20 +1460,20 @@ function buildCopiedSummary(oid) {
     lines.push(`Postcode：${postcode || '-'}`)
     lines.push(`State：${state || '-'}`)
   }
- 
+
   if (delivery === 'LALAMOVE') {
     lines.push(`收件人：${name || '-'}`)
     lines.push(`电话：${phone || '-'}`)
     lines.push(`地址：${address || '-'}`)
     lines.push(`Lalamove费用：RM${money(shipping || 0)}`)
   }
- 
+
   if (delivery === '自取') {
     lines.push(`订单编号：${oid || '-'}`)
     lines.push(`自取日期：${date || '-'}`)
     lines.push(`自取时间：${time || '-'}`)
   }
- 
+
   return lines.join('\n')
 }
  

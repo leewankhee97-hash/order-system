@@ -980,21 +980,66 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
   }
  
   function renderListPanel() {
+    const compactTdStyle = {
+      ...tdStyle,
+      padding: '9px 10px',
+      whiteSpace: 'normal',
+      lineHeight: 1.35,
+      verticalAlign: 'middle',
+    }
+ 
+    const compactInputStyle = {
+      ...inlineInputStyle,
+      width: isMobile ? 72 : 78,
+      height: 34,
+    }
+ 
     return (
       <div
         style={{
           background: '#fffaf5',
           border: '1px solid #ead7c4',
           borderRadius: 20,
-          padding: 20,
+          padding: isMobile ? 12 : 16,
           overflowX: 'auto',
         }}
       >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            marginBottom: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#6f4e37' }}>
+              产品列表 / 快速编辑
+            </div>
+            <div style={{ fontSize: 13, color: '#8a6a54', marginTop: 4 }}>
+              直接修改 LV1 / LV2 / LV3 / Cost / Stock / MUAR，然后按上方【保存当前系列 / 筛选修改】一次保存。
+            </div>
+          </div>
+ 
+          <button
+            type="button"
+            style={secondaryButton}
+            onClick={() => {
+              handleReset()
+              setActiveTab('single')
+            }}
+          >
+            + 新增产品
+          </button>
+        </div>
+ 
         {loading ? (
           <div>读取中...</div>
         ) : (
-          <div style={{ maxHeight: 'calc(100vh - 260px)', overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1600 }}>
+          <div style={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 980 : 1120 }}>
               <thead
                 style={{
                   position: 'sticky',
@@ -1009,25 +1054,22 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                     'Brand',
                     'Series',
                     '口味/颜色',
-                    'Name',
-                    'SKU',
                     'LV1',
                     'LV2',
                     'LV3',
                     'Cost',
+                    'Stock',
                     'MUAR',
-                    '库存状态',
-                    '快速补货',
-                    '手动库存',
+                    '状态',
                     '操作',
                   ].map((h) => (
-                    <th key={h} style={thStyle}>
+                    <th key={h} style={{ ...thStyle, padding: '12px 10px' }}>
                       {h}
                     </th>
- 
                   ))}
                 </tr>
               </thead>
+ 
               <tbody>
                 {filteredProducts.map((p) => {
                   const isEditing = editingId === p.id
@@ -1039,9 +1081,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                   return (
                     <tr
                       key={p.id}
-                      onClick={() => handleEdit(p)}
                       style={{
-                        cursor: 'pointer',
                         background: isEditing ? '#f5e6d7' : normalRowBg,
                         transition: '0.2s',
                       }}
@@ -1052,58 +1092,69 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                         e.currentTarget.style.background = isEditing ? '#f5e6d7' : normalRowBg
                       }}
                     >
-                      <td style={tdStyle}>{p.product_type || '-'}</td>
-                      <td style={tdStyle}>{p.brand}</td>
-                      <td style={tdStyle}>{p.series}</td>
-                      <td style={tdStyle}>{p.flavor}</td>
-                      <td style={tdStyle}>{p.name}</td>
-                      <td style={tdStyle}>{p.sku}</td>
-                      <td style={tdStyle}>
+                      <td style={compactTdStyle}>{p.product_type || '-'}</td>
+                      <td style={compactTdStyle}>{p.brand || '-'}</td>
+                      <td style={compactTdStyle}>{p.series || '-'}</td>
+                      <td style={{ ...compactTdStyle, minWidth: 180, fontWeight: 800 }}>
+                        {p.flavor || p.name || '-'}
+                      </td>
+ 
+                      <td style={compactTdStyle}>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
                           value={getProductDraftValue(p, 'price_1')}
-                          onClick={(e) => e.stopPropagation()}
                           onChange={(e) => handleProductDraftChange(p.id, 'price_1', e.target.value)}
-                          style={inlineInputStyle}
+                          style={compactInputStyle}
                         />
                       </td>
-                      <td style={tdStyle}>
+ 
+                      <td style={compactTdStyle}>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
                           value={getProductDraftValue(p, 'price_2')}
-                          onClick={(e) => e.stopPropagation()}
                           onChange={(e) => handleProductDraftChange(p.id, 'price_2', e.target.value)}
-                          style={inlineInputStyle}
+                          style={compactInputStyle}
                         />
                       </td>
-                      <td style={tdStyle}>
+ 
+                      <td style={compactTdStyle}>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
                           value={getProductDraftValue(p, 'price_3')}
-                          onClick={(e) => e.stopPropagation()}
                           onChange={(e) => handleProductDraftChange(p.id, 'price_3', e.target.value)}
-                          style={inlineInputStyle}
+                          style={compactInputStyle}
                         />
                       </td>
-                      <td style={tdStyle}>
+ 
+                      <td style={compactTdStyle}>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
                           value={getProductDraftValue(p, 'cost')}
-                          onClick={(e) => e.stopPropagation()}
                           onChange={(e) => handleProductDraftChange(p.id, 'cost', e.target.value)}
-                          style={inlineInputStyle}
+                          style={compactInputStyle}
                         />
                       </td>
-                      <td style={tdStyle}>
-                        <label style={inlineCheckboxStyle} onClick={(e) => e.stopPropagation()}>
+ 
+                      <td style={compactTdStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          value={getProductDraftValue(p, 'stock')}
+                          onChange={(e) => handleProductDraftChange(p.id, 'stock', e.target.value)}
+                          style={compactInputStyle}
+                        />
+                      </td>
+ 
+                      <td style={compactTdStyle}>
+                        <label style={inlineCheckboxStyle}>
                           <input
                             type="checkbox"
                             checked={Boolean(getProductDraftValue(p, 'is_muar_only'))}
@@ -1113,19 +1164,19 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                         </label>
                       </td>
  
-                      <td style={tdStyle}>
+                      <td style={compactTdStyle}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ fontWeight: 800 }}>{displayStock || 0}</div>
+                          <div style={{ fontWeight: 900 }}>{displayStock || 0}</div>
                           <div
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              minHeight: 28,
-                              padding: '0 10px',
+                              minHeight: 26,
+                              padding: '0 9px',
                               borderRadius: 999,
-                              fontSize: 12,
-                              fontWeight: 800,
+                              fontSize: 11,
+                              fontWeight: 900,
                               color: status.color,
                               background: status.bg,
                               border: `1px solid ${status.border}`,
@@ -1137,100 +1188,9 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                         </div>
                       </td>
  
-                      <td style={tdStyle}>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            style={miniBtn}
-                            disabled={restockingId === p.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              quickRestock(p.id, 10)
-                            }}
-                          >
- 
-                            +10
-                          </button>
- 
-                          <button
-                            type="button"
-                            style={miniBtn}
-                            disabled={restockingId === p.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              quickRestock(p.id, 50)
-                            }}
-                          >
-                            +50
-                          </button>
- 
-                          <button
-                            type="button"
-                            style={miniBtn}
-                            disabled={restockingId === p.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              quickRestock(p.id, 100)
-                            }}
-                          >
-                            +100
-                          </button>
- 
-                          {Number(p.stock || 0) <= 0 ? (
-                            <button
-                              type="button"
-                              style={dangerMiniBtn}
-                              disabled={restockingId === p.id}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                quickRestock(p.id, 50)
-                              }}
-                            >
-                              RESTOCK
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
- 
-                      <td style={tdStyle}>
+                      <td style={{ ...compactTdStyle, minWidth: 220 }}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                          <input
-                            value={getProductDraftValue(p, 'stock')}
-                            placeholder="库存"
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => handleStockInputChange(p.id, e.target.value)}
-                            style={{
-                              width: 90,
-                              height: 34,
-                              borderRadius: 10,
-                              border: '1px solid #d7bfa8',
-                              background: '#fff',
-                              padding: '0 10px',
-                              outline: 'none',
-                              color: '#6f4e37',
-                            }}
-                          />
- 
-                          <button
-                            type="button"
-                            style={smallPrimaryButton}
-                            disabled={stockSavingId === p.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              saveInlineStock(p.id)
-                            }}
- 
-                          >
-                            {stockSavingId === p.id ? '保存中' : '保存'}
-                          </button>
-                        </div>
-                      </td>
- 
-                      <td style={tdStyle}>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {draftChanged ? (
-                            <span style={draftBadgeStyle}>未保存</span>
-                          ) : null}
+                          {draftChanged ? <span style={draftBadgeStyle}>未保存</span> : null}
  
                           <button
                             type="button"
@@ -1240,42 +1200,20 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                               cursor: draftChanged ? 'pointer' : 'not-allowed',
                             }}
                             disabled={!draftChanged || batchSavingKey === `row-${p.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              saveProductDrafts([p], p.name || p.flavor || '产品', `row-${p.id}`, false)
-                            }}
+                            onClick={() => saveProductDrafts([p], p.name || p.flavor || '产品', `row-${p.id}`, false)}
                           >
                             {batchSavingKey === `row-${p.id}` ? '保存中' : '保存本行'}
                           </button>
  
-                          <button
-                            type="button"
-                            style={smallPrimaryButton}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleEdit(p)
-                            }}
-                          >
+                          <button type="button" style={smallSecondaryButton} onClick={() => handleEdit(p)}>
                             编辑
                           </button>
-                          <button
-                            type="button"
-                            style={smallSecondaryButton}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleEditSeriesPrice(p)
-                            }}
-                          >
-                            整组价格
+ 
+                          <button type="button" style={smallSecondaryButton} onClick={() => handleEditSeriesPrice(p)}>
+                            整组
                           </button>
-                          <button
-                            type="button"
-                            style={smallDangerButton}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(p.id)
-                            }}
-                          >
+ 
+                          <button type="button" style={smallDangerButton} onClick={() => handleDelete(p.id)}>
                             删除
                           </button>
                         </div>
@@ -1286,7 +1224,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
  
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={15} style={tdStyle}>
+                    <td colSpan={12} style={compactTdStyle}>
                       没有找到符合筛选条件的产品
                     </td>
                   </tr>
@@ -1435,6 +1373,10 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
  
           <button type="button" style={secondaryButton} onClick={handleReset}>
             {editingId ? '取消编辑' : '清空'}
+          </button>
+ 
+          <button type="button" style={secondaryButton} onClick={() => setActiveTab('list')}>
+            返回产品列表
           </button>
         </div>
       </form>
@@ -1703,23 +1645,8 @@ STRAWBERRY`}
       {activeTab === 'list' && renderListPanel()}
  
       {activeTab === 'single' && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.2fr) minmax(320px, 460px)',
-            gap: 20,
-            alignItems: 'start',
-          }}
-        >
-          <div>{renderListPanel()}</div>
-          <div
-            style={{
-              position: isMobile ? 'static' : 'sticky',
-              top: 20,
-            }}
-          >
-            {renderSingleForm()}
-          </div>
+        <div style={{ maxWidth: 980 }}>
+          {renderSingleForm()}
         </div>
       )}
  
