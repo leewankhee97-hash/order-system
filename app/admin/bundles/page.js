@@ -563,6 +563,66 @@ export default function AdminBundlesPage() {
       ]
     })
   }
+  function selectAllFilteredProducts(role = activeRole) {
+  if (!editingId) {
+    showError('请先新增或选择一个 Bundle，然后再绑定产品')
+    return
+  }
+
+  if (filteredProducts.length === 0) {
+    showError('当前没有可选择的产品')
+    return
+  }
+
+  setBindings((prev) => {
+    const next = [...prev]
+
+    filteredProducts.forEach((product) => {
+      const exists = next.some(
+        (x) =>
+          String(x.product_id) === String(product.id) &&
+          x.role === role
+      )
+
+      if (!exists) {
+        next.push({
+          ...getDefaultBindingOptions(role, product.id),
+          bundle_rule_id: editingId,
+        })
+      }
+    })
+
+    return next
+  })
+
+  showSuccess(`已一键选择当前显示的 ${filteredProducts.length} 个产品`)
+}
+
+function unselectAllFilteredProducts(role = activeRole) {
+  if (!editingId) {
+    showError('请先新增或选择一个 Bundle')
+    return
+  }
+
+  if (filteredProducts.length === 0) {
+    showError('当前没有可取消的产品')
+    return
+  }
+
+  const currentIds = new Set(filteredProducts.map((p) => String(p.id)))
+
+  setBindings((prev) =>
+    prev.filter(
+      (x) =>
+        !(
+          currentIds.has(String(x.product_id)) &&
+          x.role === role
+        )
+    )
+  )
+
+  showSuccess(`已取消当前显示的 ${filteredProducts.length} 个产品`)
+}
  
   function updateBinding(productId, role, patch) {
     setBindings((prev) =>
@@ -765,6 +825,29 @@ export default function AdminBundlesPage() {
                   当前过滤：Brand = <b>{form.brand || '全部'}</b> ｜ Series = <b>{form.series || '全部'}</b>
                   <div style={{ fontSize: 12, marginTop: 4 }}>如果找不到产品，可以先把 Series 清空，或确认 products.brand 是否完全一致。</div>
                 </div>
+                <div style={bulkActionStyle}>
+  <button
+    type="button"
+    onClick={() => selectAllFilteredProducts(activeRole)}
+    disabled={!editingId || filteredProducts.length === 0}
+    style={smallPrimaryButton}
+  >
+    一键选择当前显示产品
+  </button>
+
+  <button
+    type="button"
+    onClick={() => unselectAllFilteredProducts(activeRole)}
+    disabled={!editingId || filteredProducts.length === 0}
+    style={smallSecondaryButton}
+  >
+    一键取消当前显示产品
+  </button>
+
+  <div style={bulkHintStyle}>
+    当前显示：{filteredProducts.length} 个产品｜当前角色：{roleInfo(activeRole).label}
+  </div>
+</div>
  
                 <div style={productListStyle}>
                   {filteredProducts.length === 0 ? (
@@ -1213,4 +1296,17 @@ const emptyListStyle = {
   textAlign: 'center',
   color: '#9b7b63',
   background: '#fff8f1',
+}
+const bulkActionStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  alignItems: 'center',
+  marginBottom: 12,
+}
+
+const bulkHintStyle = {
+  fontSize: 12,
+  color: '#8b6f5a',
+  fontWeight: 700,
 }
