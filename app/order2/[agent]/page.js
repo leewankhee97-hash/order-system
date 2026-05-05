@@ -2762,13 +2762,22 @@ console.log('OID:', oid)
                         </>
                       ) : null}
  
-                      {selectedBundle?.gift_choose_mode === 'choose' || selectedBundle?.gift_choose_mode === 'partial_choose' ? (
-                        <div className="rounded-[26px] border border-[#f5e1b8] bg-[#fffaf0] p-4">
+{(
+  (
+    selectedBundle?.gift_choose_mode === 'choose' &&
+    Number(selectedBundle?.free_qty || 0) > 0
+  ) ||
+  (
+    selectedBundle?.gift_choose_mode === 'partial_choose' &&
+    selectedBundle?.gift_mode === 'pod_and_device' &&
+    bundleGroupCount > 0
+  )
+) ? (                        <div className="rounded-[26px] border border-[#f5e1b8] bg-[#fffaf0] p-4">
                           <div className="text-base font-black text-[#5f4432]">赠品烟弹选择</div>
                           <div className="mt-1 text-sm text-[#8b7260]">
                             {selectedBundle?.gift_choose_mode === 'partial_choose'
-                              ? `需要选择 ${bundleGroupCount} 个赠品烟弹，烟枪随机发货`
-                              : `需要选择 ${Number(selectedBundle?.free_qty || 0) * bundleGroupCount} 个赠品`}
+  ? `需要选择 ${bundleGroupCount} 个赠品烟弹，烟枪随机发货`
+  : `需要选择 ${Number(selectedBundle?.free_qty || 0) * Math.max(bundleGroupCount, 1)} 个赠品`}
                           </div>
                           <div className="mt-3 space-y-2">
                             {bundleGiftPodProducts.length === 0 ? (
