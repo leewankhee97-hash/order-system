@@ -1160,7 +1160,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                             checked={Boolean(getProductDraftValue(p, 'is_muar_only'))}
                             onChange={(e) => handleProductDraftChange(p.id, 'is_muar_only', e.target.checked)}
                           />
-                          <span>{Boolean(getProductDraftValue(p, 'is_muar_only')) ? 'MUAR' : '普通'}</span>
+                         <span>{Boolean(getProductDraftValue(p, 'is_muar_only')) ? 'MUAR 出货' : ''}</span>
                         </label>
                       </td>
  
