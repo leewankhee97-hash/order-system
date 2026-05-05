@@ -1653,7 +1653,7 @@ function buildCopiedSummary(oid) {
     .filter((item) => item.is_bundle)
     .forEach((item) => {
       const subtotal = Number(item.qty || 0) * Number(item.price || 0)
-      const titleTag = item.display_tag ? `｜${item.display_tag}` : ''
+      const titleTag = ''
  
       lines.push('')
       lines.push(`【${item.bundle_name}${titleTag}】`)
