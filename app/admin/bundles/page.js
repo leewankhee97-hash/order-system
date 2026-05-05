@@ -563,66 +563,6 @@ export default function AdminBundlesPage() {
       ]
     })
   }
-  function selectAllFilteredProducts(role = activeRole) {
-  if (!editingId) {
-    showError('请先新增或选择一个 Bundle，然后再绑定产品')
-    return
-  }
-
-  if (filteredProducts.length === 0) {
-    showError('当前没有可选择的产品')
-    return
-  }
-
-  setBindings((prev) => {
-    const next = [...prev]
-
-    filteredProducts.forEach((product) => {
-      const exists = next.some(
-        (x) =>
-          String(x.product_id) === String(product.id) &&
-          x.role === role
-      )
-
-      if (!exists) {
-        next.push({
-          ...getDefaultBindingOptions(role, product.id),
-          bundle_rule_id: editingId,
-        })
-      }
-    })
-
-    return next
-  })
-
-  showSuccess(`已一键选择当前显示的 ${filteredProducts.length} 个产品`)
-}
-
-function unselectAllFilteredProducts(role = activeRole) {
-  if (!editingId) {
-    showError('请先新增或选择一个 Bundle')
-    return
-  }
-
-  if (filteredProducts.length === 0) {
-    showError('当前没有可取消的产品')
-    return
-  }
-
-  const currentIds = new Set(filteredProducts.map((p) => String(p.id)))
-
-  setBindings((prev) =>
-    prev.filter(
-      (x) =>
-        !(
-          currentIds.has(String(x.product_id)) &&
-          x.role === role
-        )
-    )
-  )
-
-  showSuccess(`已取消当前显示的 ${filteredProducts.length} 个产品`)
-}
  
   function updateBinding(productId, role, patch) {
     setBindings((prev) =>
@@ -677,37 +617,174 @@ function unselectAllFilteredProducts(role = activeRole) {
           <div style={sectionHeaderStyle}>{editingId ? '编辑 Bundle' : '新增 Bundle'}</div>
  
           <div style={formGridStyle}>
-            <input placeholder="Bundle Name" value={form.name} onChange={(e) => handleChange('name', e.target.value)} style={inputStyle} />
-            <input placeholder="Brand（必须和 products.brand 一样）" value={form.brand} onChange={(e) => handleChange('brand', e.target.value)} style={inputStyle} />
-            <input placeholder="Series（可空，组合配套建议留空）" value={form.series} onChange={(e) => handleChange('series', e.target.value)} style={inputStyle} />
+            <div>
+              <label style={fieldLabelStyle}>Bundle Name｜配套名称</label>
+              <input
+                placeholder="例如：SP2 1代 12盒配套"
+                value={form.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
  
-            <select value={form.bundle_type} onChange={(e) => handleChange('bundle_type', e.target.value)} style={inputStyle}>
-              {BUNDLE_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
+            <div>
+              <label style={fieldLabelStyle}>Brand｜品牌</label>
+              <input
+                placeholder="必须和 products.brand 一样"
+                value={form.brand}
+                onChange={(e) => handleChange('brand', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
  
-            <input placeholder="Buy Qty" type="number" min="0" value={form.buy_qty} onChange={(e) => handleChange('buy_qty', e.target.value)} style={inputStyle} />
-            <input placeholder="Free Qty" type="number" min="0" value={form.free_qty} onChange={(e) => handleChange('free_qty', e.target.value)} style={inputStyle} />
-            <input placeholder="Need Select" type="number" min="1" value={form.min_select_qty} onChange={(e) => handleChange('min_select_qty', e.target.value)} style={inputStyle} />
-            <input placeholder="Sort Order" type="number" value={form.sort_order} onChange={(e) => handleChange('sort_order', e.target.value)} style={inputStyle} />
-            <input placeholder="Bundle Price 1" type="number" min="0" step="0.01" value={form.bundle_price_1} onChange={(e) => handleChange('bundle_price_1', e.target.value)} style={inputStyle} />
-            <input placeholder="Bundle Price 2" type="number" min="0" step="0.01" value={form.bundle_price_2} onChange={(e) => handleChange('bundle_price_2', e.target.value)} style={inputStyle} />
-            <input placeholder="Bundle Price 3" type="number" min="0" step="0.01" value={form.bundle_price_3} onChange={(e) => handleChange('bundle_price_3', e.target.value)} style={inputStyle} />
+            <div>
+              <label style={fieldLabelStyle}>Series｜系列</label>
+              <input
+                placeholder="可空，组合配套建议留空"
+                value={form.series}
+                onChange={(e) => handleChange('series', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
  
-            <select value={form.gift_mode} onChange={(e) => handleChange('gift_mode', e.target.value)} style={inputStyle}>
-              {GIFT_MODES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
+            <div>
+              <label style={fieldLabelStyle}>Bundle Type｜配套类型</label>
+              <select
+                value={form.bundle_type}
+                onChange={(e) => handleChange('bundle_type', e.target.value)}
+                style={inputStyle}
+              >
+                {BUNDLE_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </div>
  
-            <select value={form.gift_choose_mode} onChange={(e) => handleChange('gift_choose_mode', e.target.value)} style={inputStyle}>
-              {GIFT_CHOOSE_MODES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
+            <div>
+              <label style={fieldLabelStyle}>Buy Qty｜购买数量</label>
+              <input
+                placeholder="例如：10 或 12"
+                type="number"
+                min="0"
+                value={form.buy_qty}
+                onChange={(e) => handleChange('buy_qty', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
  
-            <input placeholder="Display Tag，例如 BUY 10 送 2" value={form.display_tag} onChange={(e) => handleChange('display_tag', e.target.value)} style={inputStyle} />
-            <textarea
-              placeholder="Gift Note，例如：赠品烟弹可选，烟枪随机发货"
-              value={form.gift_note}
-              onChange={(e) => handleChange('gift_note', e.target.value)}
-              style={{ ...inputStyle, height: 80, paddingTop: 12, gridColumn: 'span 2' }}
-            />
+            <div>
+              <label style={fieldLabelStyle}>Free Qty｜赠品数量</label>
+              <input
+                placeholder="例如：2；没有赠品填 0"
+                type="number"
+                min="0"
+                value={form.free_qty}
+                onChange={(e) => handleChange('free_qty', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+ 
+            <div>
+              <label style={fieldLabelStyle}>Need Select｜前台需要选择数量</label>
+              <input
+                placeholder="例如：12"
+                type="number"
+                min="1"
+                value={form.min_select_qty}
+                onChange={(e) => handleChange('min_select_qty', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+ 
+            <div>
+              <label style={fieldLabelStyle}>Sort Order｜排序</label>
+              <input
+                placeholder="数字越小越前面"
+                type="number"
+                value={form.sort_order}
+                onChange={(e) => handleChange('sort_order', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+ 
+            <div>
+              <label style={fieldLabelStyle}>Price 1｜代理价 1</label>
+              <input
+                placeholder="例如：280"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.bundle_price_1}
+                onChange={(e) => handleChange('bundle_price_1', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+ 
+            <div>
+              <label style={fieldLabelStyle}>Price 2｜代理价 2</label>
+              <input
+                placeholder="例如：280"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.bundle_price_2}
+                onChange={(e) => handleChange('bundle_price_2', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+ 
+            <div>
+              <label style={fieldLabelStyle}>Price 3｜代理价 3</label>
+              <input
+                placeholder="例如：280"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.bundle_price_3}
+                onChange={(e) => handleChange('bundle_price_3', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+ 
+            <div>
+              <label style={fieldLabelStyle}>Gift Mode｜赠品类型</label>
+              <select
+                value={form.gift_mode}
+                onChange={(e) => handleChange('gift_mode', e.target.value)}
+                style={inputStyle}
+              >
+                {GIFT_MODES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </div>
+ 
+            <div>
+              <label style={fieldLabelStyle}>Gift Choose｜赠品选择方式</label>
+              <select
+                value={form.gift_choose_mode}
+                onChange={(e) => handleChange('gift_choose_mode', e.target.value)}
+                style={inputStyle}
+              >
+                {GIFT_CHOOSE_MODES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </div>
+ 
+            <div>
+              <label style={fieldLabelStyle}>Display Tag｜显示标签</label>
+              <input
+                placeholder="例如：BUY 10 送 2 / 12盒配套"
+                value={form.display_tag}
+                onChange={(e) => handleChange('display_tag', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+ 
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={fieldLabelStyle}>Gift Note｜赠品备注</label>
+              <textarea
+                placeholder="例如：赠品烟弹可选，烟枪随机发货"
+                value={form.gift_note}
+                onChange={(e) => handleChange('gift_note', e.target.value)}
+                style={{ ...inputStyle, height: 80, paddingTop: 12 }}
+              />
+            </div>
           </div>
  
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -825,29 +902,6 @@ function unselectAllFilteredProducts(role = activeRole) {
                   当前过滤：Brand = <b>{form.brand || '全部'}</b> ｜ Series = <b>{form.series || '全部'}</b>
                   <div style={{ fontSize: 12, marginTop: 4 }}>如果找不到产品，可以先把 Series 清空，或确认 products.brand 是否完全一致。</div>
                 </div>
-                <div style={bulkActionStyle}>
-  <button
-    type="button"
-    onClick={() => selectAllFilteredProducts(activeRole)}
-    disabled={!editingId || filteredProducts.length === 0}
-    style={smallPrimaryButton}
-  >
-    一键选择当前显示产品
-  </button>
-
-  <button
-    type="button"
-    onClick={() => unselectAllFilteredProducts(activeRole)}
-    disabled={!editingId || filteredProducts.length === 0}
-    style={smallSecondaryButton}
-  >
-    一键取消当前显示产品
-  </button>
-
-  <div style={bulkHintStyle}>
-    当前显示：{filteredProducts.length} 个产品｜当前角色：{roleInfo(activeRole).label}
-  </div>
-</div>
  
                 <div style={productListStyle}>
                   {filteredProducts.length === 0 ? (
@@ -1297,16 +1351,12 @@ const emptyListStyle = {
   color: '#9b7b63',
   background: '#fff8f1',
 }
-const bulkActionStyle = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: 8,
-  alignItems: 'center',
-  marginBottom: 12,
-}
-
-const bulkHintStyle = {
+ 
+ 
+const fieldLabelStyle = {
+  display: 'block',
+  marginBottom: 6,
   fontSize: 12,
-  color: '#8b6f5a',
-  fontWeight: 700,
+  fontWeight: 900,
+  color: '#7b5a42',
 }
