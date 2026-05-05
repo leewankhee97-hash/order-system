@@ -319,7 +319,7 @@ let monthProfitTotal = 0
  
     const top = Object.values(productMap)
       .sort((a, b) => b.qty - a.qty)
-      .slice(0, 10)
+      .slice(0, 3)
  
     const prevMonth = month === 1 ? 12 : month - 1
     const prevYear = month === 1 ? year - 1 : year
