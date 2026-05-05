@@ -25,7 +25,7 @@ const STATES = [
 const EAST = ['SABAH', 'SARAWAK', 'WP LABUAN']
  
 const APP_VERSION =
-  process.env.NEXT_PUBLIC_APP_VERSION || '2026-04-25-1'
+  process.env.NEXT_PUBLIC_APP_VERSION || '2026-05-05-bundle-v2'
 const VERSION_PARAM = '_v'
 const REFRESH_PARAM = '_r'
 const VERSION_STORAGE_KEY = 'order2_app_version'
@@ -183,6 +183,103 @@ function splitBrandFlavor(brand, productName) {
   }
 }
  
+ 
+function getBundleLinks(bundle) {
+  return Array.isArray(bundle?.bundle_rule_products)
+    ? bundle.bundle_rule_products
+    : []
+}
+ 
+function getBundleProductIdsByRole(bundle, role) {
+  return getBundleLinks(bundle)
+    .filter((row) => normalizeText(row?.role || 'main') === role)
+    .map((row) => String(row.product_id))
+    .filter(Boolean)
+}
+ 
+function getBundleProductsByRole(bundle, allProducts, role, fallbackToBrand = false) {
+  if (!bundle) return []
+ 
+  const ids = getBundleProductIdsByRole(bundle, role)
+  let rows = []
+ 
+  if (ids.length > 0) {
+    const idSet = new Set(ids)
+    rows = allProducts.filter((p) => idSet.has(String(p.id)))
+  }
+ 
+  if (rows.length === 0 && fallbackToBrand) {
+    const bundleBrand = normalizeText(bundle.brand)
+    const bundleSeries = normalizeText(bundle.series)
+ 
+    rows = allProducts.filter((p) => {
+      if (p.is_active === false) return false
+      if (Number(p.stock || 0) <= 0) return false
+      if (bundleBrand && !eqText(p.brand, bundleBrand)) return false
+      if (bundleSeries && !eqText(p.series, bundleSeries)) return false
+      return true
+    })
+  }
+ 
+  return rows.filter((p) => p.is_active !== false && Number(p.stock || 0) > 0)
+}
+ 
+function selectionTotal(map) {
+  return Object.values(map || {}).reduce((sum, qty) => sum + Number(qty || 0), 0)
+}
+ 
+function buildSelectionItems(map, productPool, role = 'main') {
+  return Object.entries(map || {})
+    .map(([pid, qty]) => {
+      const p = productPool.find((x) => String(x.id) === String(pid))
+      const n = Number(qty || 0)
+      if (!p || n <= 0) return null
+ 
+      return {
+        product_id: p.id,
+        product_name: cleanProductName(p),
+        brand: p.brand || '',
+        series: p.series || '',
+        product_type: getProductType(p),
+        role,
+        qty: n,
+        stock: Number(p.stock || 0),
+        is_muar_only: Boolean(p.is_muar_only),
+      }
+    })
+    .filter(Boolean)
+}
+ 
+function buildRandomGiftLines(bundle, groupCount) {
+  const mode = normalizeText(bundle?.gift_mode)
+  const chooseMode = normalizeText(bundle?.gift_choose_mode)
+  const freeQty = Number(bundle?.free_qty || 0)
+  const rows = []
+ 
+  if (groupCount <= 0) return rows
+ 
+  if (chooseMode === 'random') {
+    if (mode === 'pod') {
+      rows.push({ label: 'POD', qty: Math.max(1, freeQty) * groupCount, note: '随机发货' })
+    } else if (mode === 'device') {
+      rows.push({ label: '烟枪', qty: Math.max(1, freeQty) * groupCount, note: '随机发货' })
+    } else if (mode === 'pod_and_device') {
+      rows.push({ label: 'POD', qty: groupCount, note: '随机发货' })
+      rows.push({ label: '烟枪', qty: groupCount, note: '随机发货' })
+    }
+  }
+ 
+  if (chooseMode === 'partial_choose') {
+    if (mode === 'pod_and_device') {
+      rows.push({ label: '烟枪', qty: groupCount, note: '随机发货' })
+    } else if (mode === 'device') {
+      rows.push({ label: '烟枪', qty: Math.max(1, freeQty) * groupCount, note: '随机发货' })
+    }
+  }
+ 
+  return rows
+}
+ 
 function getSummaryGroupName(item) {
   return normalizeText(item?.brand) || cleanProductName(item) || '-'
 }
@@ -274,6 +371,9 @@ export default function Page() {
  
   const [cart, setCart] = useState([])
   const [bundleSelect, setBundleSelect] = useState({})
+  const [bundleGiftSelect, setBundleGiftSelect] = useState({})
+  const [bundleComboPodSelect, setBundleComboPodSelect] = useState({})
+  const [bundleComboDeviceSelect, setBundleComboDeviceSelect] = useState({})
   const [selectedBundle, setSelectedBundle] = useState(null)
   const [selectedBundleFlavor, setSelectedBundleFlavor] = useState('')
  
@@ -566,8 +666,9 @@ useEffect(() => {
       for (let retry = 0; retry < 3 && !bundlesData; retry++) {
         const { data: b, error: bundlesError } = await supabase
           .from('bundle_rules')
-          .select('*')
+          .select(`*, bundle_rule_products(id, bundle_rule_id, product_id, role, qty_required, is_gift, choose_required, random_only)`)
           .eq('is_active', true)
+          .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true })
  
         if (bundlesError) {
@@ -614,6 +715,9 @@ useEffect(() => {
  
   // ✅ 只清 bundle 相关
   setBundleSelect({})
+  setBundleGiftSelect({})
+  setBundleComboPodSelect({})
+  setBundleComboDeviceSelect({})
   setSelectedBundle(null)
   setSelectedBundleFlavor('')
   setDraftQty({})
@@ -756,29 +860,70 @@ useEffect(() => {
  
   function addBundleToCart() {
     if (!selectedBundle) return
-    if (bundleGroupCount <= 0) return
-    if (bundleCount <= 0) return
  
-    const selectedItems = Object.entries(bundleSelect)
-      .map(([pid, qty]) => {
-        const p = products.find((x) => String(x.id) === String(pid))
-        if (!p || Number(qty || 0) <= 0) return null
+    const bundleType = normalizeText(selectedBundle.bundle_type || 'buy_x_get_y')
+    const giftMode = normalizeText(selectedBundle.gift_mode || 'none')
+    const giftChooseMode = normalizeText(selectedBundle.gift_choose_mode || 'none')
  
-        return {
-          product_id: p.id,
-          product_name: cleanProductName(p),
-          brand: p.brand || '',
-          series: p.series || '',
-          qty: Number(qty || 0),
-          stock: Number(p.stock || 0),
-          is_muar_only: Boolean(p.is_muar_only),
+    let groupCount = bundleGroupCount
+    let mainItems = []
+    let giftItems = []
+    let comboItems = []
+    let randomGifts = []
+ 
+    if (bundleType === 'fixed_combo') {
+      if (bundleComboPodCount <= 0 || bundleComboDeviceCount <= 0) {
+        setError('请选择组合里的烟弹和烟枪')
+        return
+      }
+ 
+      if (bundleComboPodCount !== bundleComboDeviceCount) {
+        setError('固定组合的烟弹数量和烟枪数量必须一样')
+        return
+      }
+ 
+      groupCount = bundleComboPodCount
+      comboItems = [
+        ...buildSelectionItems(bundleComboPodSelect, bundleComboPodProducts, 'combo_pod'),
+        ...buildSelectionItems(bundleComboDeviceSelect, bundleComboDeviceProducts, 'combo_device'),
+      ]
+    } else {
+      if (bundleCount <= 0 || groupCount <= 0) {
+        setError('请选择 Bundle 购买口味')
+        return
+      }
+ 
+      if (bundleBuyQty > 0 && bundleCount % bundleBuyQty !== 0) {
+        setError(`这个 Bundle 每组需要购买 ${bundleBuyQty} 个，目前还差 ${bundleBuyQty - (bundleCount % bundleBuyQty)} 个`)
+        return
+      }
+ 
+      mainItems = buildSelectionItems(bundleSelect, bundleProducts, 'main')
+ 
+      const requiredGiftPodQty =
+        giftChooseMode === 'choose'
+          ? Number(selectedBundle.free_qty || 0) * groupCount
+          : giftChooseMode === 'partial_choose' && giftMode === 'pod_and_device'
+            ? groupCount
+            : 0
+ 
+      if (requiredGiftPodQty > 0) {
+        giftItems = buildSelectionItems(bundleGiftSelect, bundleGiftPodProducts, 'gift_pod')
+        const selectedGiftQty = giftItems.reduce((sum, item) => sum + Number(item.qty || 0), 0)
+ 
+        if (selectedGiftQty !== requiredGiftPodQty) {
+          setError(`这个 Bundle 需要选择 ${requiredGiftPodQty} 个赠品烟弹，目前已选 ${selectedGiftQty} 个`)
+          return
         }
-      })
-      .filter(Boolean)
+      }
  
-    if (selectedItems.length === 0) return
+      randomGifts = buildRandomGiftLines(selectedBundle, groupCount)
+    }
  
-    const bundleHasMuar = selectedItems.some((i) => i.is_muar_only)
+    const allDeductItems = [...mainItems, ...giftItems, ...comboItems]
+    if (allDeductItems.length === 0 && randomGifts.length === 0) return
+ 
+    const bundleHasMuar = allDeductItems.some((i) => i.is_muar_only)
     const cartHasMuar = cart.some((i) => i.is_muar_only)
     const cartHasNormal = cart.some((i) => !i.is_muar_only)
  
@@ -798,15 +943,27 @@ useEffect(() => {
       bundle_rule_id: selectedBundle.id,
       bundle_name: selectedBundle.name,
       bundle_brand: selectedBundle.brand || '',
-      qty: bundleGroupCount,
+      bundle_type: bundleType,
+      gift_mode: giftMode,
+      gift_choose_mode: giftChooseMode,
+      gift_note: selectedBundle.gift_note || '',
+      display_tag: selectedBundle.display_tag || '',
+      qty: groupCount,
       price: bundleSinglePrice,
-      bundle_items: selectedItems,
+      bundle_items: mainItems,
+      bundle_gift_items: giftItems,
+      bundle_combo_items: comboItems,
+      bundle_random_gifts: randomGifts,
       is_muar_only: bundleHasMuar,
     }
  
     setCart((prev) => [...prev, bundleCartItem])
     setBundleSelect({})
+    setBundleGiftSelect({})
+    setBundleComboPodSelect({})
+    setBundleComboDeviceSelect({})
     setSelectedBundleFlavor('')
+    setError('')
   }
  
   function changeCartQty(id, nextQty) {
@@ -904,10 +1061,10 @@ useEffect(() => {
  
   const filteredProducts = useMemo(() => {
   const q = search.trim().toLowerCase()
-
+ 
   return products.filter((p) => {
     const displayName = cleanProductName(p)
-
+ 
     const joined = [
       getProductType(p),
       p.brand,
@@ -918,43 +1075,43 @@ useEffect(() => {
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
-
+ 
     // ✅ 搜索时：直接显示搜索结果
     if (q) {
       if (!joined.includes(q)) return false
     } else {
       // ✅ 没搜索时：必须选到口味 / 颜色才显示产品
       if (!selectedType || !selectedBrand || !selectedVariant) return false
-
+ 
       if (getProductType(p) !== selectedType) return false
       if (!eqText(p.brand, selectedBrand)) return false
       if (displayName !== selectedVariant) return false
     }
-
+ 
     if (Number(p.stock || 0) <= 0) return false
     if (p.is_active === false) return false
-
+ 
     return true
   }).sort((a, b) => {
     if (!q) return 0
-
+ 
     const getScore = (p) => {
       const brand = String(p.brand || '').toLowerCase()
       const series = String(p.series || '').toLowerCase()
       const name = String(p.name || '').toLowerCase()
       const cleanName = cleanProductName(p).toLowerCase()
-
+ 
       let score = 0
-
+ 
       if (brand === q) score += 100
       if (brand.includes(q)) score += 50
       if (series.includes(q)) score += 30
       if (name.includes(q)) score += 20
       if (cleanName.includes(q)) score += 10
-
+ 
       return score
     }
-
+ 
     return getScore(b) - getScore(a)
   })
 }, [products, selectedType, selectedBrand, selectedVariant, search])
@@ -973,18 +1130,32 @@ useEffect(() => {
     return () => clearTimeout(timer)
   }, [selectedVariant, filteredProducts.length])
  
-  const bundleProducts = useMemo(() => {
-    if (!selectedBundle) return []
- 
-    const bundleBrand = normalizeText(selectedBundle.brand)
-    if (!bundleBrand) return []
- 
-    return products.filter((p) => {
-      if (p.is_active === false) return false
-      if (Number(p.stock || 0) <= 0) return false
-      return eqText(p.brand, bundleBrand)
-    })
+  const bundleMainProducts = useMemo(() => {
+    return getBundleProductsByRole(selectedBundle, products, 'main', true)
   }, [selectedBundle, products])
+ 
+  const bundleGiftPodProducts = useMemo(() => {
+    return getBundleProductsByRole(selectedBundle, products, 'gift_pod', false)
+  }, [selectedBundle, products])
+ 
+  const bundleGiftDeviceProducts = useMemo(() => {
+    return getBundleProductsByRole(selectedBundle, products, 'gift_device', false)
+  }, [selectedBundle, products])
+ 
+  const bundleComboPodProducts = useMemo(() => {
+    return getBundleProductsByRole(selectedBundle, products, 'combo_pod', false)
+  }, [selectedBundle, products])
+ 
+  const bundleComboDeviceProducts = useMemo(() => {
+    return getBundleProductsByRole(selectedBundle, products, 'combo_device', false)
+  }, [selectedBundle, products])
+ 
+  const bundleProducts = useMemo(() => {
+    if (normalizeText(selectedBundle?.bundle_type) === 'fixed_combo') {
+      return bundleComboPodProducts.length > 0 ? bundleComboPodProducts : bundleMainProducts
+    }
+    return bundleMainProducts
+  }, [selectedBundle, bundleMainProducts, bundleComboPodProducts])
  
   const bundleFlavorOptions = useMemo(() => {
     return bundleProducts
@@ -1053,16 +1224,35 @@ useEffect(() => {
   const bundleLimit = Number(selectedBundle?.min_select_qty || 0)
   const bundleBuyQty = Number(selectedBundle?.buy_qty || 0)
   const bundleFreeQty = Number(selectedBundle?.free_qty || 0)
-  const bundleGroupSize =
-    bundleBuyQty > 0 || bundleFreeQty > 0 ? bundleBuyQty + bundleFreeQty : 0
+  const bundleGroupSize = bundleBuyQty > 0 ? bundleBuyQty : bundleLimit
  
   const bundleCount = useMemo(() => {
-    return Object.values(bundleSelect).reduce((s, v) => s + Number(v || 0), 0)
+    return selectionTotal(bundleSelect)
   }, [bundleSelect])
  
+  const bundleGiftCount = useMemo(() => {
+    return selectionTotal(bundleGiftSelect)
+  }, [bundleGiftSelect])
+ 
+  const bundleComboPodCount = useMemo(() => {
+    return selectionTotal(bundleComboPodSelect)
+  }, [bundleComboPodSelect])
+ 
+  const bundleComboDeviceCount = useMemo(() => {
+    return selectionTotal(bundleComboDeviceSelect)
+  }, [bundleComboDeviceSelect])
+ 
   const bundleGroupCount = useMemo(() => {
-    if (bundleGroupSize > 0) {
-      return Math.floor(bundleCount / bundleGroupSize)
+    if (!selectedBundle) return 0
+ 
+    if (normalizeText(selectedBundle.bundle_type) === 'fixed_combo') {
+      if (bundleComboPodCount <= 0 || bundleComboDeviceCount <= 0) return 0
+      if (bundleComboPodCount !== bundleComboDeviceCount) return 0
+      return bundleComboPodCount
+    }
+ 
+    if (bundleBuyQty > 0) {
+      return Math.floor(bundleCount / bundleBuyQty)
     }
  
     if (bundleLimit > 0) {
@@ -1070,7 +1260,7 @@ useEffect(() => {
     }
  
     return selectedBundle && bundleCount > 0 ? 1 : 0
-  }, [bundleCount, bundleGroupSize, bundleLimit, selectedBundle])
+  }, [bundleCount, bundleBuyQty, bundleLimit, selectedBundle, bundleComboPodCount, bundleComboDeviceCount])
  
   const bundleSinglePrice = useMemo(() => {
     return selectedBundle ? getBundlePrice(selectedBundle) : 0
@@ -1101,7 +1291,7 @@ useEffect(() => {
     if (!selectedBundle) return ''
  
     if (bundleGroupSize > 0) {
-      return `每组 ${bundleBuyQty}送${bundleFreeQty}，共 ${bundleGroupSize} 个`
+      return `每组购买 ${bundleBuyQty} 个，赠品 ${bundleFreeQty} 个`
     }
  
     if (bundleLimit > 0) {
@@ -1142,6 +1332,70 @@ useEffect(() => {
     if (next > Number(maxStock || 0)) next = Number(maxStock || 0)
     setBundleQty(pid, next)
   }
+  function setBundleGiftQty(pid, qty) {
+    const targetProduct = bundleGiftPodProducts.find((p) => String(p.id) === String(pid)) ||
+      bundleGiftDeviceProducts.find((p) => String(p.id) === String(pid))
+    const maxStock = Number(targetProduct?.stock || 0)
+    let next = Number(qty || 0)
+    if (Number.isNaN(next) || next < 0) next = 0
+    if (next > maxStock) next = maxStock
+ 
+    setBundleGiftSelect((prev) => ({
+      ...prev,
+      [pid]: next,
+    }))
+  }
+ 
+  function changeBundleGiftQty(pid, delta, maxStock) {
+    const current = Number(bundleGiftSelect[pid] || 0)
+    let next = current + delta
+    if (next < 0) next = 0
+    if (next > Number(maxStock || 0)) next = Number(maxStock || 0)
+    setBundleGiftQty(pid, next)
+  }
+ 
+  function setComboPodQty(pid, qty) {
+    const targetProduct = bundleComboPodProducts.find((p) => String(p.id) === String(pid))
+    const maxStock = Number(targetProduct?.stock || 0)
+    let next = Number(qty || 0)
+    if (Number.isNaN(next) || next < 0) next = 0
+    if (next > maxStock) next = maxStock
+ 
+    setBundleComboPodSelect((prev) => ({
+      ...prev,
+      [pid]: next,
+    }))
+  }
+ 
+  function changeComboPodQty(pid, delta, maxStock) {
+    const current = Number(bundleComboPodSelect[pid] || 0)
+    let next = current + delta
+    if (next < 0) next = 0
+    if (next > Number(maxStock || 0)) next = Number(maxStock || 0)
+    setComboPodQty(pid, next)
+  }
+ 
+  function setComboDeviceQty(pid, qty) {
+    const targetProduct = bundleComboDeviceProducts.find((p) => String(p.id) === String(pid))
+    const maxStock = Number(targetProduct?.stock || 0)
+    let next = Number(qty || 0)
+    if (Number.isNaN(next) || next < 0) next = 0
+    if (next > maxStock) next = maxStock
+ 
+    setBundleComboDeviceSelect((prev) => ({
+      ...prev,
+      [pid]: next,
+    }))
+  }
+ 
+  function changeComboDeviceQty(pid, delta, maxStock) {
+    const current = Number(bundleComboDeviceSelect[pid] || 0)
+    let next = current + delta
+    if (next < 0) next = 0
+    if (next > Number(maxStock || 0)) next = Number(maxStock || 0)
+    setComboDeviceQty(pid, next)
+  }
+ 
  
   const cartQty = useMemo(() => {
     return cart.reduce((s, i) => {
@@ -1174,20 +1428,29 @@ useEffect(() => {
   const postageItemCount = useMemo(() => {
     return cart.reduce((s, i) => {
       if (i.is_bundle) {
-        const bundleItemQty = (i.bundle_items || []).reduce(
-          (sum, bi) => sum + Number(bi.qty || 0),
-          0
-        )
-        return s + bundleItemQty
+        const bundlePodQty = [
+          ...(i.bundle_items || []),
+          ...(i.bundle_gift_items || []),
+          ...(i.bundle_combo_items || []),
+        ].reduce((sum, bi) => {
+          if (bi.product_type === '烟弹') return sum + Number(bi.qty || 0)
+          return sum
+        }, 0)
+ 
+        return s + bundlePodQty
       }
  
-      return s + Number(i.qty || 0)
+      if (getProductType(i) === '烟弹') {
+        return s + Number(i.qty || 0)
+      }
+ 
+      return s
     }, 0)
   }, [cart])
  
   const shippingFee = useMemo(() => {
     if (delivery === '邮寄') {
-      if (postageItemCount > 19) return 'ASK'
+      if (postageItemCount > 30) return 'ASK'
       if (EAST.includes((state || '').toUpperCase())) return 28
       return 10
     }
@@ -1319,6 +1582,9 @@ useEffect(() => {
   setSelectedBundle(null)
   setSelectedBundleFlavor('')
   setBundleSelect({})
+  setBundleGiftSelect({})
+  setBundleComboPodSelect({})
+  setBundleComboDeviceSelect({})
   setDate('')
   setTime('')
   setName('')
@@ -1338,78 +1604,106 @@ useEffect(() => {
 }
  
   function shippingText() {
-    if (shippingFee === 'ASK') return '请问我查询运费'
+    if (shippingFee === 'ASK') return '称重后通知'
     return `RM ${money(shippingFee)}`
   }
  
 function buildCopiedSummary(oid) {
   const lines = []
   const itemTotal = normalTotal + bundleCartTotal
-
+ 
   const deliveryTitle =
     delivery === 'LALAMOVE'
       ? 'LALAMOVE🚗'
       : delivery === '邮寄'
         ? '邮寄📦'
         : '自取🏠'
-
+ 
   lines.push(deliveryTitle)
   lines.push('')
-
+ 
   // ✅ 1. 先显示普通产品 + 价格 + 小计
   buildGroupedNormalItems(cart).forEach((group, gIndex) => {
     if (gIndex !== 0) {
       lines.push('')
     }
-
+ 
     lines.push(`【${group.name}】`)
-
+ 
     const priceMap = {}
-
+ 
     group.variants.forEach((variant) => {
       const priceKey = money(variant.price)
       if (!priceMap[priceKey]) priceMap[priceKey] = []
       priceMap[priceKey].push(variant)
     })
-
+ 
     Object.entries(priceMap).forEach(([price, variants]) => {
       lines.push(`💰 RM${price}`)
-
+ 
       variants.forEach((variant) => {
         lines.push(`• ${variant.name} ×${variant.qty}`)
       })
     })
-
+ 
     lines.push(`🧮 小计：RM${money(group.subtotal)}`)
   })
-
+ 
   // ✅ 2. 显示 Bundle 产品 + 价格 + 小计
   cart
     .filter((item) => item.is_bundle)
     .forEach((item) => {
       const subtotal = Number(item.qty || 0) * Number(item.price || 0)
-
+      const titleTag = item.display_tag ? `｜${item.display_tag}` : ''
+ 
       lines.push('')
-      lines.push(`${item.bundle_name}（BUNDLE）× ${item.qty}组`)
-      lines.push(`每组：RM${money(item.price)}`)
-      lines.push(`小计：RM${money(subtotal)}`)
-      lines.push(`口味明细`)
-
-      ;(item.bundle_items || []).forEach((bi) => {
-        const split = splitBrandFlavor(bi.brand, bi.product_name)
-
-        if (split.brandLine) {
-          lines.push(split.brandLine)
-        }
-
-        lines.push(`• ${split.flavorLine} ×${bi.qty}`)
-      })
+      lines.push(`【${item.bundle_name}${titleTag}】`)
+      lines.push(`💰 RM${money(item.price)}`)
+ 
+      if ((item.bundle_items || []).length > 0) {
+        lines.push('')
+        lines.push(`购买口味：`)
+        ;(item.bundle_items || []).forEach((bi) => {
+          const split = splitBrandFlavor(bi.brand, bi.product_name)
+          lines.push(`• ${split.flavorLine} ×${bi.qty}`)
+        })
+      }
+ 
+      if ((item.bundle_combo_items || []).length > 0) {
+        lines.push('')
+        lines.push(`组合内容：`)
+        ;(item.bundle_combo_items || []).forEach((bi) => {
+          const split = splitBrandFlavor(bi.brand, bi.product_name)
+          const label = bi.role === 'combo_device' ? '烟枪' : '烟弹'
+          lines.push(`• ${label}：${split.flavorLine} ×${bi.qty}`)
+        })
+      }
+ 
+      if ((item.bundle_gift_items || []).length > 0 || (item.bundle_random_gifts || []).length > 0) {
+        lines.push('')
+        lines.push(`赠品：`)
+ 
+        ;(item.bundle_gift_items || []).forEach((bi) => {
+          const split = splitBrandFlavor(bi.brand, bi.product_name)
+          lines.push(`• ${split.flavorLine} ×${bi.qty}`)
+        })
+ 
+        ;(item.bundle_random_gifts || []).forEach((gift) => {
+          lines.push(`• ${gift.label} ×${gift.qty}（${gift.note || '随机发货'}）`)
+        })
+      }
+ 
+      if (item.gift_note) {
+        lines.push(`备注：${item.gift_note}`)
+      }
+ 
+      lines.push(`🧮 小计：RM${money(subtotal)}`)
     })
-
+ 
   // ✅ 3. 备注 / 备选
   lines.push('')
   lines.push(`备注`)
-
+ 
   if (noBackup) {
     lines.push(`【不选择备选】`)
     lines.push(`如遇缺货，下一单扣`)
@@ -1419,25 +1713,25 @@ function buildCopiedSummary(oid) {
         normalizeText(item.is_bundle ? item.bundle_brand : item.brand)
       )
     )
-
+ 
     const backupEntries = Object.entries(backupSelections).filter(
       ([brand, flavors]) =>
         Array.isArray(flavors) &&
         flavors.length > 0 &&
         cartBrands.has(normalizeText(brand))
     )
-
+ 
     if (backupEntries.length > 0) {
       lines.push(`【备选口味/颜色】`)
       lines.push('')
-
+ 
       backupEntries.forEach(([brand, flavors], index) => {
         lines.push(brand)
-
+ 
         flavors.forEach((f) => {
           lines.push(`• ${f}`)
         })
-
+ 
         if (index !== backupEntries.length - 1) {
           lines.push('')
         }
@@ -1446,7 +1740,7 @@ function buildCopiedSummary(oid) {
       lines.push(`-`)
     }
   }
-
+ 
   // ✅ 4. 费用明细
   lines.push('')
   lines.push(`费用明细`)
@@ -1454,16 +1748,16 @@ function buildCopiedSummary(oid) {
   lines.push(
     `运费：${
       shippingFee === 'ASK'
-        ? '请问我查询运费'
+        ? '称重后通知'
         : `RM${money(shippingFee)}`
     }`
   )
   lines.push(`总额：RM${money(total)}`)
-
+ 
   // ✅ 5. 分隔线
   lines.push('')
   lines.push('━━━━━━━━━━━━━━━')
-
+ 
   // ✅ 6. 最后显示收件 / 配送资料
   if (delivery === '邮寄') {
     lines.push(`收件人：${name || '-'}`)
@@ -1472,19 +1766,19 @@ function buildCopiedSummary(oid) {
     lines.push(`Postcode：${postcode || '-'}`)
     lines.push(`State：${state || '-'}`)
   }
-
+ 
   if (delivery === 'LALAMOVE') {
   lines.push(`收件人：${name || '-'}`)
   lines.push(`电话：${phone || '-'}`)
   lines.push(`地址：${address || '-'}`)
 }
-
+ 
   if (delivery === '自取') {
     lines.push(`订单编号：${oid || '-'}`)
     lines.push(`自取日期：${date || '-'}`)
     lines.push(`自取时间：${time || '-'}`)
   }
-
+ 
   return lines.join('\n')
 }
  
@@ -1663,7 +1957,13 @@ console.log('OID:', oid)
  
       cart.forEach((i) => {
         if (i.is_bundle) {
-          ;(i.bundle_items || []).forEach((bi) => {
+          const bundleDeductItems = [
+            ...(i.bundle_items || []),
+            ...(i.bundle_gift_items || []),
+            ...(i.bundle_combo_items || []),
+          ]
+ 
+          bundleDeductItems.forEach((bi) => {
             items.push({
               order_id: order.id,
               product_id: bi.product_id,
@@ -1671,7 +1971,12 @@ console.log('OID:', oid)
               qty: Number(bi.qty || 0),
               unit_price: 0,
               subtotal: 0,
-              item_type: 'BUNDLE_ITEM',
+              item_type:
+                bi.role === 'gift_pod' || bi.role === 'gift_device'
+                  ? 'BUNDLE_GIFT'
+                  : bi.role === 'combo_pod' || bi.role === 'combo_device'
+                    ? 'BUNDLE_COMBO'
+                    : 'BUNDLE_ITEM',
               bundle_rule_id: i.bundle_rule_id,
               bundle_name: i.bundle_name,
             })
@@ -1694,7 +1999,13 @@ console.log('OID:', oid)
  
       for (const i of cart) {
   if (i.is_bundle) {
-    for (const bi of i.bundle_items || []) {
+    const bundleDeductItems = [
+      ...(i.bundle_items || []),
+      ...(i.bundle_gift_items || []),
+      ...(i.bundle_combo_items || []),
+    ]
+ 
+    for (const bi of bundleDeductItems) {
       const { error: bundleStockError } = await supabase.rpc(
         'decrement_stock',
         {
@@ -2084,6 +2395,9 @@ console.log('OID:', oid)
                     onClick={() => {
                       setSelectedBundle(b)
                       setBundleSelect({})
+                      setBundleGiftSelect({})
+                      setBundleComboPodSelect({})
+                      setBundleComboDeviceSelect({})
                       setSelectedBundleFlavor('')
                       setTimeout(() => {
                         bundleSectionRef.current?.scrollIntoView({
@@ -2173,6 +2487,9 @@ console.log('OID:', oid)
                         type="button"
                         onClick={() => {
                           setBundleSelect({})
+                          setBundleGiftSelect({})
+                          setBundleComboPodSelect({})
+                          setBundleComboDeviceSelect({})
                           setSelectedBundleFlavor(bundleFlavorOptions[0] || '')
                         }}
                         className="rounded-3xl border border-[#eadacb] bg-white px-4 py-2 text-sm text-[#7a5b47] hover:bg-[#f8efe6]"
@@ -2191,7 +2508,7 @@ console.log('OID:', oid)
                     </button>
                   </div>
  
-                  {bundleProducts.length === 0 ? (
+                  {selectedBundle?.bundle_type === 'fixed_combo' ? null : bundleProducts.length === 0 ? (
                     <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">
                       这个 Bundle 目前没有匹配到产品。请检查{' '}
                       <strong>bundle_rules.brand</strong> 是否和{' '}
@@ -2397,6 +2714,88 @@ console.log('OID:', oid)
                             ))}
                           </div>
                         )}
+ 
+ 
+                      {selectedBundle?.bundle_type === 'fixed_combo' ? (
+                        <>
+                          <div className="rounded-[26px] border border-[#eadacb] bg-[#fffdfb] p-4">
+                            <div className="text-base font-black text-[#5f4432]">组合烟弹</div>
+                            <div className="mt-3 space-y-2">
+                              {bundleComboPodProducts.length === 0 ? (
+                                <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                                  后台还没有绑定 combo_pod 产品。
+                                </div>
+                              ) : bundleComboPodProducts.map((p) => (
+                                <div key={`combo-pod-${p.id}`} className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
+                                  <div className="mb-2 font-bold text-[#5f4432]">{cleanProductName(p)}</div>
+                                  <div className="mb-2 text-xs text-[#8b7260]">Stock: {Number(p.stock || 0)}</div>
+                                  <div className="flex items-center gap-2">
+                                    <button type="button" onClick={() => changeComboPodQty(p.id, -1, p.stock)} className="h-10 w-10 rounded-full border bg-white">-</button>
+                                    <input type="number" value={bundleComboPodSelect[p.id] || 0} onChange={(e) => setComboPodQty(p.id, e.target.value)} className="h-10 flex-1 rounded-3xl border px-3 text-center font-bold" />
+                                    <button type="button" onClick={() => changeComboPodQty(p.id, 1, p.stock)} className="h-10 w-10 rounded-full border bg-white">+</button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+ 
+                          <div className="rounded-[26px] border border-[#eadacb] bg-[#fffdfb] p-4">
+                            <div className="text-base font-black text-[#5f4432]">组合烟枪</div>
+                            <div className="mt-3 space-y-2">
+                              {bundleComboDeviceProducts.length === 0 ? (
+                                <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                                  后台还没有绑定 combo_device 产品。
+                                </div>
+                              ) : bundleComboDeviceProducts.map((p) => (
+                                <div key={`combo-device-${p.id}`} className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
+                                  <div className="mb-2 font-bold text-[#5f4432]">{cleanProductName(p)}</div>
+                                  <div className="mb-2 text-xs text-[#8b7260]">Stock: {Number(p.stock || 0)}</div>
+                                  <div className="flex items-center gap-2">
+                                    <button type="button" onClick={() => changeComboDeviceQty(p.id, -1, p.stock)} className="h-10 w-10 rounded-full border bg-white">-</button>
+                                    <input type="number" value={bundleComboDeviceSelect[p.id] || 0} onChange={(e) => setComboDeviceQty(p.id, e.target.value)} className="h-10 flex-1 rounded-3xl border px-3 text-center font-bold" />
+                                    <button type="button" onClick={() => changeComboDeviceQty(p.id, 1, p.stock)} className="h-10 w-10 rounded-full border bg-white">+</button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
+ 
+                      {selectedBundle?.gift_choose_mode === 'choose' || selectedBundle?.gift_choose_mode === 'partial_choose' ? (
+                        <div className="rounded-[26px] border border-[#f5e1b8] bg-[#fffaf0] p-4">
+                          <div className="text-base font-black text-[#5f4432]">赠品烟弹选择</div>
+                          <div className="mt-1 text-sm text-[#8b7260]">
+                            {selectedBundle?.gift_choose_mode === 'partial_choose'
+                              ? `需要选择 ${bundleGroupCount} 个赠品烟弹，烟枪随机发货`
+                              : `需要选择 ${Number(selectedBundle?.free_qty || 0) * bundleGroupCount} 个赠品`}
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {bundleGiftPodProducts.length === 0 ? (
+                              <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                                后台还没有绑定 gift_pod 产品。如果赠品和购买口味一样，请在后台把同一批产品也绑定到 gift_pod。
+                              </div>
+                            ) : bundleGiftPodProducts.map((p) => (
+                              <div key={`gift-pod-${p.id}`} className="rounded-3xl border border-[#eadacb] bg-white p-3">
+                                <div className="mb-2 font-bold text-[#5f4432]">{cleanProductName(p)}</div>
+                                <div className="mb-2 text-xs text-[#8b7260]">Stock: {Number(p.stock || 0)}</div>
+                                <div className="flex items-center gap-2">
+                                  <button type="button" onClick={() => changeBundleGiftQty(p.id, -1, p.stock)} className="h-10 w-10 rounded-full border bg-white">-</button>
+                                  <input type="number" value={bundleGiftSelect[p.id] || 0} onChange={(e) => setBundleGiftQty(p.id, e.target.value)} className="h-10 flex-1 rounded-3xl border px-3 text-center font-bold" />
+                                  <button type="button" onClick={() => changeBundleGiftQty(p.id, 1, p.stock)} className="h-10 w-10 rounded-full border bg-white">+</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+ 
+                      {selectedBundle?.gift_choose_mode === 'random' || selectedBundle?.gift_choose_mode === 'partial_choose' ? (
+                        <div className="rounded-3xl border border-[#f5e1b8] bg-[#fffaf0] px-4 py-4 text-sm text-[#8a5d1f]">
+                          🎁 随机赠品：{buildRandomGiftLines(selectedBundle, Math.max(bundleGroupCount, 1)).map((g) => `${g.label} ×${g.qty}`).join('，') || '随机发货'}
+                          <div className="mt-1 text-xs">随机赠品第一版不会自动扣库存。</div>
+                        </div>
+                      ) : null}
                       </div>
                     </>
                   )}
@@ -2669,18 +3068,56 @@ console.log('OID:', oid)
                           </button>
                         </div>
  
-                        <div className="mt-3 rounded-3xl border border-[#d8ead9] bg-white/80 p-3">
-                          <div className="text-xs font-bold uppercase tracking-[0.22em] text-[#6d8d70]">
-                            Bundle Items
+                        {(item.bundle_items || []).length > 0 ? (
+                          <div className="mt-3 rounded-3xl border border-[#d8ead9] bg-white/80 p-3">
+                            <div className="text-xs font-bold uppercase tracking-[0.22em] text-[#6d8d70]">
+                              购买口味
+                            </div>
+                            <div className="mt-2 space-y-1 text-sm text-[#446148]">
+                              {(item.bundle_items || []).map((bi, idx) => (
+                                <div key={`${item.id}-${bi.product_id}-main-${idx}`}>
+                                  {bi.product_name} - {bi.qty}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <div className="mt-2 space-y-1 text-sm text-[#446148]">
-                            {(item.bundle_items || []).map((bi, idx) => (
-                              <div key={`${item.id}-${bi.product_id}-${idx}`}>
-                                {bi.product_name} - {bi.qty}
-                              </div>
-                            ))}
+                        ) : null}
+ 
+                        {(item.bundle_combo_items || []).length > 0 ? (
+                          <div className="mt-3 rounded-3xl border border-[#d8ead9] bg-white/80 p-3">
+                            <div className="text-xs font-bold uppercase tracking-[0.22em] text-[#6d8d70]">
+                              组合内容
+                            </div>
+                            <div className="mt-2 space-y-1 text-sm text-[#446148]">
+                              {(item.bundle_combo_items || []).map((bi, idx) => (
+                                <div key={`${item.id}-${bi.product_id}-combo-${idx}`}>
+                                  {bi.role === 'combo_device' ? '烟枪' : '烟弹'}：{bi.product_name} - {bi.qty}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        ) : null}
+ 
+                        {((item.bundle_gift_items || []).length > 0 || (item.bundle_random_gifts || []).length > 0) ? (
+                          <div className="mt-3 rounded-3xl border border-[#f5e1b8] bg-[#fffaf0] p-3">
+                            <div className="text-xs font-bold uppercase tracking-[0.22em] text-[#9a6b2d]">
+                              赠品
+                            </div>
+                            <div className="mt-2 space-y-1 text-sm text-[#6c552f]">
+                              {(item.bundle_gift_items || []).map((bi, idx) => (
+                                <div key={`${item.id}-${bi.product_id}-gift-${idx}`}>
+                                  {bi.product_name} - {bi.qty}
+                                </div>
+                              ))}
+ 
+                              {(item.bundle_random_gifts || []).map((gift, idx) => (
+                                <div key={`${item.id}-random-${idx}`}>
+                                  {gift.label} - {gift.qty}（{gift.note || '随机发货'}）
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
  
                         <div className="mt-3 text-right text-sm font-bold text-[#24502b]">
                           Subtotal: RM {money(Number(item.qty || 0) * Number(item.price || 0))}
