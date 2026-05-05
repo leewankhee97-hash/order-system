@@ -25,7 +25,8 @@ const [monthProfit, setMonthProfit] = useState(0)
   const [stockInputs, setStockInputs] = useState({})
   const [costInputs, setCostInputs] = useState({})
   const [savingId, setSavingId] = useState(null)
-  const [saveMsg, setSaveMsg] = useState('')
+const [batchSavingKey, setBatchSavingKey] = useState(null)
+const [saveMsg, setSaveMsg] = useState('')
   const [collapsedOut, setCollapsedOut] = useState({})
   const [collapsedLow, setCollapsedLow] = useState({})
 
@@ -410,6 +411,123 @@ async function saveCost(productId) {
   setTimeout(() => setSaveMsg(''), 1800)
 }
   async function saveStock(productId) {
+    function hasProductPendingChanges(productId) {
+  const stockRaw = stockInputs[productId]
+  const costRaw = costInputs[productId]
+
+  const hasStock =
+    stockRaw !== undefined &&
+    stockRaw !== null &&
+    String(stockRaw).trim() !== ''
+
+  const hasCost =
+    costRaw !== undefined &&
+    costRaw !== null &&
+    String(costRaw).trim() !== ''
+
+  return hasStock || hasCost
+}
+
+function buildProductUpdatePayload(productId) {
+  const payload = {}
+
+  const stockRaw = stockInputs[productId]
+  const costRaw = costInputs[productId]
+
+  if (
+    stockRaw !== undefined &&
+    stockRaw !== null &&
+    String(stockRaw).trim() !== ''
+  ) {
+    const newStock = Number(stockRaw)
+
+    if (Number.isNaN(newStock) || newStock < 0) {
+      throw new Error('库存必须是 0 或以上')
+    }
+
+    payload.stock = newStock
+  }
+
+  if (
+    costRaw !== undefined &&
+    costRaw !== null &&
+    String(costRaw).trim() !== ''
+  ) {
+    const newCost = Number(costRaw)
+
+    if (Number.isNaN(newCost) || newCost < 0) {
+      throw new Error('成本必须是 0 或以上')
+    }
+
+    payload.cost = newCost
+  }
+
+  return payload
+}
+
+async function saveSeriesProducts(items = [], label = '此系列', saveKey = '') {
+  const changedItems = items.filter((p) => hasProductPendingChanges(p.id))
+
+  if (changedItems.length === 0) {
+    setToast({ type: 'error', msg: '这个系列还没有填写任何更改' })
+    return
+  }
+
+  const ok = confirm(`确定保存【${label}】的 ${changedItems.length} 个产品更改？`)
+  if (!ok) return
+
+  setBatchSavingKey(saveKey)
+  setSaveMsg('')
+
+  try {
+    for (const p of changedItems) {
+      const payload = buildProductUpdatePayload(p.id)
+
+      const { error } = await supabase
+        .from('products')
+        .update(payload)
+        .eq('id', p.id)
+
+      if (error) {
+        throw new Error(`${p.name || p.id} 保存失败：${error.message}`)
+      }
+    }
+
+    setToast({
+      type: 'success',
+      msg: `【${label}】已成功保存 ${changedItems.length} 个产品 ✅`,
+    })
+
+    setSaveMsg('修改成功')
+
+    setStockInputs((prev) => {
+      const next = { ...prev }
+      changedItems.forEach((p) => {
+        delete next[p.id]
+      })
+      return next
+    })
+
+    setCostInputs((prev) => {
+      const next = { ...prev }
+      changedItems.forEach((p) => {
+        delete next[p.id]
+      })
+      return next
+    })
+
+    await init()
+
+    setTimeout(() => setSaveMsg(''), 1800)
+  } catch (err) {
+    setToast({
+      type: 'error',
+      msg: err?.message || '批量保存失败',
+    })
+  } finally {
+    setBatchSavingKey(null)
+  }
+}
     const raw = stockInputs[productId]
     const newStock = Number(raw)
 
@@ -663,10 +781,48 @@ async function saveCost(productId) {
             <div style={{ padding: isMobile ? 10 : 14 }}>
               {Object.entries(brands).map(([brand, items]) => (
                 <div key={brand} style={{ marginBottom: isMobile ? 10 : 12, padding: isMobile ? '10px' : '12px', borderRadius: '14px', background: isOut ? '#fff8f8' : '#fffdf6', border: '1px solid #ead8c8' }}>
-                  <div style={{ fontWeight: 900, marginBottom: 10, color: '#6f4e37', display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                    <span>{brand}</span>
-                    <span style={{ fontSize: 13, opacity: 0.8 }}>{items.length} 个产品</span>
-                  </div>
+                  {(() => {
+  const seriesSaveKey = `${type}-${category}-${brand}`
+  const pendingCount = items.filter((p) => hasProductPendingChanges(p.id)).length
+  const isBatchSaving = batchSavingKey === seriesSaveKey
+
+  return (
+    <div
+      style={{
+        fontWeight: 900,
+        marginBottom: 10,
+        color: '#6f4e37',
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 8,
+        flexWrap: 'wrap',
+        alignItems: 'center',
+      }}
+    >
+      <div>
+        <div>{brand}</div>
+        <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+          {items.length} 个产品
+          {pendingCount > 0 ? ` ｜ 已修改 ${pendingCount} 个` : ''}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        disabled={isBatchSaving || pendingCount === 0}
+        onClick={() => saveSeriesProducts(items, brand, seriesSaveKey)}
+        style={{
+          ...saveBtn,
+          width: isMobile ? '100%' : 'auto',
+          opacity: isBatchSaving || pendingCount === 0 ? 0.55 : 1,
+          cursor: isBatchSaving || pendingCount === 0 ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {isBatchSaving ? '保存中...' : '保存此系列'}
+      </button>
+    </div>
+  )
+})()}
 
                   <div style={{ display: 'grid', gap: 10 }}>
                     {items.map((p) => (
