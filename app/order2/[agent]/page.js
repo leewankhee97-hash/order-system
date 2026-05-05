@@ -904,10 +904,10 @@ useEffect(() => {
  
   const filteredProducts = useMemo(() => {
   const q = search.trim().toLowerCase()
- 
+
   return products.filter((p) => {
     const displayName = cleanProductName(p)
- 
+
     const joined = [
       getProductType(p),
       p.brand,
@@ -918,43 +918,45 @@ useEffect(() => {
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
- 
-    // ✅ 搜索优先（重点）
+
+    // ✅ 搜索时：直接显示搜索结果
     if (q) {
       if (!joined.includes(q)) return false
     } else {
-      // ❗ 没搜索才用筛选
-      if (selectedType && getProductType(p) !== selectedType) return false
-      if (selectedBrand && !eqText(p.brand, selectedBrand)) return false
-      if (selectedVariant && displayName !== selectedVariant) return false
+      // ✅ 没搜索时：必须选到口味 / 颜色才显示产品
+      if (!selectedType || !selectedBrand || !selectedVariant) return false
+
+      if (getProductType(p) !== selectedType) return false
+      if (!eqText(p.brand, selectedBrand)) return false
+      if (displayName !== selectedVariant) return false
     }
- 
+
     if (Number(p.stock || 0) <= 0) return false
     if (p.is_active === false) return false
- 
+
     return true
   }).sort((a, b) => {
-  if (!q) return 0
- 
-  const getScore = (p) => {
-    const brand = String(p.brand || '').toLowerCase()
-    const series = String(p.series || '').toLowerCase()
-    const name = String(p.name || '').toLowerCase()
-    const cleanName = cleanProductName(p).toLowerCase()
- 
-    let score = 0
- 
-    if (brand === q) score += 100
-    if (brand.includes(q)) score += 50
-    if (series.includes(q)) score += 30
-    if (name.includes(q)) score += 20
-    if (cleanName.includes(q)) score += 10
- 
-    return score
-  }
- 
-  return getScore(b) - getScore(a)
-})
+    if (!q) return 0
+
+    const getScore = (p) => {
+      const brand = String(p.brand || '').toLowerCase()
+      const series = String(p.series || '').toLowerCase()
+      const name = String(p.name || '').toLowerCase()
+      const cleanName = cleanProductName(p).toLowerCase()
+
+      let score = 0
+
+      if (brand === q) score += 100
+      if (brand.includes(q)) score += 50
+      if (series.includes(q)) score += 30
+      if (name.includes(q)) score += 20
+      if (cleanName.includes(q)) score += 10
+
+      return score
+    }
+
+    return getScore(b) - getScore(a)
+  })
 }, [products, selectedType, selectedBrand, selectedVariant, search])
  
   useEffect(() => {
