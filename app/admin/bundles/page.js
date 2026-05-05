@@ -547,6 +547,66 @@ export default function AdminBundlesPage() {
       showError('请先新增或选择一个 Bundle，然后再绑定产品')
       return
     }
+    function selectAllFilteredProducts(role = activeRole) {
+  if (!editingId) {
+    showError('请先新增或选择一个 Bundle，然后再绑定产品')
+    return
+  }
+
+  if (filteredProducts.length === 0) {
+    showError('当前没有可选择的产品')
+    return
+  }
+
+  setBindings((prev) => {
+    const next = [...prev]
+
+    filteredProducts.forEach((product) => {
+      const exists = next.some(
+        (x) =>
+          String(x.product_id) === String(product.id) &&
+          x.role === role
+      )
+
+      if (!exists) {
+        next.push({
+          ...getDefaultBindingOptions(role, product.id),
+          bundle_rule_id: editingId,
+        })
+      }
+    })
+
+    return next
+  })
+
+  showSuccess(`已一键选择当前显示的 ${filteredProducts.length} 个产品`)
+}
+
+function unselectAllFilteredProducts(role = activeRole) {
+  if (!editingId) {
+    showError('请先新增或选择一个 Bundle')
+    return
+  }
+
+  if (filteredProducts.length === 0) {
+    showError('当前没有可取消的产品')
+    return
+  }
+
+  const currentIds = new Set(filteredProducts.map((p) => String(p.id)))
+
+  setBindings((prev) =>
+    prev.filter(
+      (x) =>
+        !(
+          currentIds.has(String(x.product_id)) &&
+          x.role === role
+        )
+    )
+  )
+
+  showSuccess(`已取消当前显示的 ${filteredProducts.length} 个产品`)
+}
  
     setBindings((prev) => {
       const exists = prev.some((x) => String(x.product_id) === String(productId) && x.role === role)
