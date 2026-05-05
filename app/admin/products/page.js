@@ -128,7 +128,8 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState('')
   const [restockingId, setRestockingId] = useState('')
   const [stockSavingId, setStockSavingId] = useState('')
-  const [stockInputs, setStockInputs] = useState({})
+  const [productDrafts, setProductDrafts] = useState({})
+  const [batchSavingKey, setBatchSavingKey] = useState('')
  
   useEffect(() => {
     fetchProducts()
@@ -258,6 +259,16 @@ export default function AdminProductsPage() {
     })
   }, [products, filters, search])
  
+  const visibleDraftCount = useMemo(() => {
+    return filteredProducts.filter((p) => hasProductPendingChanges(p.id)).length
+  }, [filteredProducts, productDrafts])
+ 
+  const visibleSaveLabel = useMemo(() => {
+    if (filters.brand && filters.series) return `${filters.brand} / ${filters.series}`
+    if (filters.brand) return filters.brand
+    return '当前筛选产品'
+  }, [filters.brand, filters.series])
+ 
   const stockStats = useMemo(() => {
     const out = products.filter((p) => Number(p.stock || 0) <= 0).length
     const veryLow = products.filter((p) => Number(p.stock || 0) > 0 && Number(p.stock || 0) <= 10).length
@@ -381,43 +392,148 @@ export default function AdminProductsPage() {
     setSearch('')
   }
  
+  function handleProductDraftChange(id, key, value) {
+    setProductDrafts((prev) => {
+      const current = prev[id] || {}
+ 
+      return {
+        ...prev,
+        [id]: {
+          ...current,
+          [key]: value,
+        },
+      }
+    })
+  }
+ 
   function handleStockInputChange(id, value) {
-    setStockInputs((prev) => ({
-      ...prev,
-      [id]: value,
-    }))
+    handleProductDraftChange(id, 'stock', value)
+  }
+ 
+  function getProductDraftValue(product, key) {
+    const draft = productDrafts[product.id] || {}
+ 
+    if (Object.prototype.hasOwnProperty.call(draft, key)) {
+      return draft[key]
+    }
+ 
+    if (key === 'is_muar_only') return Boolean(product?.is_muar_only)
+    return product?.[key] ?? ''
+  }
+ 
+  function hasProductPendingChanges(productId) {
+    const draft = productDrafts[productId]
+    return Boolean(draft && Object.keys(draft).length > 0)
+  }
+ 
+  function buildProductDraftPayload(product) {
+    const draft = productDrafts[product.id] || {}
+    const payload = {}
+ 
+    const numberFields = [
+      ['price_1', 'LV1'],
+      ['price_2', 'LV2'],
+      ['price_3', 'LV3'],
+      ['cost', 'Cost'],
+      ['stock', 'Stock'],
+    ]
+ 
+    numberFields.forEach(([key, label]) => {
+      if (!Object.prototype.hasOwnProperty.call(draft, key)) return
+ 
+      const raw = draft[key]
+      const text = String(raw ?? '').trim()
+ 
+      if (text === '') {
+        throw new Error(`${product.name || product.flavor || '产品'} 的 ${label} 不能为空`)
+      }
+ 
+      const value = Number(text)
+ 
+      if (Number.isNaN(value) || value < 0) {
+        throw new Error(`${product.name || product.flavor || '产品'} 的 ${label} 格式不正确`)
+      }
+ 
+      payload[key] = value
+    })
+ 
+    if (Object.prototype.hasOwnProperty.call(draft, 'is_muar_only')) {
+      payload.is_muar_only = Boolean(draft.is_muar_only)
+    }
+ 
+    if (Object.keys(payload).length === 0) {
+      throw new Error(`${product.name || product.flavor || '产品'} 没有任何可保存的更改`)
+    }
+ 
+    return payload
+  }
+ 
+  function clearProductDrafts(productIds = []) {
+    setProductDrafts((prev) => {
+      const next = { ...prev }
+ 
+      productIds.forEach((id) => {
+        delete next[id]
+      })
+ 
+      return next
+    })
+  }
+ 
+  async function saveProductDrafts(items = [], label = '当前产品', saveKey = '', askConfirm = true) {
+    const changedItems = (items || []).filter((p) => hasProductPendingChanges(p.id))
+ 
+    if (changedItems.length === 0) {
+      setMessage('没有检测到需要保存的修改')
+      return
+    }
+ 
+    if (askConfirm) {
+      const ok = window.confirm(`确定保存【${label}】的 ${changedItems.length} 个产品修改？`)
+      if (!ok) return
+    }
+ 
+    setBatchSavingKey(saveKey || label)
+    setMessage('')
+ 
+    try {
+      for (const p of changedItems) {
+        const payload = buildProductDraftPayload(p)
+ 
+        const { error } = await supabase
+          .from('products')
+          .update(payload)
+          .eq('id', p.id)
+ 
+        if (error) {
+          throw new Error(`${p.name || p.flavor || p.id} 保存失败：${error.message}`)
+        }
+      }
+ 
+      clearProductDrafts(changedItems.map((p) => p.id))
+      setMessage(`修改成功：已保存 ${changedItems.length} 个产品`)
+      await fetchProducts()
+    } catch (error) {
+      setMessage(error.message || '批量保存失败')
+    } finally {
+      setBatchSavingKey('')
+    }
   }
  
   async function saveInlineStock(id) {
-    const raw = stockInputs[id]
-    const nextStock = Number(raw)
+    const product = products.find((x) => x.id === id)
  
-    if (raw === undefined || raw === '' || Number.isNaN(nextStock) || nextStock < 0) {
-      setMessage('请输入正确库存')
+    if (!product) return
+ 
+    const draft = productDrafts[id] || {}
+ 
+    if (!Object.prototype.hasOwnProperty.call(draft, 'stock')) {
+      setMessage('请输入要修改的库存')
       return
     }
  
     setStockSavingId(id)
-    setMessage('')
- 
-    const { error } = await supabase
-      .from('products')
-      .update({ stock: nextStock })
-      .eq('id', id)
- 
-    if (error) {
-      setMessage(error.message || '更新库存失败')
-      setStockSavingId('')
-      return
-    }
- 
-    setMessage('库存已更新')
-    setStockInputs((prev) => ({
-      ...prev,
-      [id]: '',
-    }))
- 
-    await fetchProducts()
+    await saveProductDrafts([product], product.name || product.flavor || '产品', `stock-${id}`, false)
     setStockSavingId('')
   }
  
@@ -440,6 +556,7 @@ export default function AdminProductsPage() {
       setMessage(error.message || '快速补货失败')
     } else {
       setMessage(`已补货 +${addQty}`)
+      clearProductDrafts([id])
       await fetchProducts()
     }
  
@@ -491,7 +608,11 @@ export default function AdminProductsPage() {
       fetchProducts()
       setActiveTab('list')
     } catch (error) {
-      setMessage(error.message || '保存失败')
+      if (String(error?.message || '').includes('products_sku_key')) {
+        setMessage('保存失败：SKU 已存在，请更换 SKU 或检查是否已经有同样产品')
+      } else {
+        setMessage(error.message || '保存失败')
+      }
     } finally {
       setSaving(false)
     }
@@ -542,11 +663,37 @@ if (!series) throw new Error('请输入 Series')
         is_muar_only: Boolean(bulkForm.is_muar_only),
       }))
  
-      const { error } = await supabase.from('products').insert(rows)
+      const seenSku = new Set()
+      const uniqueRows = []
+      rows.forEach((row) => {
+        if (seenSku.has(row.sku)) {
+          return
+        }
+ 
+        seenSku.add(row.sku)
+        uniqueRows.push(row)
+      })
+ 
+      const { data: existingRows, error: skuCheckError } = await supabase
+        .from('products')
+        .select('sku')
+        .in('sku', uniqueRows.map((row) => row.sku))
+ 
+      if (skuCheckError) throw skuCheckError
+ 
+      const existingSkuSet = new Set((existingRows || []).map((row) => row.sku))
+      const rowsToInsert = uniqueRows.filter((row) => !existingSkuSet.has(row.sku))
+      const skipped = rows.length - rowsToInsert.length
+ 
+      if (rowsToInsert.length === 0) {
+        throw new Error('没有新增产品：这些 SKU 已存在或输入内容重复')
+      }
+ 
+      const { error } = await supabase.from('products').insert(rowsToInsert)
  
       if (error) throw error
  
-      setMessage(`成功新增 ${rows.length} 个产品`)
+      setMessage(`成功新增 ${rowsToInsert.length} 个产品${skipped > 0 ? `，跳过 ${skipped} 个重复 SKU` : ''}`)
       handleBulkReset()
       fetchProducts()
       setActiveTab('list')
@@ -573,14 +720,7 @@ if (!series) throw new Error('请输入 Series')
       if (!brand) throw new Error('请选择 Brand')
       if (!series) throw new Error('请选择 Series')
  
-      const hasAnyPrice =
-  seriesPriceForm.price_1 !== '' ||
-  seriesPriceForm.price_2 !== '' ||
-  seriesPriceForm.price_3 !== ''
- 
-const hasCost = seriesPriceForm.cost !== ''
- 
-// 允许只更新 MUAR 状态，不强制一定要填写价格或成本
+      // 允许只更新 MUAR 状态，不强制一定要填写价格或成本
  
       if (Number.isNaN(price1) || Number.isNaN(price2) || Number.isNaN(price3)) {
         throw new Error('价格格式不正确')
@@ -776,10 +916,33 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
           </select>
         </div>
  
-        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           <button type="button" style={secondaryButton} onClick={handleFilterReset}>
             清空筛选
           </button>
+ 
+          <button
+            type="button"
+            style={{
+              ...primaryButton,
+              opacity: visibleDraftCount === 0 || batchSavingKey === 'visible-list' ? 0.55 : 1,
+              cursor: visibleDraftCount === 0 || batchSavingKey === 'visible-list' ? 'not-allowed' : 'pointer',
+            }}
+            disabled={visibleDraftCount === 0 || batchSavingKey === 'visible-list'}
+            onClick={() => saveProductDrafts(filteredProducts, visibleSaveLabel, 'visible-list')}
+          >
+            {batchSavingKey === 'visible-list' ? '保存中...' : `保存当前系列 / 筛选修改（${visibleDraftCount}）`}
+          </button>
+ 
+          <button
+            type="button"
+            style={secondaryButton}
+            disabled={visibleDraftCount === 0}
+            onClick={() => clearProductDrafts(filteredProducts.map((p) => p.id))}
+          >
+            清除未保存修改
+          </button>
+ 
           <div style={filterResultStyle}>当前找到 {filteredProducts.length} 个产品</div>
         </div>
  
@@ -868,7 +1031,10 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
               <tbody>
                 {filteredProducts.map((p) => {
                   const isEditing = editingId === p.id
-                  const status = stockStatus(p.stock)
+                  const draftChanged = hasProductPendingChanges(p.id)
+                  const displayStock = getProductDraftValue(p, 'stock')
+                  const status = stockStatus(displayStock)
+                  const normalRowBg = draftChanged ? '#fff7e6' : '#fffaf5'
  
                   return (
                     <tr
@@ -876,14 +1042,14 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                       onClick={() => handleEdit(p)}
                       style={{
                         cursor: 'pointer',
-                        background: isEditing ? '#f5e6d7' : '#fffaf5',
+                        background: isEditing ? '#f5e6d7' : normalRowBg,
                         transition: '0.2s',
                       }}
                       onMouseEnter={(e) => {
                         if (!isEditing) e.currentTarget.style.background = '#fcf3ea'
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = isEditing ? '#f5e6d7' : '#fffaf5'
+                        e.currentTarget.style.background = isEditing ? '#f5e6d7' : normalRowBg
                       }}
                     >
                       <td style={tdStyle}>{p.product_type || '-'}</td>
@@ -892,21 +1058,64 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                       <td style={tdStyle}>{p.flavor}</td>
                       <td style={tdStyle}>{p.name}</td>
                       <td style={tdStyle}>{p.sku}</td>
-                      <td style={tdStyle}>{p.price_1 ?? 0}</td>
-                      <td style={tdStyle}>{p.price_2 ?? 0}</td>
-                      <td style={tdStyle}>{p.price_3 ?? 0}</td>
-                      <td style={tdStyle}>RM {Number(p.cost || 0).toFixed(2)}</td>
                       <td style={tdStyle}>
-  {p.is_muar_only ? (
-    <span style={muarBadgeStyle}>MUAR 出货</span>
-  ) : (
-    '-'
-  )}
-</td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getProductDraftValue(p, 'price_1')}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleProductDraftChange(p.id, 'price_1', e.target.value)}
+                          style={inlineInputStyle}
+                        />
+                      </td>
+                      <td style={tdStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getProductDraftValue(p, 'price_2')}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleProductDraftChange(p.id, 'price_2', e.target.value)}
+                          style={inlineInputStyle}
+                        />
+                      </td>
+                      <td style={tdStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getProductDraftValue(p, 'price_3')}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleProductDraftChange(p.id, 'price_3', e.target.value)}
+                          style={inlineInputStyle}
+                        />
+                      </td>
+                      <td style={tdStyle}>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={getProductDraftValue(p, 'cost')}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleProductDraftChange(p.id, 'cost', e.target.value)}
+                          style={inlineInputStyle}
+                        />
+                      </td>
+                      <td style={tdStyle}>
+                        <label style={inlineCheckboxStyle} onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(getProductDraftValue(p, 'is_muar_only'))}
+                            onChange={(e) => handleProductDraftChange(p.id, 'is_muar_only', e.target.checked)}
+                          />
+                          <span>{Boolean(getProductDraftValue(p, 'is_muar_only')) ? 'MUAR' : '普通'}</span>
+                        </label>
+                      </td>
  
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ fontWeight: 800 }}>{p.stock ?? 0}</div>
+                          <div style={{ fontWeight: 800 }}>{displayStock || 0}</div>
                           <div
                             style={{
                               display: 'inline-flex',
@@ -986,7 +1195,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                           <input
-                            value={stockInputs[p.id] ?? ''}
+                            value={getProductDraftValue(p, 'stock')}
                             placeholder="库存"
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => handleStockInputChange(p.id, e.target.value)}
@@ -1019,6 +1228,26 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
  
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {draftChanged ? (
+                            <span style={draftBadgeStyle}>未保存</span>
+                          ) : null}
+ 
+                          <button
+                            type="button"
+                            style={{
+                              ...smallPrimaryButton,
+                              opacity: draftChanged && batchSavingKey !== `row-${p.id}` ? 1 : 0.55,
+                              cursor: draftChanged ? 'pointer' : 'not-allowed',
+                            }}
+                            disabled={!draftChanged || batchSavingKey === `row-${p.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              saveProductDrafts([p], p.name || p.flavor || '产品', `row-${p.id}`, false)
+                            }}
+                          >
+                            {batchSavingKey === `row-${p.id}` ? '保存中' : '保存本行'}
+                          </button>
+ 
                           <button
                             type="button"
                             style={smallPrimaryButton}
@@ -1428,7 +1657,7 @@ STRAWBERRY`}
   onChange={(e) => handleSeriesPriceChange('cost', e.target.value)}
   style={inputStyle}
 />
-
+ 
 <label style={{ ...checkboxBoxStyle, marginTop: 12 }}>
   <input
     type="checkbox"
@@ -1677,6 +1906,47 @@ const checkboxBoxStyle = {
   alignItems: 'center',
   gap: 8,
   fontWeight: 800,
+}
+ 
+const inlineInputStyle = {
+  width: 92,
+  height: 34,
+  borderRadius: 10,
+  border: '1px solid #d7bfa8',
+  background: '#fff',
+  padding: '0 10px',
+  outline: 'none',
+  color: '#6f4e37',
+  fontWeight: 700,
+}
+ 
+const inlineCheckboxStyle = {
+  minHeight: 34,
+  padding: '0 10px',
+  borderRadius: 999,
+  border: '1px solid #d7bfa8',
+  background: '#fff8f1',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  color: '#6f4e37',
+  fontWeight: 800,
+  cursor: 'pointer',
+}
+ 
+const draftBadgeStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 900,
+  color: '#b45309',
+  background: '#fffbeb',
+  border: '1px solid #fcd34d',
+  whiteSpace: 'nowrap',
 }
  
 const muarBadgeStyle = {
