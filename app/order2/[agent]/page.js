@@ -401,6 +401,8 @@ export default function Page() {
   const [bundleComboDeviceSelect, setBundleComboDeviceSelect] = useState({});
   const [selectedBundle, setSelectedBundle] = useState(null);
   const [selectedBundleFlavor, setSelectedBundleFlavor] = useState("");
+const [selectedComboPodFlavor, setSelectedComboPodFlavor] = useState("");
+const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
  
   const [agentInfo, setAgentInfo] = useState(null);
  
@@ -1215,6 +1217,43 @@ export default function Page() {
       false,
     );
   }, [selectedBundle, products]);
+  const comboPodFlavorOptions = useMemo(() => {
+  return [
+    ...new Set(
+      bundleComboPodProducts
+        .map((p) => cleanProductName(p))
+        .filter(Boolean),
+    ),
+  ];
+}, [bundleComboPodProducts]);
+
+const comboDeviceFlavorOptions = useMemo(() => {
+  return [
+    ...new Set(
+      bundleComboDeviceProducts
+        .map((p) => cleanProductName(p))
+        .filter(Boolean),
+    ),
+  ];
+}, [bundleComboDeviceProducts]);
+
+const selectedComboPodProduct = useMemo(() => {
+  if (!selectedComboPodFlavor) return null;
+  return (
+    bundleComboPodProducts.find(
+      (p) => cleanProductName(p) === selectedComboPodFlavor,
+    ) || null
+  );
+}, [bundleComboPodProducts, selectedComboPodFlavor]);
+
+const selectedComboDeviceProduct = useMemo(() => {
+  if (!selectedComboDeviceFlavor) return null;
+  return (
+    bundleComboDeviceProducts.find(
+      (p) => cleanProductName(p) === selectedComboDeviceFlavor,
+    ) || null
+  );
+}, [bundleComboDeviceProducts, selectedComboDeviceFlavor]);
  
   const bundleProducts = useMemo(() => {
     if (normalizeText(selectedBundle?.bundle_type) === "fixed_combo") {
