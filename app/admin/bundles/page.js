@@ -543,11 +543,33 @@ export default function AdminBundlesPage() {
   }
  
   function toggleProduct(productId, role = activeRole) {
-    if (!editingId) {
-      showError('请先新增或选择一个 Bundle，然后再绑定产品')
-      return
+  if (!editingId) {
+    showError('请先新增或选择一个 Bundle，然后再绑定产品')
+    return
+  }
+
+  setBindings((prev) => {
+    const exists = prev.some(
+      (x) => String(x.product_id) === String(productId) && x.role === role
+    )
+
+    if (exists) {
+      return prev.filter(
+        (x) => !(String(x.product_id) === String(productId) && x.role === role)
+      )
     }
-    function selectAllFilteredProducts(role = activeRole) {
+
+    return [
+      ...prev,
+      {
+        ...getDefaultBindingOptions(role, productId),
+        bundle_rule_id: editingId,
+      },
+    ]
+  })
+}
+
+function selectAllFilteredProducts(role = activeRole) {
   if (!editingId) {
     showError('请先新增或选择一个 Bundle，然后再绑定产品')
     return
@@ -607,47 +629,32 @@ function unselectAllFilteredProducts(role = activeRole) {
 
   showSuccess(`已取消当前显示的 ${filteredProducts.length} 个产品`)
 }
- 
-    setBindings((prev) => {
-      const exists = prev.some((x) => String(x.product_id) === String(productId) && x.role === role)
-      if (exists) {
-        return prev.filter((x) => !(String(x.product_id) === String(productId) && x.role === role))
+
+function updateBinding(productId, role, patch) {
+  setBindings((prev) =>
+    prev.map((row) => {
+      if (String(row.product_id) === String(productId) && row.role === role) {
+        return { ...row, ...patch }
       }
- 
-      return [
-        ...prev,
-        {
-          ...getDefaultBindingOptions(role, productId),
-          bundle_rule_id: editingId,
-        },
-      ]
+
+      return row
     })
-  }
- 
-  function updateBinding(productId, role, patch) {
-    setBindings((prev) =>
-      prev.map((row) => {
-        if (String(row.product_id) === String(productId) && row.role === role) {
-          return { ...row, ...patch }
-        }
-        return row
-      })
-    )
-  }
- 
-  function getBundleTypeLabel(value) {
-    return BUNDLE_TYPES.find((item) => item.value === value)?.label || value || '-'
-  }
- 
-  function getGiftModeLabel(value) {
-    return GIFT_MODES.find((item) => item.value === value)?.label || value || '-'
-  }
- 
-  function getGiftChooseModeLabel(value) {
-    return GIFT_CHOOSE_MODES.find((item) => item.value === value)?.label || value || '-'
-  }
- 
-  if (loading) {
+  )
+}
+
+function getBundleTypeLabel(value) {
+  return BUNDLE_TYPES.find((item) => item.value === value)?.label || value || '-'
+}
+
+function getGiftModeLabel(value) {
+  return GIFT_MODES.find((item) => item.value === value)?.label || value || '-'
+}
+
+function getGiftChooseModeLabel(value) {
+  return GIFT_CHOOSE_MODES.find((item) => item.value === value)?.label || value || '-'
+}
+
+if (loading) {
     return (
       <main style={pageStyle}>
         <div style={containerStyle}>
@@ -959,11 +966,37 @@ function unselectAllFilteredProducts(role = activeRole) {
                 <input placeholder="搜索产品 name / brand / series / flavor" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} />
  
                 <div style={hintBoxStyle}>
-                  当前过滤：Brand = <b>{form.brand || '全部'}</b> ｜ Series = <b>{form.series || '全部'}</b>
-                  <div style={{ fontSize: 12, marginTop: 4 }}>如果找不到产品，可以先把 Series 清空，或确认 products.brand 是否完全一致。</div>
-                </div>
- 
-                <div style={productListStyle}>
+  当前过滤：Brand = <b>{form.brand || '全部'}</b> ｜ Series = <b>{form.series || '全部'}</b>
+  <div style={{ fontSize: 12, marginTop: 4 }}>
+    如果找不到产品，可以先把 Series 清空，或确认 products.brand 是否完全一致。
+  </div>
+</div>
+
+<div style={bulkActionStyle}>
+  <button
+    type="button"
+    onClick={() => selectAllFilteredProducts(activeRole)}
+    disabled={!editingId || filteredProducts.length === 0}
+    style={smallPrimaryButton}
+  >
+    一键选择当前显示产品
+  </button>
+
+  <button
+    type="button"
+    onClick={() => unselectAllFilteredProducts(activeRole)}
+    disabled={!editingId || filteredProducts.length === 0}
+    style={smallSecondaryButton}
+  >
+    一键取消当前显示产品
+  </button>
+
+  <div style={bulkHintStyle}>
+    当前显示：{filteredProducts.length} 个产品｜当前角色：{roleInfo(activeRole).label}
+  </div>
+</div>
+
+<div style={productListStyle}>
                   {filteredProducts.length === 0 ? (
                     <div style={{ color: '#9b7b63' }}>没有符合条件的产品。</div>
                   ) : (
@@ -1419,4 +1452,18 @@ const fieldLabelStyle = {
   fontSize: 12,
   fontWeight: 900,
   color: '#7b5a42',
+}
+
+const bulkActionStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  alignItems: 'center',
+  marginBottom: 12,
+}
+
+const bulkHintStyle = {
+  fontSize: 12,
+  color: '#8b6f5a',
+  fontWeight: 700,
 }
