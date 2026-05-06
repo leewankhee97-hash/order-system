@@ -271,23 +271,33 @@ function buildRandomGiftLines(bundle, groupCount) {
   if (groupCount <= 0) return rows;
  
   if (chooseMode === "random") {
-    if (mode === "pod") {
-      rows.push({
-        label: "POD",
-        qty: Math.max(1, freeQty) * groupCount,
-        note: "随机发货",
-      });
-    } else if (mode === "device") {
-      rows.push({
-        label: "烟枪",
-        qty: Math.max(1, freeQty) * groupCount,
-        note: "随机发货",
-      });
-    } else if (mode === "pod_and_device") {
-      rows.push({ label: "POD", qty: groupCount, note: "随机发货" });
-      rows.push({ label: "烟枪", qty: groupCount, note: "随机发货" });
-    }
+  if (mode === "pod") {
+    rows.push({
+      label: "POD",
+      qty: Math.max(1, freeQty) * groupCount,
+      note: "随机发货",
+    });
+  } else if (mode === "device") {
+    rows.push({
+      label: "烟枪",
+      qty: Math.max(1, freeQty) * groupCount,
+      note: "随机发货",
+    });
+  } else if (
+    mode === "disposable" ||
+    mode === "dispo" ||
+    mode === "一次性"
+  ) {
+    rows.push({
+      label: "一次性",
+      qty: Math.max(1, freeQty) * groupCount,
+      note: "随机发货",
+    });
+  } else if (mode === "pod_and_device") {
+    rows.push({ label: "POD", qty: groupCount, note: "随机发货" });
+    rows.push({ label: "烟枪", qty: groupCount, note: "随机发货" });
   }
+}
  
   if (chooseMode === "partial_choose") {
     if (mode === "pod_and_device") {
