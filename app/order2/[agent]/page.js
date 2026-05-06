@@ -387,9 +387,10 @@ function sleep(ms) {
 export default function Page() {
   const { agent } = useParams();
   const productsGridRef = useRef(null);
-  const bundleSectionRef = useRef(null);
-  const bundleControlRef = useRef(null);
-  const initRequestRef = useRef(0);
+const variantSectionRef = useRef(null);
+const bundleSectionRef = useRef(null);
+const bundleControlRef = useRef(null);
+const initRequestRef = useRef(0);
  
   const [products, setProducts] = useState([]);
   const [bundles, setBundles] = useState([]);
@@ -1184,7 +1185,19 @@ setError("");
  
     return () => clearTimeout(timer);
   }, [selectedVariant, filteredProducts.length]);
- 
+ useEffect(() => {
+  if (isSearching) return;
+  if (!selectedType || !selectedBrand) return;
+
+  const timer = setTimeout(() => {
+    variantSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, 120);
+
+  return () => clearTimeout(timer);
+}, [isSearching, selectedType, selectedBrand]);
   const bundleMainProducts = useMemo(() => {
     return getBundleProductsByRole(selectedBundle, products, "main", true);
   }, [selectedBundle, products]);
@@ -2409,10 +2422,10 @@ setBundleComboDeviceSelect({});
                   ) : null}
  
                   {selectedType && selectedBrand ? (
-                    <div>
-                      <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
-                        3. {currentVariantLabel}
-                      </div>
+  <div ref={variantSectionRef} className="scroll-mt-24">
+    <div className="mb-2 text-xs font-bold uppercase tracking-[0.24em] text-[#a88b77]">
+      3. {currentVariantLabel}
+    </div>
                       <div className="flex flex-wrap gap-2">
                         {variantOptions.map((item) => (
                           <button
