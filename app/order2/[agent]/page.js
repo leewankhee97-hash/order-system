@@ -2713,83 +2713,220 @@ console.log('OID:', oid)
  
                       {selectedBundle?.bundle_type === 'fixed_combo' ? (
                         <>
-                          <div className="rounded-[26px] border border-[#eadacb] bg-[#fffdfb] p-4">
-                            <div className="text-base font-black text-[#5f4432]">组合烟弹</div>
-                            <div className="mt-3 space-y-2">
+                          <div className="rounded-[22px] border border-[#eadacb] bg-[#fffdfb] p-3 md:p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-base font-black text-[#5f4432]">组合烟弹</div>
+                              <div className="rounded-full bg-[#f7efe7] px-3 py-1 text-xs font-bold text-[#8b7260]">
+                                已选 {bundleComboPodCount}
+                              </div>
+                            </div>
+ 
+                            <div className="mt-3 max-h-[420px] overflow-y-auto pr-1">
                               {bundleComboPodProducts.length === 0 ? (
                                 <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                                   后台还没有绑定 combo_pod 产品。
                                 </div>
-                              ) : bundleComboPodProducts.map((p) => (
-                                <div key={`combo-pod-${p.id}`} className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
-                                  <div className="mb-2 font-bold text-[#5f4432]">{cleanProductName(p)}</div>
-                                  <div className="mb-2 text-xs text-[#8b7260]">Stock: {Number(p.stock || 0)}</div>
-                                  <div className="flex items-center gap-2">
-                                    <button type="button" onClick={() => changeComboPodQty(p.id, -1, p.stock)} className="h-10 w-10 rounded-full border bg-white">-</button>
-                                    <input type="number" value={bundleComboPodSelect[p.id] || 0} onChange={(e) => setComboPodQty(p.id, e.target.value)} className="h-10 flex-1 rounded-3xl border px-3 text-center font-bold" />
-                                    <button type="button" onClick={() => changeComboPodQty(p.id, 1, p.stock)} className="h-10 w-10 rounded-full border bg-white">+</button>
-                                  </div>
+                              ) : (
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                  {bundleComboPodProducts.map((p) => (
+                                    <div
+                                      key={`combo-pod-${p.id}`}
+                                      className="rounded-2xl border border-[#eadacb] bg-[#fffaf6] p-3"
+                                    >
+                                      <div className="mb-2 flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <div className="truncate text-sm font-bold text-[#5f4432]">
+                                            {cleanProductName(p)}
+                                          </div>
+                                          <div className="mt-1 text-xs text-[#8b7260]">
+                                            Stock: {Number(p.stock || 0)}
+                                          </div>
+                                        </div>
+ 
+                                        <div className="shrink-0 rounded-full bg-[#f7efe7] px-2 py-1 text-[11px] font-bold text-[#8b7260]">
+                                          烟弹
+                                        </div>
+                                      </div>
+ 
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => changeComboPodQty(p.id, -1, p.stock)}
+                                          className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
+                                        >
+                                          -
+                                        </button>
+ 
+                                        <input
+                                          type="number"
+                                          value={bundleComboPodSelect[p.id] || 0}
+                                          onChange={(e) => setComboPodQty(p.id, e.target.value)}
+                                          className="h-9 flex-1 rounded-full border border-[#eadacb] bg-white px-3 text-center text-sm font-bold text-[#5f4432] outline-none"
+                                        />
+ 
+                                        <button
+                                          type="button"
+                                          onClick={() => changeComboPodQty(p.id, 1, p.stock)}
+                                          className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                              )}
                             </div>
                           </div>
  
-                          <div className="rounded-[26px] border border-[#eadacb] bg-[#fffdfb] p-4">
-                            <div className="text-base font-black text-[#5f4432]">组合烟枪</div>
-                            <div className="mt-3 space-y-2">
+                          <div className="rounded-[22px] border border-[#eadacb] bg-[#fffdfb] p-3 md:p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-base font-black text-[#5f4432]">组合烟枪</div>
+                              <div className="rounded-full bg-[#f7efe7] px-3 py-1 text-xs font-bold text-[#8b7260]">
+                                已选 {bundleComboDeviceCount}
+                              </div>
+                            </div>
+ 
+                            <div className="mt-3 max-h-[420px] overflow-y-auto pr-1">
                               {bundleComboDeviceProducts.length === 0 ? (
                                 <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                                   后台还没有绑定 combo_device 产品。
                                 </div>
-                              ) : bundleComboDeviceProducts.map((p) => (
-                                <div key={`combo-device-${p.id}`} className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-3">
-                                  <div className="mb-2 font-bold text-[#5f4432]">{cleanProductName(p)}</div>
-                                  <div className="mb-2 text-xs text-[#8b7260]">Stock: {Number(p.stock || 0)}</div>
-                                  <div className="flex items-center gap-2">
-                                    <button type="button" onClick={() => changeComboDeviceQty(p.id, -1, p.stock)} className="h-10 w-10 rounded-full border bg-white">-</button>
-                                    <input type="number" value={bundleComboDeviceSelect[p.id] || 0} onChange={(e) => setComboDeviceQty(p.id, e.target.value)} className="h-10 flex-1 rounded-3xl border px-3 text-center font-bold" />
-                                    <button type="button" onClick={() => changeComboDeviceQty(p.id, 1, p.stock)} className="h-10 w-10 rounded-full border bg-white">+</button>
-                                  </div>
+                              ) : (
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                  {bundleComboDeviceProducts.map((p) => (
+                                    <div
+                                      key={`combo-device-${p.id}`}
+                                      className="rounded-2xl border border-[#eadacb] bg-[#fffaf6] p-3"
+                                    >
+                                      <div className="mb-2 flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <div className="truncate text-sm font-bold text-[#5f4432]">
+                                            {cleanProductName(p)}
+                                          </div>
+                                          <div className="mt-1 text-xs text-[#8b7260]">
+                                            Stock: {Number(p.stock || 0)}
+                                          </div>
+                                        </div>
+ 
+                                        <div className="shrink-0 rounded-full bg-[#f7efe7] px-2 py-1 text-[11px] font-bold text-[#8b7260]">
+                                          烟枪
+                                        </div>
+                                      </div>
+ 
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => changeComboDeviceQty(p.id, -1, p.stock)}
+                                          className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
+                                        >
+                                          -
+                                        </button>
+ 
+                                        <input
+                                          type="number"
+                                          value={bundleComboDeviceSelect[p.id] || 0}
+                                          onChange={(e) => setComboDeviceQty(p.id, e.target.value)}
+                                          className="h-9 flex-1 rounded-full border border-[#eadacb] bg-white px-3 text-center text-sm font-bold text-[#5f4432] outline-none"
+                                        />
+ 
+                                        <button
+                                          type="button"
+                                          onClick={() => changeComboDeviceQty(p.id, 1, p.stock)}
+                                          className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                              )}
                             </div>
                           </div>
                         </>
                       ) : null}
  
-{(
-  (
-    selectedBundle?.gift_choose_mode === 'choose' &&
-    Number(selectedBundle?.free_qty || 0) > 0
-  ) ||
-  (
-    selectedBundle?.gift_choose_mode === 'partial_choose' &&
-    selectedBundle?.gift_mode === 'pod_and_device' &&
-    bundleGroupCount > 0
-  )
-) ? (                        <div className="rounded-[26px] border border-[#f5e1b8] bg-[#fffaf0] p-4">
-                          <div className="text-base font-black text-[#5f4432]">赠品烟弹选择</div>
+                      {(
+                        (
+                          selectedBundle?.gift_choose_mode === 'choose' &&
+                          Number(selectedBundle?.free_qty || 0) > 0
+                        ) ||
+                        (
+                          selectedBundle?.gift_choose_mode === 'partial_choose' &&
+                          selectedBundle?.gift_mode === 'pod_and_device' &&
+                          bundleGroupCount > 0
+                        )
+                      ) ? (
+                        <div className="rounded-[22px] border border-[#f5e1b8] bg-[#fffaf0] p-3 md:p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-base font-black text-[#5f4432]">赠品烟弹选择</div>
+                            <div className="rounded-full bg-[#fff4dc] px-3 py-1 text-xs font-bold text-[#a36a1b]">
+                              已选 {bundleGiftCount}
+                            </div>
+                          </div>
+ 
                           <div className="mt-1 text-sm text-[#8b7260]">
                             {selectedBundle?.gift_choose_mode === 'partial_choose'
-  ? `需要选择 ${bundleGroupCount} 个赠品烟弹，烟枪随机发货`
-  : `需要选择 ${Number(selectedBundle?.free_qty || 0) * Math.max(bundleGroupCount, 1)} 个赠品`}
+                              ? `需要选择 ${bundleGroupCount} 个赠品烟弹，烟枪随机发货`
+                              : `需要选择 ${Number(selectedBundle?.free_qty || 0) * Math.max(bundleGroupCount, 1)} 个赠品`}
                           </div>
-                          <div className="mt-3 space-y-2">
+ 
+                          <div className="mt-3 max-h-[420px] overflow-y-auto pr-1">
                             {bundleGiftPodProducts.length === 0 ? (
                               <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
                                 后台还没有绑定 gift_pod 产品。如果赠品和购买口味一样，请在后台把同一批产品也绑定到 gift_pod。
                               </div>
-                            ) : bundleGiftPodProducts.map((p) => (
-                              <div key={`gift-pod-${p.id}`} className="rounded-3xl border border-[#eadacb] bg-white p-3">
-                                <div className="mb-2 font-bold text-[#5f4432]">{cleanProductName(p)}</div>
-                                <div className="mb-2 text-xs text-[#8b7260]">Stock: {Number(p.stock || 0)}</div>
-                                <div className="flex items-center gap-2">
-                                  <button type="button" onClick={() => changeBundleGiftQty(p.id, -1, p.stock)} className="h-10 w-10 rounded-full border bg-white">-</button>
-                                  <input type="number" value={bundleGiftSelect[p.id] || 0} onChange={(e) => setBundleGiftQty(p.id, e.target.value)} className="h-10 flex-1 rounded-3xl border px-3 text-center font-bold" />
-                                  <button type="button" onClick={() => changeBundleGiftQty(p.id, 1, p.stock)} className="h-10 w-10 rounded-full border bg-white">+</button>
-                                </div>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                {bundleGiftPodProducts.map((p) => (
+                                  <div
+                                    key={`gift-pod-${p.id}`}
+                                    className="rounded-2xl border border-[#eadacb] bg-white p-3"
+                                  >
+                                    <div className="mb-2 flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-bold text-[#5f4432]">
+                                          {cleanProductName(p)}
+                                        </div>
+                                        <div className="mt-1 text-xs text-[#8b7260]">
+                                          Stock: {Number(p.stock || 0)}
+                                        </div>
+                                      </div>
+ 
+                                      <div className="shrink-0 rounded-full bg-[#fff4dc] px-2 py-1 text-[11px] font-bold text-[#a36a1b]">
+                                        赠品
+                                      </div>
+                                    </div>
+ 
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => changeBundleGiftQty(p.id, -1, p.stock)}
+                                        className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
+                                      >
+                                        -
+                                      </button>
+ 
+                                      <input
+                                        type="number"
+                                        value={bundleGiftSelect[p.id] || 0}
+                                        onChange={(e) => setBundleGiftQty(p.id, e.target.value)}
+                                        className="h-9 flex-1 rounded-full border border-[#eadacb] bg-white px-3 text-center text-sm font-bold text-[#5f4432] outline-none"
+                                      />
+ 
+                                      <button
+                                        type="button"
+                                        onClick={() => changeBundleGiftQty(p.id, 1, p.stock)}
+                                        className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
                       ) : null}
