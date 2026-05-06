@@ -1538,7 +1538,7 @@ export default function Page() {
  
   const shippingFee = useMemo(() => {
     if (delivery === "邮寄") {
-      if (postageItemCount > 30) return "ASK";
+      if (postageItemCount > 29) return "ASK";
       if (EAST.includes((state || "").toUpperCase())) return 28;
       return 10;
     }
@@ -1759,14 +1759,35 @@ export default function Page() {
         }
  
         if ((item.bundle_combo_items || []).length > 0) {
-          lines.push("");
-          lines.push(`组合内容：`);
-          (item.bundle_combo_items || []).forEach((bi) => {
-            const split = splitBrandFlavor(bi.brand, bi.product_name);
-            const label = bi.role === "combo_device" ? "烟枪" : "烟弹";
-            lines.push(`• ${label}：${split.flavorLine} ×${bi.qty}`);
-          });
-        }
+  const podItems = (item.bundle_combo_items || []).filter(
+    (bi) => bi.role !== "combo_device",
+  );
+
+  const deviceItems = (item.bundle_combo_items || []).filter(
+    (bi) => bi.role === "combo_device",
+  );
+
+  lines.push("");
+  lines.push(`组合内容：`);
+
+  if (podItems.length > 0) {
+    lines.push("");
+    lines.push(`烟弹`);
+    podItems.forEach((bi) => {
+      const split = splitBrandFlavor(bi.brand, bi.product_name);
+      lines.push(`• ${split.flavorLine} ×${bi.qty}`);
+    });
+  }
+
+  if (deviceItems.length > 0) {
+    lines.push("");
+    lines.push(`烟枪`);
+    deviceItems.forEach((bi) => {
+      const split = splitBrandFlavor(bi.brand, bi.product_name);
+      lines.push(`• ${split.flavorLine} ×${bi.qty}`);
+    });
+  }
+}
  
         if (
           (item.bundle_gift_items || []).length > 0 ||
