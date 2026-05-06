@@ -2742,10 +2742,6 @@ console.log('OID:', oid)
                                             Stock: {Number(p.stock || 0)}
                                           </div>
                                         </div>
- 
-                                        <div className="shrink-0 rounded-full bg-[#f7efe7] px-2 py-1 text-[11px] font-bold text-[#8b7260]">
-                                          烟弹
-                                        </div>
                                       </div>
  
                                       <div className="flex items-center gap-2">
