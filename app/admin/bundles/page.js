@@ -196,14 +196,18 @@ export default function AdminBundlesPage() {
     })
   }
  
-  function resetForm() {
-    setEditingId('')
-    setBindings([])
-    setProductSearch('')
-    setActiveRole('main')
+  function resetForm(options = {}) {
+  setEditingId('')
+  setBindings([])
+  setProductSearch('')
+  setActiveRole('main')
+
+  if (!options.keepMessage) {
     setMessage('')
-    setForm(EMPTY_FORM)
   }
+
+  setForm({ ...EMPTY_FORM })
+}
  
   function editRow(row) {
     setEditingId(row.id)
@@ -355,34 +359,35 @@ export default function AdminBundlesPage() {
         updated_at: new Date().toISOString(),
       }
  
-      let bundleId = editingId
- 
-      if (editingId) {
-        const { error } = await supabase
-          .from('bundle_rules')
-          .update(payload)
-          .eq('id', editingId)
- 
-        if (error) throw error
-      } else {
-        const { data, error } = await supabase
-          .from('bundle_rules')
-          .insert({
-            ...payload,
-            created_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single()
- 
-        if (error) throw error
-        bundleId = data.id
-        setEditingId(data.id)
-      }
- 
-      await saveBindings(bundleId, false)
-      showSuccess(editingId ? 'Bundle 已更新' : 'Bundle 已新增')
-      await fetchAll()
-      await fetchBindings(bundleId)
+      const isEditing = !!editingId
+let bundleId = editingId
+
+if (isEditing) {
+  const { error } = await supabase
+    .from('bundle_rules')
+    .update(payload)
+    .eq('id', editingId)
+
+  if (error) throw error
+} else {
+  const { data, error } = await supabase
+    .from('bundle_rules')
+    .insert({
+      ...payload,
+      created_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single()
+
+  if (error) throw error
+  bundleId = data.id
+}
+
+await saveBindings(bundleId, false)
+await fetchAll()
+
+resetForm({ keepMessage: true })
+showSuccess(isEditing ? 'Bundle 已更新，表格已清空' : 'Bundle 已新增，表格已清空')
     } catch (err) {
       console.error(err)
       showError(err.message || '保存失败')
