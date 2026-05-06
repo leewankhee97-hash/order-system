@@ -2431,13 +2431,12 @@ export default function Page() {
                           Quantity
                         </div>
  
-                        <div className="flex items-center gap-2">
+                        <div className="mt-2 grid grid-cols-[36px_1fr_36px] items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setDraftQtyValue(p, qtyDraft - 1)}
                             disabled={qtyDraft <= 0}
-                            className="h-12 w-12 rounded-3xl border border-[#eadacb] bg-white text-lg font-bold text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
-                          >
+className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base font-black text-[#6c513d] hover:bg-[#f8efe6]"                          >
                             -
                           </button>
  
@@ -2449,8 +2448,7 @@ export default function Page() {
                             onChange={(e) =>
                               setDraftQtyValue(p, e.target.value)
                             }
-                            className="h-12 flex-1 rounded-3xl border border-[#eadacb] bg-white px-3 text-center text-base font-bold text-[#5c4333] outline-none focus:border-[#cfae95]"
-                          />
+className="h-9 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-sm font-black text-[#5f4432] outline-none"                          />
  
                           <button
                             type="button"
