@@ -2431,37 +2431,37 @@ export default function Page() {
                           Quantity
                         </div>
  
-                        <div className="mt-2 grid grid-cols-[36px_1fr_36px] items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setDraftQtyValue(p, qtyDraft - 1)}
-                            disabled={qtyDraft <= 0}
-className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base font-black text-[#6c513d] hover:bg-[#f8efe6]"                          >
-                            -
-                          </button>
- 
-                          <input
-                            type="number"
-                            min="0"
-                            max={Number(p.stock || 0)}
-                            value={qtyDraft}
-                            onChange={(e) =>
-                              setDraftQtyValue(p, e.target.value)
-                            }
-className="h-9 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-sm font-black text-[#5f4432] outline-none"                          />
- 
-                          <button
-                            type="button"
-                            onClick={() => setDraftQtyValue(p, qtyDraft + 1)}
-                            disabled={
-                              Number(p.stock || 0) <= 0 ||
-                              qtyDraft >= Number(p.stock || 0)
-                            }
-                            className="h-12 w-12 rounded-3xl border border-[#eadacb] bg-white text-lg font-bold text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            +
-                          </button>
-                        </div>
+                       <div className="mt-2 grid grid-cols-[36px_1fr_36px] items-center gap-2">
+  <button
+    type="button"
+    onClick={() => setDraftQtyValue(p, qtyDraft - 1)}
+    disabled={qtyDraft <= 0}
+    className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base font-black text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+  >
+    -
+  </button>
+
+  <input
+    type="number"
+    min="0"
+    max={Number(p.stock || 0)}
+    value={qtyDraft}
+    onChange={(e) => setDraftQtyValue(p, e.target.value)}
+    className="h-9 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-sm font-black text-[#5f4432] outline-none focus:border-[#cfae95]"
+  />
+
+  <button
+    type="button"
+    onClick={() => setDraftQtyValue(p, qtyDraft + 1)}
+    disabled={
+      Number(p.stock || 0) <= 0 ||
+      qtyDraft >= Number(p.stock || 0)
+    }
+    className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base font-black text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+  >
+    +
+  </button>
+</div>
  
                         <div className="mt-2 text-center text-xs text-[#8b7260]">
                           {qtyDraft > 0
