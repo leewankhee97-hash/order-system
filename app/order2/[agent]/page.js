@@ -1012,11 +1012,13 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
  
     setCart((prev) => [...prev, bundleCartItem]);
     setBundleSelect({});
-    setBundleGiftSelect({});
-    setBundleComboPodSelect({});
-    setBundleComboDeviceSelect({});
-    setSelectedBundleFlavor("");
-    setError("");
+setBundleGiftSelect({});
+setBundleComboPodSelect({});
+setBundleComboDeviceSelect({});
+setSelectedBundleFlavor("");
+setSelectedComboPodFlavor("");
+setSelectedComboDeviceFlavor("");
+setError("");
   }
  
   function changeCartQty(id, nextQty) {
@@ -1254,7 +1256,37 @@ const selectedComboDeviceProduct = useMemo(() => {
     ) || null
   );
 }, [bundleComboDeviceProducts, selectedComboDeviceFlavor]);
- 
+ useEffect(() => {
+  if (comboPodFlavorOptions.length === 0) {
+    setSelectedComboPodFlavor("");
+    return;
+  }
+
+  if (
+    selectedComboPodFlavor &&
+    comboPodFlavorOptions.includes(selectedComboPodFlavor)
+  ) {
+    return;
+  }
+
+  setSelectedComboPodFlavor(comboPodFlavorOptions[0] || "");
+}, [comboPodFlavorOptions, selectedComboPodFlavor]);
+
+useEffect(() => {
+  if (comboDeviceFlavorOptions.length === 0) {
+    setSelectedComboDeviceFlavor("");
+    return;
+  }
+
+  if (
+    selectedComboDeviceFlavor &&
+    comboDeviceFlavorOptions.includes(selectedComboDeviceFlavor)
+  ) {
+    return;
+  }
+
+  setSelectedComboDeviceFlavor(comboDeviceFlavorOptions[0] || "");
+}, [comboDeviceFlavorOptions, selectedComboDeviceFlavor]);
   const bundleProducts = useMemo(() => {
     if (normalizeText(selectedBundle?.bundle_type) === "fixed_combo") {
       return bundleComboPodProducts.length > 0
@@ -1709,11 +1741,13 @@ const selectedComboDeviceProduct = useMemo(() => {
   function resetFormAfterSubmit() {
     setCart([]);
     setSelectedBundle(null);
-    setSelectedBundleFlavor("");
-    setBundleSelect({});
-    setBundleGiftSelect({});
-    setBundleComboPodSelect({});
-    setBundleComboDeviceSelect({});
+setSelectedBundleFlavor("");
+setSelectedComboPodFlavor("");
+setSelectedComboDeviceFlavor("");
+setBundleSelect({});
+setBundleGiftSelect({});
+setBundleComboPodSelect({});
+setBundleComboDeviceSelect({});
     setDate("");
     setTime("");
     setName("");
@@ -2568,12 +2602,14 @@ const selectedComboDeviceProduct = useMemo(() => {
                     key={b.id}
                     type="button"
                     onClick={() => {
-                      setSelectedBundle(b);
-                      setBundleSelect({});
-                      setBundleGiftSelect({});
-                      setBundleComboPodSelect({});
-                      setBundleComboDeviceSelect({});
-                      setSelectedBundleFlavor("");
+  setSelectedBundle(b);
+  setBundleSelect({});
+  setBundleGiftSelect({});
+  setBundleComboPodSelect({});
+  setBundleComboDeviceSelect({});
+  setSelectedBundleFlavor("");
+  setSelectedComboPodFlavor("");
+  setSelectedComboDeviceFlavor("");
                       setTimeout(() => {
                         bundleSectionRef.current?.scrollIntoView({
                           behavior: "smooth",
@@ -2679,12 +2715,14 @@ const selectedComboDeviceProduct = useMemo(() => {
                       <button
                         type="button"
                         onClick={() => {
-                          setBundleSelect({});
-                          setBundleGiftSelect({});
-                          setBundleComboPodSelect({});
-                          setBundleComboDeviceSelect({});
-                          setSelectedBundleFlavor(bundleFlavorOptions[0] || "");
-                        }}
+  setBundleSelect({});
+  setBundleGiftSelect({});
+  setBundleComboPodSelect({});
+  setBundleComboDeviceSelect({});
+  setSelectedBundleFlavor(bundleFlavorOptions[0] || "");
+  setSelectedComboPodFlavor(comboPodFlavorOptions[0] || "");
+  setSelectedComboDeviceFlavor(comboDeviceFlavorOptions[0] || "");
+}}
                         className="rounded-3xl border border-[#eadacb] bg-white px-4 py-2 text-sm text-[#7a5b47] hover:bg-[#f8efe6]"
                       >
                         Clear Bundle
@@ -2950,144 +2988,248 @@ const selectedComboDeviceProduct = useMemo(() => {
                       )}
                     </>
                   ) : (
-                    <>
-                      <div className="rounded-[22px] border border-[#eadacb] bg-[#fffdfb] p-3 md:p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-base font-black text-[#5f4432]">
-                            组合烟弹
-                          </div>
-                          <div className="rounded-full bg-[#f7efe7] px-3 py-1 text-xs font-bold text-[#8b7260]">
-                            已选 {bundleComboPodCount}
-                          </div>
-                        </div>
- 
-                        <div className="mt-3 max-h-[420px] overflow-y-auto pr-1">
-                          {bundleComboPodProducts.length === 0 ? (
-                            <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                              后台还没有绑定 combo_pod 产品。
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                              {bundleComboPodProducts.map((p) => (
-                                <div
-                                  key={`combo-pod-${p.id}`}
-                                  className="rounded-2xl border border-[#eadacb] bg-[#fffaf6] p-3"
-                                >
-                                  <div className="mb-2 min-w-0">
-                                    <div className="truncate text-sm font-bold text-[#5f4432]">
-                                      {cleanProductName(p)}
-                                    </div>
-                                    <div className="mt-1 text-xs text-[#8b7260]">
-                                      Stock: {Number(p.stock || 0)}
-                                    </div>
-                                  </div>
- 
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        changeComboPodQty(p.id, -1, p.stock)
-                                      }
-                                      className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
-                                    >
-                                      -
-                                    </button>
- 
-                                    <input
-                                      type="number"
-                                      value={bundleComboPodSelect[p.id] || 0}
-                                      onChange={(e) =>
-                                        setComboPodQty(p.id, e.target.value)
-                                      }
-                                      className="h-9 flex-1 rounded-full border border-[#eadacb] bg-white px-3 text-center text-sm font-bold text-[#5f4432] outline-none"
-                                    />
- 
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        changeComboPodQty(p.id, 1, p.stock)
-                                      }
-                                      className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
- 
-                      <div className="rounded-[22px] border border-[#eadacb] bg-[#fffdfb] p-3 md:p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-base font-black text-[#5f4432]">
-                            组合烟枪
-                          </div>
-                          <div className="rounded-full bg-[#f7efe7] px-3 py-1 text-xs font-bold text-[#8b7260]">
-                            已选 {bundleComboDeviceCount}
-                          </div>
-                        </div>
- 
-                        <div className="mt-3 max-h-[420px] overflow-y-auto pr-1">
-                          {bundleComboDeviceProducts.length === 0 ? (
-                            <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                              后台还没有绑定 combo_device 产品。
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                              {bundleComboDeviceProducts.map((p) => (
-                                <div
-                                  key={`combo-device-${p.id}`}
-                                  className="rounded-2xl border border-[#eadacb] bg-[#fffaf6] p-3"
-                                >
-                                  <div className="mb-2 min-w-0">
-                                    <div className="truncate text-sm font-bold text-[#5f4432]">
-                                      {cleanProductName(p)}
-                                    </div>
-                                    <div className="mt-1 text-xs text-[#8b7260]">
-                                      Stock: {Number(p.stock || 0)}
-                                    </div>
-                                  </div>
- 
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        changeComboDeviceQty(p.id, -1, p.stock)
-                                      }
-                                      className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
-                                    >
-                                      -
-                                    </button>
- 
-                                    <input
-                                      type="number"
-                                      value={bundleComboDeviceSelect[p.id] || 0}
-                                      onChange={(e) =>
-                                        setComboDeviceQty(p.id, e.target.value)
-                                      }
-                                      className="h-9 flex-1 rounded-full border border-[#eadacb] bg-white px-3 text-center text-sm font-bold text-[#5f4432] outline-none"
-                                    />
- 
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        changeComboDeviceQty(p.id, 1, p.stock)
-                                      }
-                                      className="h-9 w-9 rounded-full border border-[#eadacb] bg-white text-[#6c513d] hover:bg-[#f8efe6]"
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
+  <>
+    <div className="rounded-[22px] border border-[#eadacb] bg-[#fffdfb] p-3 md:p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-base font-black text-[#5f4432]">
+          组合烟弹
+        </div>
+
+        <div className="rounded-full bg-[#f7efe7] px-3 py-1 text-xs font-bold text-[#8b7260]">
+          已选 {bundleComboPodCount}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        {bundleComboPodProducts.length === 0 ? (
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            后台还没有绑定 combo_pod 产品。
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {comboPodFlavorOptions.map((flavor) => (
+                <button
+                  key={flavor}
+                  type="button"
+                  onClick={() => setSelectedComboPodFlavor(flavor)}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                    selectedComboPodFlavor === flavor
+                      ? "border-[#d2b49c] bg-[#dcc0a8] text-white shadow-sm"
+                      : "border-[#e4cdb9] bg-white text-[#8a6b55] hover:bg-[#f8efe6]"
+                  }`}
+                >
+                  {flavor}
+                </button>
+              ))}
+            </div>
+
+            {selectedComboPodProduct ? (
+              <div className="mt-4 rounded-[24px] border border-[#eadacb] bg-[#fffaf6] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-black text-[#5f4432]">
+                      {cleanProductName(selectedComboPodProduct)}
+                    </div>
+
+                    <div className="mt-1 text-xs text-[#8b7260]">
+                      Stock: {Number(selectedComboPodProduct.stock || 0)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#8b7260]">
+                    已选{" "}
+                    {Number(
+                      bundleComboPodSelect[selectedComboPodProduct.id] || 0,
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-[36px_1fr_36px] items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      changeComboPodQty(
+                        selectedComboPodProduct.id,
+                        -1,
+                        selectedComboPodProduct.stock,
+                      )
+                    }
+                    disabled={
+                      Number(
+                        bundleComboPodSelect[selectedComboPodProduct.id] || 0,
+                      ) <= 0
+                    }
+                    className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base font-black text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    -
+                  </button>
+
+                  <input
+                    type="number"
+                    min="0"
+                    max={Number(selectedComboPodProduct.stock || 0)}
+                    value={bundleComboPodSelect[selectedComboPodProduct.id] || 0}
+                    onChange={(e) =>
+                      setComboPodQty(
+                        selectedComboPodProduct.id,
+                        e.target.value,
+                      )
+                    }
+                    className="h-9 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-sm font-black text-[#5f4432] outline-none focus:border-[#cfae95]"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      changeComboPodQty(
+                        selectedComboPodProduct.id,
+                        1,
+                        selectedComboPodProduct.stock,
+                      )
+                    }
+                    disabled={
+                      Number(
+                        bundleComboPodSelect[selectedComboPodProduct.id] || 0,
+                      ) >= Number(selectedComboPodProduct.stock || 0)
+                    }
+                    className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base font-black text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+
+    <div className="rounded-[22px] border border-[#eadacb] bg-[#fffdfb] p-3 md:p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-base font-black text-[#5f4432]">
+          组合烟枪
+        </div>
+
+        <div className="rounded-full bg-[#f7efe7] px-3 py-1 text-xs font-bold text-[#8b7260]">
+          已选 {bundleComboDeviceCount}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        {bundleComboDeviceProducts.length === 0 ? (
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            后台还没有绑定 combo_device 产品。
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {comboDeviceFlavorOptions.map((flavor) => (
+                <button
+                  key={flavor}
+                  type="button"
+                  onClick={() => setSelectedComboDeviceFlavor(flavor)}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                    selectedComboDeviceFlavor === flavor
+                      ? "border-[#d2b49c] bg-[#dcc0a8] text-white shadow-sm"
+                      : "border-[#e4cdb9] bg-white text-[#8a6b55] hover:bg-[#f8efe6]"
+                  }`}
+                >
+                  {flavor}
+                </button>
+              ))}
+            </div>
+
+            {selectedComboDeviceProduct ? (
+              <div className="mt-4 rounded-[24px] border border-[#eadacb] bg-[#fffaf6] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-black text-[#5f4432]">
+                      {cleanProductName(selectedComboDeviceProduct)}
+                    </div>
+
+                    <div className="mt-1 text-xs text-[#8b7260]">
+                      Stock: {Number(selectedComboDeviceProduct.stock || 0)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#8b7260]">
+                    已选{" "}
+                    {Number(
+                      bundleComboDeviceSelect[selectedComboDeviceProduct.id] ||
+                        0,
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-[36px_1fr_36px] items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      changeComboDeviceQty(
+                        selectedComboDeviceProduct.id,
+                        -1,
+                        selectedComboDeviceProduct.stock,
+                      )
+                    }
+                    disabled={
+                      Number(
+                        bundleComboDeviceSelect[
+                          selectedComboDeviceProduct.id
+                        ] || 0,
+                      ) <= 0
+                    }
+                    className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base font-black text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    -
+                  </button>
+
+                  <input
+                    type="number"
+                    min="0"
+                    max={Number(selectedComboDeviceProduct.stock || 0)}
+                    value={
+                      bundleComboDeviceSelect[selectedComboDeviceProduct.id] ||
+                      0
+                    }
+                    onChange={(e) =>
+                      setComboDeviceQty(
+                        selectedComboDeviceProduct.id,
+                        e.target.value,
+                      )
+                    }
+                    className="h-9 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-sm font-black text-[#5f4432] outline-none focus:border-[#cfae95]"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      changeComboDeviceQty(
+                        selectedComboDeviceProduct.id,
+                        1,
+                        selectedComboDeviceProduct.stock,
+                      )
+                    }
+                    disabled={
+                      Number(
+                        bundleComboDeviceSelect[
+                          selectedComboDeviceProduct.id
+                        ] || 0,
+                      ) >= Number(selectedComboDeviceProduct.stock || 0)
+                    }
+                    className="h-9 w-9 rounded-2xl border border-[#eadacb] bg-white text-base font-black text-[#6c513d] transition hover:bg-[#f8efe6] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+  </>
+)}
  
                   {selectedBundle?.bundle_type !== "fixed_combo" &&
                   ((selectedBundle?.gift_choose_mode === "choose" &&
