@@ -29,6 +29,8 @@ const [monthProfit, setMonthProfit] = useState(0)
   const [saveMsg, setSaveMsg] = useState('')
   const [collapsedOut, setCollapsedOut] = useState({})
   const [collapsedLow, setCollapsedLow] = useState({})
+  const [collapsedOutSeries, setCollapsedOutSeries] = useState({})
+  const [collapsedLowSeries, setCollapsedLowSeries] = useState({})
  
   const [resetAgentId, setResetAgentId] = useState('')
   const [toast, setToast] = useState(null)
@@ -155,12 +157,33 @@ const [monthProfit, setMonthProfit] = useState(0)
  
     items.forEach((p) => {
       const category = String(p.category || p.product_type || '未分类').trim()
-      const brand = String(p.series || p.brand || '其他').trim()
+      const brand = String(p.brand || '').trim()
+      const series = String(p.series || '').trim()
+      const groupParts = []
+ 
+      if (brand && brand !== '-' && brand !== '未设置品牌') groupParts.push(brand)
+      if (series && series !== '-' && series !== brand && series !== '未设置系列') groupParts.push(series)
+ 
+      const groupName = groupParts.length > 0 ? groupParts.join(' ｜ ') : '其他'
  
       if (!grouped[category]) grouped[category] = {}
-      if (!grouped[category][brand]) grouped[category][brand] = []
+      if (!grouped[category][groupName]) grouped[category][groupName] = []
  
-      grouped[category][brand].push(p)
+      grouped[category][groupName].push(p)
+    })
+ 
+    Object.keys(grouped).forEach((category) => {
+      Object.keys(grouped[category]).forEach((groupName) => {
+        grouped[category][groupName].sort((a, b) => {
+          const stockA = Number(a.stock || 0)
+          const stockB = Number(b.stock || 0)
+          const nameA = String(a.name || '')
+          const nameB = String(b.name || '')
+ 
+          if (stockA !== stockB) return stockA - stockB
+          return nameA.localeCompare(nameB)
+        })
+      })
     })
  
     return grouped
@@ -170,7 +193,24 @@ const [monthProfit, setMonthProfit] = useState(0)
     const next = { ...prevState }
  
     Object.keys(grouped).forEach((category) => {
-      if (typeof next[category] === 'undefined') next[category] = false
+      if (typeof next[category] === 'undefined') next[category] = true
+    })
+ 
+    return next
+  }
+ 
+  function getSeriesCollapseKey(category, groupName) {
+    return `${category}__${groupName}`
+  }
+ 
+  function buildSeriesCollapsedState(grouped, prevState = {}) {
+    const next = { ...prevState }
+ 
+    Object.entries(grouped).forEach(([category, groupMap]) => {
+      Object.keys(groupMap).forEach((groupName) => {
+        const key = getSeriesCollapseKey(category, groupName)
+        if (typeof next[key] === 'undefined') next[key] = true
+      })
     })
  
     return next
@@ -359,6 +399,8 @@ setMonthProfit(monthProfitTotal)
  
     setCollapsedOut((prev) => buildCollapsedState(groupedOut, prev))
     setCollapsedLow((prev) => buildCollapsedState(groupedLow, prev))
+    setCollapsedOutSeries((prev) => buildSeriesCollapsedState(groupedOut, prev))
+    setCollapsedLowSeries((prev) => buildSeriesCollapsedState(groupedLow, prev))
   }
  
   function handleStockInput(productId, value) {
@@ -643,6 +685,79 @@ async function saveCost(productId) {
     }))
   }
  
+  function toggleSeriesCollapse(type, category, groupName) {
+    const key = getSeriesCollapseKey(category, groupName)
+ 
+    if (type === 'out') {
+      setCollapsedOutSeries((prev) => ({
+        ...prev,
+        [key]: !prev[key],
+      }))
+      return
+    }
+ 
+    setCollapsedLowSeries((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }))
+  }
+ 
+  function buildCategoryCollapseMap(grouped, collapsed) {
+    const next = {}
+    Object.keys(grouped).forEach((category) => {
+      next[category] = collapsed
+    })
+    return next
+  }
+ 
+  function buildSeriesCollapseMap(grouped, collapsed) {
+    const next = {}
+    Object.entries(grouped).forEach(([category, groupMap]) => {
+      Object.keys(groupMap).forEach((groupName) => {
+        next[getSeriesCollapseKey(category, groupName)] = collapsed
+      })
+    })
+    return next
+  }
+ 
+  function setAllStockCollapse(type, collapsed) {
+    const grouped = type === 'out' ? groupedOutStock : groupedLowStock
+ 
+    if (type === 'out') {
+      setCollapsedOut(buildCategoryCollapseMap(grouped, collapsed))
+      setCollapsedOutSeries(buildSeriesCollapseMap(grouped, collapsed))
+      return
+    }
+ 
+    setCollapsedLow(buildCategoryCollapseMap(grouped, collapsed))
+    setCollapsedLowSeries(buildSeriesCollapseMap(grouped, collapsed))
+  }
+ 
+  function openStockCategoryOnly(type) {
+    const grouped = type === 'out' ? groupedOutStock : groupedLowStock
+ 
+    if (type === 'out') {
+      setCollapsedOut(buildCategoryCollapseMap(grouped, false))
+      setCollapsedOutSeries(buildSeriesCollapseMap(grouped, true))
+      return
+    }
+ 
+    setCollapsedLow(buildCategoryCollapseMap(grouped, false))
+    setCollapsedLowSeries(buildSeriesCollapseMap(grouped, true))
+  }
+ 
+  function scrollToStockSection(type) {
+    openStockCategoryOnly(type)
+ 
+    setTimeout(() => {
+      const targetId = type === 'out' ? 'out-stock-section' : 'low-stock-section'
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 80)
+  }
+ 
   function getCategoryCount(brands) {
     return Object.values(brands).reduce((sum, items) => sum + items.length, 0)
   }
@@ -676,6 +791,19 @@ async function saveCost(productId) {
     border: '1px solid #d7bfa8',
     background: '#fff',
     minWidth: 0,
+  }
+ 
+  const statActionBtn = {
+    marginTop: isMobile ? 8 : 12,
+    width: '100%',
+    padding: isMobile ? '7px 8px' : '8px 12px',
+    borderRadius: 10,
+    border: '1px solid #d7bfa8',
+    background: '#fffaf5',
+    color: '#6f4e37',
+    cursor: 'pointer',
+    fontWeight: 900,
+    fontSize: isMobile ? 12 : 13,
   }
  
   const sectionCard = {
@@ -748,14 +876,15 @@ async function saveCost(productId) {
   function renderStockGroup(grouped, type = 'low') {
     const isOut = type === 'out'
     const collapsedMap = isOut ? collapsedOut : collapsedLow
+    const seriesCollapsedMap = isOut ? collapsedOutSeries : collapsedLowSeries
     const stockParam = isOut ? 'out' : 'low'
  
     if (Object.keys(grouped).length === 0) {
       return <div>{isOut ? '暂无缺货' : '暂无低库存产品'}</div>
     }
  
-    return Object.entries(grouped).map(([category, brands]) => {
-      const totalCount = getCategoryCount(brands)
+    return Object.entries(grouped).map(([category, groups]) => {
+      const totalCount = getCategoryCount(groups)
       const isCollapsed = !!collapsedMap[category]
  
       return (
@@ -764,7 +893,7 @@ async function saveCost(productId) {
             <div>
               <div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 900 }}>{category}</div>
               <div style={{ fontSize: isMobile ? 12 : 14, opacity: 0.8, marginTop: 4 }}>
-                共 {totalCount} 个产品
+                共 {totalCount} 个产品 ｜ {Object.keys(groups).length} 个品牌 / 系列
               </div>
             </div>
  
@@ -781,38 +910,41 @@ async function saveCost(productId) {
  
           {!isCollapsed && (
             <div style={{ padding: isMobile ? 10 : 14 }}>
-              {Object.entries(brands).map(([brand, items]) => (
-                <div key={brand} style={{ marginBottom: isMobile ? 10 : 12, padding: isMobile ? '10px' : '12px', borderRadius: '14px', background: isOut ? '#fff8f8' : '#fffdf6', border: '1px solid #ead8c8' }}>
-                  {(() => {
-                    const seriesSaveKey = `${type}-${category}-${brand}`
-                    const pendingCount = items.filter((p) => hasProductPendingChanges(p.id)).length
-                    const isBatchSaving = batchSavingKey === seriesSaveKey
+              {Object.entries(groups).map(([groupName, items]) => {
+                const seriesSaveKey = `${type}-${category}-${groupName}`
+                const seriesCollapseKey = getSeriesCollapseKey(category, groupName)
+                const isSeriesCollapsed = !!seriesCollapsedMap[seriesCollapseKey]
+                const pendingCount = items.filter((p) => hasProductPendingChanges(p.id)).length
+                const isBatchSaving = batchSavingKey === seriesSaveKey
  
-                    return (
-                      <div
-                        style={{
-                          fontWeight: 900,
-                          marginBottom: 10,
-                          color: '#6f4e37',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: 8,
-                          flexWrap: 'wrap',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <div>
-                          <div>{brand}</div>
-                          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
-                            {items.length} 个产品
-                            {pendingCount > 0 ? ` ｜ 已修改 ${pendingCount} 个` : ''}
-                          </div>
+                return (
+                  <div key={groupName} style={{ marginBottom: isMobile ? 10 : 12, borderRadius: '14px', background: isOut ? '#fff8f8' : '#fffdf6', border: '1px solid #ead8c8', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        padding: isMobile ? '10px' : '12px',
+                        fontWeight: 900,
+                        color: '#6f4e37',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        borderBottom: isSeriesCollapsed ? 'none' : '1px solid #f0e0d3',
+                      }}
+                    >
+                      <div>
+                        <div>{groupName}</div>
+                        <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+                          {items.length} 个口味 / 颜色
+                          {pendingCount > 0 ? ` ｜ 已修改 ${pendingCount} 个` : ''}
                         </div>
+                      </div>
  
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
                         <button
                           type="button"
                           disabled={isBatchSaving || pendingCount === 0}
-                          onClick={() => saveSeriesProducts(items, brand, seriesSaveKey)}
+                          onClick={() => saveSeriesProducts(items, groupName, seriesSaveKey)}
                           style={{
                             ...saveBtn,
                             width: isMobile ? '100%' : 'auto',
@@ -822,70 +954,82 @@ async function saveCost(productId) {
                         >
                           {isBatchSaving ? '保存中...' : '保存此系列'}
                         </button>
+ 
+                        <button
+                          type="button"
+                          style={{ ...categoryHeaderBtn, width: isMobile ? '100%' : 'auto' }}
+                          onClick={() => toggleSeriesCollapse(type, category, groupName)}
+                        >
+                          {isSeriesCollapsed ? '展开口味' : '收起口味'}
+                        </button>
                       </div>
-                    )
-                  })()}
+                    </div>
  
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {items.map((p) => (
-                      <div key={p.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(180px, 1fr) 110px minmax(140px, 220px) auto', gap: isMobile ? 8 : 10, alignItems: 'center', padding: isMobile ? '10px' : '10px 12px', borderRadius: '12px', background: '#fff', border: '1px solid #f0e0d3' }}>
-                        <div style={{ fontWeight: 700 }}>
-  <div>{p.name}</div>
-  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    Cost: RM {Number(p.cost || 0).toFixed(2)}
-  </div>
-</div>
+                    {!isSeriesCollapsed && (
+                      <div style={{ display: 'grid', gap: 10, padding: isMobile ? 10 : 12 }}>
+                        {items.map((p) => (
+                          <div key={p.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(180px, 1fr) 110px minmax(140px, 220px) auto', gap: isMobile ? 8 : 10, alignItems: 'center', padding: isMobile ? '10px' : '10px 12px', borderRadius: '12px', background: '#fff', border: '1px solid #f0e0d3' }}>
+                            <div style={{ fontWeight: 700 }}>
+                              <div>{p.name}</div>
+                              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                                Cost: RM {Number(p.cost || 0).toFixed(2)}
+                              </div>
+                            </div>
  
-                        <div style={{ fontWeight: 800, color: isOut ? '#c0392b' : '#b9770e' }}>
-                          stock: {Number(p.stock || 0)}
-                        </div>
+                            <div style={{ fontWeight: 800, color: isOut ? '#c0392b' : '#b9770e' }}>
+                              stock: {Number(p.stock || 0)}
+                            </div>
  
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="输入库存"
-                            value={stockInputs[p.id] ?? ''}
-                            onChange={(e) => handleStockInput(p.id, e.target.value)}
-                            style={inputStyle}
-                          />
-<input
-  type="number"
-  min="0"
-  step="0.01"
-  placeholder="成本"
-  value={costInputs[p.id] ?? ''}
-  onChange={(e) => handleCostInput(p.id, e.target.value)}
-  style={inputStyle}
-/>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="输入库存"
+                                value={stockInputs[p.id] ?? ''}
+                                onChange={(e) => handleStockInput(p.id, e.target.value)}
+                                style={inputStyle}
+                              />
  
-<button
-  type="button"
-  style={miniBtn}
-  onClick={() => saveCost(p.id)}
->
-  存成本
-</button>
-                          <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 10)}>10</button>
-                          <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 20)}>20</button>
-                          <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 50)}>50</button>
-                        </div>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="成本"
+                                value={costInputs[p.id] ?? ''}
+                                onChange={(e) => handleCostInput(p.id, e.target.value)}
+                                style={inputStyle}
+                              />
  
-                        <div>
-                          <button
-                            type="button"
-                            style={{ ...saveBtn, opacity: savingId === p.id ? 0.7 : 1 }}
-                            disabled={savingId === p.id}
-                            onClick={() => saveStock(p.id)}
-                          >
-                            {savingId === p.id ? '保存中...' : '保存'}
-                          </button>
-                        </div>
+                              <button
+                                type="button"
+                                style={miniBtn}
+                                onClick={() => saveCost(p.id)}
+                              >
+                                存成本
+                              </button>
+ 
+                              <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 10)}>10</button>
+                              <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 20)}>20</button>
+                              <button type="button" style={miniBtn} onClick={() => quickFill(p.id, 50)}>50</button>
+                            </div>
+ 
+                            <div>
+                              <button
+                                type="button"
+                                style={{ ...saveBtn, opacity: savingId === p.id ? 0.7 : 1 }}
+                                disabled={savingId === p.id}
+                                onClick={() => saveStock(p.id)}
+                              >
+                                {savingId === p.id ? '保存中...' : '保存'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -968,11 +1112,25 @@ async function saveCost(productId) {
           <div style={statCard}>
             <div>低库存产品</div>
             <div style={{ fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>{lowStock.length}</div>
+            <button
+              type="button"
+              style={statActionBtn}
+              onClick={() => scrollToStockSection('low')}
+            >
+              查看低库存
+            </button>
           </div>
  
           <div style={{ ...statCard, background: '#ffe9e9' }}>
             <div>缺货产品</div>
             <div style={{ fontSize: isMobile ? 18 : 24, fontWeight: 900 }}>{outStock.length}</div>
+            <button
+              type="button"
+              style={{ ...statActionBtn, border: '1px solid #ffb3b3', background: '#fff', color: '#c0392b' }}
+              onClick={() => scrollToStockSection('out')}
+            >
+              查看缺货
+            </button>
           </div>
         </div>
  
@@ -1050,13 +1208,25 @@ async function saveCost(productId) {
           </div>
         </div>
  
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, marginBottom: isMobile ? 8 : 10 }}>❌ OUT OF STOCK 分类总览</h2>
+        <div id="out-stock-section" style={{ marginBottom: 20, scrollMarginTop: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 8 : 10 }}>
+            <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, margin: 0 }}>❌ OUT OF STOCK 分类总览</h2>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" style={categoryHeaderBtn} onClick={() => setAllStockCollapse('out', false)}>展开全部</button>
+              <button type="button" style={categoryHeaderBtn} onClick={() => setAllStockCollapse('out', true)}>收起全部</button>
+            </div>
+          </div>
           <div style={{ ...sectionCard, background: '#fffdfd' }}>{renderStockGroup(groupedOutStock, 'out')}</div>
         </div>
  
-        <div>
-          <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, marginBottom: isMobile ? 8 : 10 }}>⚠️ 低库存产品</h2>
+        <div id="low-stock-section" style={{ scrollMarginTop: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 8 : 10 }}>
+            <h2 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 900, margin: 0 }}>⚠️ 低库存产品</h2>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" style={categoryHeaderBtn} onClick={() => setAllStockCollapse('low', false)}>展开全部</button>
+              <button type="button" style={categoryHeaderBtn} onClick={() => setAllStockCollapse('low', true)}>收起全部</button>
+            </div>
+          </div>
           <div style={{ ...sectionCard, background: '#fffdf8' }}>{renderStockGroup(groupedLowStock, 'low')}</div>
         </div>
       </div>
