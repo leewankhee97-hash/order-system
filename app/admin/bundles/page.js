@@ -133,7 +133,6 @@ export default function AdminBundlesPage() {
         .from('bundle_rules')
         .select('*')
         .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false })
  
       if (bundleError) throw bundleError
  
@@ -182,6 +181,77 @@ export default function AdminBundlesPage() {
     setMessage(msg)
   }
  
+  function getErrorMessage(error) {
+    return String(error?.message || error?.details || error?.hint || error || '')
+  }
+ 
+  function isMissingColumnError(error, columnName) {
+    const msg = getErrorMessage(error).toLowerCase()
+    const column = String(columnName).toLowerCase()
+ 
+    return (
+      msg.includes(column) &&
+      (msg.includes('schema cache') ||
+        msg.includes('could not find') ||
+        msg.includes('column') ||
+        msg.includes('does not exist'))
+    )
+  }
+ 
+  async function insertBundleRule(payload) {
+    const withTimestamp = {
+      ...payload,
+      created_at: new Date().toISOString(),
+    }
+ 
+    const first = await supabase
+      .from('bundle_rules')
+      .insert(withTimestamp)
+      .select('id')
+      .single()
+ 
+    if (!first.error) return first.data
+ 
+    if (!isMissingColumnError(first.error, 'created_at')) {
+      throw first.error
+    }
+ 
+    const retry = await supabase
+      .from('bundle_rules')
+      .insert(payload)
+      .select('id')
+      .single()
+ 
+    if (retry.error) throw retry.error
+ 
+    return retry.data
+  }
+ 
+  async function updateBundleRule(bundleId, payload) {
+    const withTimestamp = {
+      ...payload,
+      updated_at: new Date().toISOString(),
+    }
+ 
+    const first = await supabase
+      .from('bundle_rules')
+      .update(withTimestamp)
+      .eq('id', bundleId)
+ 
+    if (!first.error) return
+ 
+    if (!isMissingColumnError(first.error, 'updated_at')) {
+      throw first.error
+    }
+ 
+    const retry = await supabase
+      .from('bundle_rules')
+      .update(payload)
+      .eq('id', bundleId)
+ 
+    if (retry.error) throw retry.error
+  }
+ 
   function handleChange(key, value) {
     setForm((prev) => {
       const next = { ...prev, [key]: value }
@@ -197,17 +267,22 @@ export default function AdminBundlesPage() {
   }
  
   function resetForm(options = {}) {
-  setEditingId('')
-  setBindings([])
-  setProductSearch('')
-  setActiveRole('main')
-
-  if (!options.keepMessage) {
-    setMessage('')
+    const keepMessage =
+      options &&
+      typeof options === 'object' &&
+      options.keepMessage === true
+ 
+    setEditingId('')
+    setBindings([])
+    setProductSearch('')
+    setActiveRole('main')
+ 
+    if (!keepMessage) {
+      setMessage('')
+    }
+ 
+    setForm({ ...EMPTY_FORM })
   }
-
-  setForm({ ...EMPTY_FORM })
-}
  
   function editRow(row) {
     setEditingId(row.id)
@@ -356,39 +431,24 @@ export default function AdminBundlesPage() {
         display_tag: String(form.display_tag || '').trim(),
         sort_order: Number(form.sort_order || 0),
         is_active: !!form.is_active,
-        updated_at: new Date().toISOString(),
       }
  
       const isEditing = !!editingId
-let bundleId = editingId
-
-if (isEditing) {
-  const { error } = await supabase
-    .from('bundle_rules')
-    .update(payload)
-    .eq('id', editingId)
-
-  if (error) throw error
-} else {
-  const { data, error } = await supabase
-    .from('bundle_rules')
-    .insert({
-      ...payload,
-      created_at: new Date().toISOString(),
-    })
-    .select('id')
-    .single()
-
-  if (error) throw error
-  bundleId = data.id
-}
-
-await saveBindings(bundleId, false)
-await fetchAll()
-
-resetForm({ keepMessage: true })
-showSuccess(isEditing ? 'Bundle 已更新，表格已清空' : 'Bundle 已新增，表格已清空')
-
+      let bundleId = editingId
+ 
+      if (isEditing) {
+        await updateBundleRule(editingId, payload)
+      } else {
+        const data = await insertBundleRule(payload)
+        bundleId = data.id
+      }
+ 
+      await saveBindings(bundleId, false)
+      await fetchAll()
+ 
+      resetForm({ keepMessage: true })
+      showSuccess(isEditing ? 'Bundle 已更新，表格已清空' : 'Bundle 已新增，表格已清空')
+ 
     } catch (err) {
       console.error(err)
       showError(err.message || '保存失败')
@@ -399,19 +459,12 @@ showSuccess(isEditing ? 'Bundle 已更新，表格已清空' : 'Bundle 已新增
  
   async function saveBindings(bundleId = editingId, showMsg = true) {
     if (!bundleId) {
-      showError('请先新增或选择一个 Bundle')
-      return
+      throw new Error('请先新增或选择一个 Bundle')
     }
  
-    const { error: deleteError } = await supabase
-      .from('bundle_rule_products')
-      .delete()
-      .eq('bundle_rule_id', bundleId)
- 
-    if (deleteError) throw deleteError
- 
-    if (bindings.length > 0) {
-      const rows = bindings.map((row) => ({
+    const rows = bindings
+      .filter((row) => row.product_id)
+      .map((row) => ({
         bundle_rule_id: bundleId,
         product_id: row.product_id,
         role: row.role || 'main',
@@ -421,6 +474,18 @@ showSuccess(isEditing ? 'Bundle 已更新，表格已清空' : 'Bundle 已新增
         random_only: !!row.random_only,
       }))
  
+    if (bindings.length > 0 && rows.length === 0) {
+      throw new Error('没有有效的绑定产品')
+    }
+ 
+    const { error: deleteError } = await supabase
+      .from('bundle_rule_products')
+      .delete()
+      .eq('bundle_rule_id', bundleId)
+ 
+    if (deleteError) throw deleteError
+ 
+    if (rows.length > 0) {
       const { error: insertError } = await supabase
         .from('bundle_rule_products')
         .insert(rows)
@@ -468,15 +533,9 @@ showSuccess(isEditing ? 'Bundle 已更新，表格已清空' : 'Bundle 已新增
  
   async function toggleActive(row) {
     try {
-      const { error } = await supabase
-        .from('bundle_rules')
-        .update({
-          is_active: !(row.is_active ?? true),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', row.id)
- 
-      if (error) throw error
+      await updateBundleRule(row.id, {
+        is_active: !(row.is_active ?? true),
+      })
       showSuccess(`Bundle 已${row.is_active ? '停用' : '启用'}`)
       await fetchAll()
     } catch (err) {
@@ -553,18 +612,18 @@ showSuccess(isEditing ? 'Bundle 已更新，表格已清空' : 'Bundle 已新增
     showError('请先新增或选择一个 Bundle，然后再绑定产品')
     return
   }
-
+ 
   setBindings((prev) => {
     const exists = prev.some(
       (x) => String(x.product_id) === String(productId) && x.role === role
     )
-
+ 
     if (exists) {
       return prev.filter(
         (x) => !(String(x.product_id) === String(productId) && x.role === role)
       )
     }
-
+ 
     return [
       ...prev,
       {
@@ -574,28 +633,28 @@ showSuccess(isEditing ? 'Bundle 已更新，表格已清空' : 'Bundle 已新增
     ]
   })
 }
-
+ 
 function selectAllFilteredProducts(role = activeRole) {
   if (!editingId) {
     showError('请先新增或选择一个 Bundle，然后再绑定产品')
     return
   }
-
+ 
   if (filteredProducts.length === 0) {
     showError('当前没有可选择的产品')
     return
   }
-
+ 
   setBindings((prev) => {
     const next = [...prev]
-
+ 
     filteredProducts.forEach((product) => {
       const exists = next.some(
         (x) =>
           String(x.product_id) === String(product.id) &&
           x.role === role
       )
-
+ 
       if (!exists) {
         next.push({
           ...getDefaultBindingOptions(role, product.id),
@@ -603,26 +662,26 @@ function selectAllFilteredProducts(role = activeRole) {
         })
       }
     })
-
+ 
     return next
   })
-
+ 
   showSuccess(`已一键选择当前显示的 ${filteredProducts.length} 个产品`)
 }
-
+ 
 function unselectAllFilteredProducts(role = activeRole) {
   if (!editingId) {
     showError('请先新增或选择一个 Bundle')
     return
   }
-
+ 
   if (filteredProducts.length === 0) {
     showError('当前没有可取消的产品')
     return
   }
-
+ 
   const currentIds = new Set(filteredProducts.map((p) => String(p.id)))
-
+ 
   setBindings((prev) =>
     prev.filter(
       (x) =>
@@ -632,34 +691,34 @@ function unselectAllFilteredProducts(role = activeRole) {
         )
     )
   )
-
+ 
   showSuccess(`已取消当前显示的 ${filteredProducts.length} 个产品`)
 }
-
+ 
 function updateBinding(productId, role, patch) {
   setBindings((prev) =>
     prev.map((row) => {
       if (String(row.product_id) === String(productId) && row.role === role) {
         return { ...row, ...patch }
       }
-
+ 
       return row
     })
   )
 }
-
+ 
 function getBundleTypeLabel(value) {
   return BUNDLE_TYPES.find((item) => item.value === value)?.label || value || '-'
 }
-
+ 
 function getGiftModeLabel(value) {
   return GIFT_MODES.find((item) => item.value === value)?.label || value || '-'
 }
-
+ 
 function getGiftChooseModeLabel(value) {
   return GIFT_CHOOSE_MODES.find((item) => item.value === value)?.label || value || '-'
 }
-
+ 
 if (loading) {
     return (
       <main style={pageStyle}>
@@ -849,7 +908,7 @@ if (loading) {
               />
             </div>
  
-            <div style={{ gridColumn: 'span 2' }}>
+            <div style={{ gridColumn: '1 / -1' }}>
               <label style={fieldLabelStyle}>Gift Note｜赠品备注</label>
               <textarea
                 placeholder="例如：赠品烟弹可选，烟枪随机发货"
@@ -977,7 +1036,7 @@ if (loading) {
     如果找不到产品，可以先把 Series 清空，或确认 products.brand 是否完全一致。
   </div>
 </div>
-
+ 
 <div style={bulkActionStyle}>
   <button
     type="button"
@@ -987,7 +1046,7 @@ if (loading) {
   >
     一键选择当前显示产品
   </button>
-
+ 
   <button
     type="button"
     onClick={() => unselectAllFilteredProducts(activeRole)}
@@ -996,12 +1055,12 @@ if (loading) {
   >
     一键取消当前显示产品
   </button>
-
+ 
   <div style={bulkHintStyle}>
     当前显示：{filteredProducts.length} 个产品｜当前角色：{roleInfo(activeRole).label}
   </div>
 </div>
-
+ 
 <div style={productListStyle}>
                   {filteredProducts.length === 0 ? (
                     <div style={{ color: '#9b7b63' }}>没有符合条件的产品。</div>
@@ -1074,6 +1133,7 @@ const pageStyle = {
   background: '#f7efe7',
   padding: 24,
   color: '#6f4e37',
+  boxSizing: 'border-box',
 }
  
 const containerStyle = {
@@ -1116,7 +1176,7 @@ const formGridStyle = {
  
 const layoutGridStyle = {
   display: 'grid',
-  gridTemplateColumns: 'minmax(520px, 1fr) minmax(420px, 0.9fr)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: 20,
   alignItems: 'start',
 }
@@ -1137,6 +1197,7 @@ const inputStyle = {
   padding: '0 12px',
   outline: 'none',
   color: '#6f4e37',
+  boxSizing: 'border-box',
 }
  
 const smallInputStyle = {
@@ -1148,6 +1209,7 @@ const smallInputStyle = {
   padding: '0 8px',
   outline: 'none',
   color: '#6f4e37',
+  boxSizing: 'border-box',
 }
  
 const smallLabelStyle = {
@@ -1298,7 +1360,7 @@ const productCardActiveStyle = {
  
 const bindingOptionGridStyle = {
   display: 'grid',
-  gridTemplateColumns: '120px 1fr 1fr',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
   gap: 10,
   marginTop: 10,
   alignItems: 'center',
@@ -1459,7 +1521,7 @@ const fieldLabelStyle = {
   fontWeight: 900,
   color: '#7b5a42',
 }
-
+ 
 const bulkActionStyle = {
   display: 'flex',
   flexWrap: 'wrap',
@@ -1467,7 +1529,7 @@ const bulkActionStyle = {
   alignItems: 'center',
   marginBottom: 12,
 }
-
+ 
 const bulkHintStyle = {
   fontSize: 12,
   color: '#8b6f5a',
