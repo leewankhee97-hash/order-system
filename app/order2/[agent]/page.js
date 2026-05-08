@@ -1722,20 +1722,19 @@ useEffect(() => {
     return map;
   }, [orderedBackupGroups, products]);
  
-  const hasBackupCompleted = useMemo(() => {
-    if (orderedBackupGroups.length === 0) return true;
- 
-    return orderedBackupGroups.every((group) => {
-      const selected = backupSelections[group.key] || [];
-      const action = backupActions[group.key] || "";
- 
-      return (
-        (Array.isArray(selected) && selected.length > 0) ||
-        action === "refund" ||
-        action === "next_order"
-      );
-    });
-  }, [orderedBackupGroups, backupSelections, backupActions]);
+ const hasBackupCompleted = useMemo(() => {
+  if (orderedBackupGroups.length === 0) return true;
+
+  return orderedBackupGroups.every((group) => {
+    const selected = backupSelections[group.key] || [];
+    const action = backupActions[group.key] || "";
+
+    return (
+      (Array.isArray(selected) && selected.length > 0) ||
+      action === "next_order"
+    );
+  });
+}, [orderedBackupGroups, backupSelections, backupActions]);
  
   useEffect(() => {
     const validKeys = new Set(orderedBackupGroups.map((group) => group.key));
@@ -2010,14 +2009,6 @@ backupRemarkMap.forEach((group) => {
     return
   }
  
-  if (action === 'refund') {
-    backupRemarkLines.push('')
-    backupRemarkLines.push(group.title)
-    backupRemarkLines.push('【不选择备选】')
-    backupRemarkLines.push('如遇缺货，退款')
- 
-    return
-  }
  
   if (action === 'next_order') {
     backupRemarkLines.push('')
@@ -2187,8 +2178,7 @@ if (backupRemarkLines.length > 0) {
     }
  
     if (orderedBackupGroups.length > 0 && !hasBackupCompleted) {
-      setError("每个品牌/系列请选择备选口味，或选择【缺货退款 / 下一单扣】");
-      return;
+setError("每个品牌/系列请选择备选口味，或选择【下一单扣】");      return;
     }
     const confirmText = [
       "确认提交订单？",
@@ -3889,8 +3879,7 @@ if (backupRemarkLines.length > 0) {
               ) : (
                 <div className="space-y-4">
                   <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-500">
-                    此项必选：每个品牌/系列请选择备选，或选择【缺货退款 / 下一单扣】
-                  </div>
+此项必选：每个品牌/系列请选择备选，或选择【下一单扣】                  </div>
  
                   {orderedBackupGroups.map((group) => {
                     const action = backupActions[group.key] || "";
@@ -3905,31 +3894,19 @@ if (backupRemarkLines.length > 0) {
                           {group.title}
                         </div>
  
-                        <div className="mb-3 grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setBackupAction(group.key, "refund")}
-                            className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
-                              action === "refund"
-                                ? "border-red-300 bg-red-50 text-red-600"
-                                : "border-[#eadacb] bg-white text-[#7a5b47] hover:bg-[#f8efe6]"
-                            }`}
-                          >
-                            缺货退款
-                          </button>
- 
-                          <button
-                            type="button"
-                            onClick={() => setBackupAction(group.key, "next_order")}
-                            className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
-                              action === "next_order"
-                                ? "border-amber-300 bg-amber-50 text-amber-700"
-                                : "border-[#eadacb] bg-white text-[#7a5b47] hover:bg-[#f8efe6]"
-                            }`}
-                          >
-                            下一单扣
-                          </button>
-                        </div>
+                        <div className="mb-3 grid grid-cols-1 gap-2">
+  <button
+    type="button"
+    onClick={() => setBackupAction(group.key, "next_order")}
+    className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
+      action === "next_order"
+        ? "border-amber-300 bg-amber-50 text-amber-700"
+        : "border-[#eadacb] bg-white text-[#7a5b47] hover:bg-[#f8efe6]"
+    }`}
+  >
+    下一单扣
+  </button>
+</div>
  
                         <div className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[#a88b77]">
                           或选择备选口味/颜色
@@ -3957,14 +3934,12 @@ if (backupRemarkLines.length > 0) {
                         </div>
  
                         <div className="mt-3 text-xs font-semibold text-[#8a6d59]">
-                          {selectedList.length > 0
-                            ? `已选择 ${selectedList.length} 个备选`
-                            : action === "refund"
-                              ? "已选择：缺货退款"
-                              : action === "next_order"
-                                ? "已选择：下一单扣"
-                                : "还未选择处理方式"}
-                        </div>
+  {selectedList.length > 0
+    ? `已选择 ${selectedList.length} 个备选`
+    : action === "next_order"
+      ? "已选择：下一单扣"
+      : "还未选择处理方式"}
+</div>
                       </div>
                     );
                   })}
