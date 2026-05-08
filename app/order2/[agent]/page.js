@@ -35,6 +35,10 @@ function money(v) {
   return Number(v || 0).toFixed(2);
 }
  
+function getBackupKey(item) {
+  return `${item.brand || ''}__${item.series || ''}`.toUpperCase();
+}
+ 
 function stockLabel(stock) {
   const s = Number(stock || 0);
   if (s <= 0) {
@@ -439,7 +443,7 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
   const isSearching = search.trim().length > 0;
  
   const [backupSelections, setBackupSelections] = useState({});
-  const [noBackup, setNoBackup] = useState(false);
+  const [backupActions, setBackupActions] = useState({});
  
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -512,7 +516,7 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
       setPostcode(draft.postcode || "");
       setShipping(draft.shipping || "");
       setBackupSelections(draft.backupSelections || {});
-      setNoBackup(Boolean(draft.noBackup));
+      setBackupActions(draft.backupActions || {});
     } catch (err) {
       console.error("LOAD DRAFT ERROR:", err);
     }
@@ -536,7 +540,7 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
       postcode,
       shipping,
       backupSelections,
-      noBackup,
+      backupActions,
     };
  
     window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
@@ -555,7 +559,7 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
     postcode,
     shipping,
     backupSelections,
-    noBackup,
+    backupActions,
   ]);
  
   async function init(options = {}) {
@@ -1198,14 +1202,14 @@ setError("");
  useEffect(() => {
   if (isSearching) return;
   if (!selectedType || !selectedBrand) return;
-
+ 
   const timer = setTimeout(() => {
     variantSectionRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "start",
     });
   }, 120);
-
+ 
   return () => clearTimeout(timer);
 }, [isSearching, selectedType, selectedBrand]);
   const bundleMainProducts = useMemo(() => {
@@ -1251,7 +1255,7 @@ setError("");
     ),
   ];
 }, [bundleComboPodProducts]);
-
+ 
 const comboDeviceFlavorOptions = useMemo(() => {
   return [
     ...new Set(
@@ -1261,7 +1265,7 @@ const comboDeviceFlavorOptions = useMemo(() => {
     ),
   ];
 }, [bundleComboDeviceProducts]);
-
+ 
 const selectedComboPodProduct = useMemo(() => {
   if (!selectedComboPodFlavor) return null;
   return (
@@ -1270,7 +1274,7 @@ const selectedComboPodProduct = useMemo(() => {
     ) || null
   );
 }, [bundleComboPodProducts, selectedComboPodFlavor]);
-
+ 
 const selectedComboDeviceProduct = useMemo(() => {
   if (!selectedComboDeviceFlavor) return null;
   return (
@@ -1284,30 +1288,30 @@ const selectedComboDeviceProduct = useMemo(() => {
     setSelectedComboPodFlavor("");
     return;
   }
-
+ 
   if (
     selectedComboPodFlavor &&
     comboPodFlavorOptions.includes(selectedComboPodFlavor)
   ) {
     return;
   }
-
+ 
   setSelectedComboPodFlavor(comboPodFlavorOptions[0] || "");
 }, [comboPodFlavorOptions, selectedComboPodFlavor]);
-
+ 
 useEffect(() => {
   if (comboDeviceFlavorOptions.length === 0) {
     setSelectedComboDeviceFlavor("");
     return;
   }
-
+ 
   if (
     selectedComboDeviceFlavor &&
     comboDeviceFlavorOptions.includes(selectedComboDeviceFlavor)
   ) {
     return;
   }
-
+ 
   setSelectedComboDeviceFlavor(comboDeviceFlavorOptions[0] || "");
 }, [comboDeviceFlavorOptions, selectedComboDeviceFlavor]);
   const bundleProducts = useMemo(() => {
@@ -1658,97 +1662,152 @@ useEffect(() => {
     return products.filter((p) => Number(p.stock || 0) <= 0).length;
   }, [products]);
  
-  const orderedBrands = useMemo(() => {
-    const brands = new Set();
+  const orderedBackupGroups = useMemo(() => {
+    const map = new Map();
  
-    cart.forEach((i) => {
-      if (i.is_bundle) {
-        const bundleBrand = normalizeText(i.bundle_brand);
-        if (bundleBrand) brands.add(bundleBrand);
-      } else {
-        const brand = normalizeText(i.brand);
-        if (brand) brands.add(brand);
+    cart.forEach((item) => {
+      if (item.is_bundle) {
+        const brand = normalizeText(item.bundle_brand);
+        const title = brand || item.bundle_name || "BUNDLE";
+        const key = `${brand || item.bundle_name || ""}__`.toUpperCase();
+ 
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            title,
+            brand,
+            series: "",
+          });
+        }
+ 
+        return;
+      }
+ 
+      const key = getBackupKey(item);
+      const title = item.series || item.brand || item.name || "产品";
+ 
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          title,
+          brand: item.brand || "",
+          series: item.series || "",
+        });
       }
     });
  
-    if (selectedBundle) {
-      const bundleBrand = normalizeText(selectedBundle.brand);
-      if (bundleBrand) brands.add(bundleBrand);
-    }
- 
-    return Array.from(brands);
-  }, [cart, selectedBundle]);
+    return Array.from(map.values());
+  }, [cart]);
  
   const backupOptions = useMemo(() => {
     const map = {};
  
-    orderedBrands.forEach((brand) => {
+    orderedBackupGroups.forEach((group) => {
       const list = products
-        .filter((p) => eqText(p.brand, brand))
+        .filter((p) => {
+          if (!eqText(p.brand, group.brand)) return false;
+ 
+          if (group.series && !eqText(p.series, group.series)) {
+            return false;
+          }
+ 
+          return true;
+        })
         .map((p) => cleanProductName(p))
         .filter(Boolean);
  
-      map[brand] = [...new Set(list)];
+      map[group.key] = [...new Set(list)];
     });
  
     return map;
-  }, [orderedBrands, products]);
+  }, [orderedBackupGroups, products]);
  
-  const hasAnyBackupSelected = useMemo(() => {
-    return Object.values(backupSelections).some(
-      (arr) => Array.isArray(arr) && arr.length > 0,
-    );
-  }, [backupSelections]);
+  const hasBackupCompleted = useMemo(() => {
+    if (orderedBackupGroups.length === 0) return true;
+ 
+    return orderedBackupGroups.every((group) => {
+      const selected = backupSelections[group.key] || [];
+      const action = backupActions[group.key] || "";
+ 
+      return (
+        (Array.isArray(selected) && selected.length > 0) ||
+        action === "refund" ||
+        action === "next_order"
+      );
+    });
+  }, [orderedBackupGroups, backupSelections, backupActions]);
  
   useEffect(() => {
+    const validKeys = new Set(orderedBackupGroups.map((group) => group.key));
+ 
     setBackupSelections((prev) => {
       const next = {};
  
-      orderedBrands.forEach((brand) => {
-        const validOptions = new Set(backupOptions[brand] || []);
-        const kept = (prev[brand] || []).filter((item) =>
+      orderedBackupGroups.forEach((group) => {
+        const validOptions = new Set(backupOptions[group.key] || []);
+        const kept = (prev[group.key] || []).filter((item) =>
           validOptions.has(item),
         );
+ 
         if (kept.length > 0) {
-          next[brand] = kept;
+          next[group.key] = kept;
         }
       });
  
       return next;
     });
-  }, [orderedBrands, backupOptions]);
+ 
+    setBackupActions((prev) => {
+      const next = {};
+ 
+      Object.entries(prev || {}).forEach(([key, value]) => {
+        if (validKeys.has(key)) {
+          next[key] = value;
+        }
+      });
+ 
+      return next;
+    });
+  }, [orderedBackupGroups, backupOptions]);
  
   useEffect(() => {
-    if (orderedBrands.length === 0) {
+    if (orderedBackupGroups.length === 0) {
       setBackupSelections({});
-      setNoBackup(false);
+      setBackupActions({});
     }
-  }, [orderedBrands]);
+  }, [orderedBackupGroups]);
  
-  function toggleNoBackup() {
-    setNoBackup((prev) => {
-      const next = !prev;
-      if (next) {
-        setBackupSelections({});
-      }
+  function setBackupAction(groupKey, action) {
+    setBackupActions((prev) => ({
+      ...prev,
+      [groupKey]: action,
+    }));
+ 
+    setBackupSelections((prev) => {
+      const next = { ...prev };
+      delete next[groupKey];
       return next;
     });
   }
  
-  function toggleBackup(brand, flavor) {
-    setNoBackup(false);
+  function toggleBackup(groupKey, flavor) {
+    setBackupActions((prev) => {
+      const next = { ...prev };
+      delete next[groupKey];
+      return next;
+    });
  
     setBackupSelections((prev) => {
-      const current = prev[brand] || [];
+      const current = prev[groupKey] || [];
  
       if (current.includes(flavor)) {
         const filtered = current.filter((f) => f !== flavor);
         const next = { ...prev };
  
         if (filtered.length > 0) {
-          next[brand] = filtered;
+          next[groupKey] = filtered;
         } else {
-          delete next[brand];
+          delete next[groupKey];
         }
  
         return next;
@@ -1756,7 +1815,7 @@ useEffect(() => {
  
       return {
         ...prev,
-        [brand]: [...current, flavor],
+        [groupKey]: [...current, flavor],
       };
     });
   }
@@ -1781,7 +1840,7 @@ setBundleComboDeviceSelect({});
     setShipping("");
     setDraftQty({});
     setBackupSelections({});
-    setNoBackup(false);
+    setBackupActions({});
  
     // ✅ 清除本地草稿（重点）
     if (typeof window !== "undefined") {
@@ -1858,14 +1917,14 @@ setBundleComboDeviceSelect({});
   const podItems = (item.bundle_combo_items || []).filter(
     (bi) => bi.role !== "combo_device",
   );
-
+ 
   const deviceItems = (item.bundle_combo_items || []).filter(
     (bi) => bi.role === "combo_device",
   );
-
+ 
   lines.push("");
   lines.push(`组合内容：`);
-
+ 
   if (podItems.length > 0) {
     lines.push("");
     lines.push(`烟弹`);
@@ -1874,7 +1933,7 @@ setBundleComboDeviceSelect({});
       lines.push(`• ${split.flavorLine} ×${bi.qty}`);
     });
   }
-
+ 
   if (deviceItems.length > 0) {
     lines.push("");
     lines.push(`烟枪`);
@@ -1906,45 +1965,77 @@ setBundleComboDeviceSelect({});
       });
  
     // ✅ 3. 备注 / 备选
-    lines.push("");
-    lines.push(`备注`);
+const backupRemarkMap = new Map()
  
-    if (noBackup) {
-      lines.push(`【不选择备选】`);
-      lines.push(`如遇缺货，下一单扣`);
-    } else {
-      const cartBrands = new Set(
-        cart.map((item) =>
-          normalizeText(item.is_bundle ? item.bundle_brand : item.brand),
-        ),
-      );
+cart.forEach((item) => {
+  if (item.is_bundle) {
+    const key = `${item.bundle_brand || item.bundle_name || ''}__`.toUpperCase()
  
-      const backupEntries = Object.entries(backupSelections).filter(
-        ([brand, flavors]) =>
-          Array.isArray(flavors) &&
-          flavors.length > 0 &&
-          cartBrands.has(normalizeText(brand)),
-      );
- 
-      if (backupEntries.length > 0) {
-        lines.push(`【备选口味/颜色】`);
-        lines.push("");
- 
-        backupEntries.forEach(([brand, flavors], index) => {
-          lines.push(brand);
- 
-          flavors.forEach((f) => {
-            lines.push(`• ${f}`);
-          });
- 
-          if (index !== backupEntries.length - 1) {
-            lines.push("");
-          }
-        });
-      } else {
-        lines.push(`-`);
-      }
+    if (!backupRemarkMap.has(key)) {
+      backupRemarkMap.set(key, {
+        title: item.bundle_brand || item.bundle_name || 'BUNDLE',
+        backups: backupSelections[key] || [],
+        action: backupActions[key] || '',
+      })
     }
+ 
+    return
+  }
+ 
+  const key = getBackupKey(item)
+ 
+  if (!backupRemarkMap.has(key)) {
+    backupRemarkMap.set(key, {
+      title: item.series || item.brand || item.name || '产品',
+      backups: backupSelections[key] || [],
+      action: backupActions[key] || '',
+    })
+  }
+})
+ 
+const backupRemarkLines = []
+ 
+backupRemarkMap.forEach((group) => {
+  const backups = Array.isArray(group.backups) ? group.backups : []
+  const action = group.action
+ 
+  if (backups.length > 0) {
+    backupRemarkLines.push('')
+    backupRemarkLines.push(group.title)
+ 
+    backups.forEach((flavor) => {
+      backupRemarkLines.push(`• ${flavor}`)
+    })
+ 
+    return
+  }
+ 
+  if (action === 'refund') {
+    backupRemarkLines.push('')
+    backupRemarkLines.push(group.title)
+    backupRemarkLines.push('【不选择备选】')
+    backupRemarkLines.push('如遇缺货，退款')
+ 
+    return
+  }
+ 
+  if (action === 'next_order') {
+    backupRemarkLines.push('')
+    backupRemarkLines.push(group.title)
+    backupRemarkLines.push('【不选择备选】')
+    backupRemarkLines.push('如遇缺货，下一单扣')
+  }
+})
+ 
+lines.push('')
+lines.push('备注')
+ 
+if (backupRemarkLines.length > 0) {
+  lines.push('【备选口味/颜色】')
+  lines.push(...backupRemarkLines)
+} else {
+  lines.push('-')
+}
  
     // ✅ 4. 费用明细
     lines.push("");
@@ -2095,8 +2186,8 @@ setBundleComboDeviceSelect({});
       }
     }
  
-    if (orderedBrands.length > 0 && !noBackup && !hasAnyBackupSelected) {
-      setError("请选择备选口味，或勾选【不选择备选】");
+    if (orderedBackupGroups.length > 0 && !hasBackupCompleted) {
+      setError("每个品牌/系列请选择备选口味，或选择【缺货退款 / 下一单扣】");
       return;
     }
     const confirmText = [
@@ -2104,7 +2195,7 @@ setBundleComboDeviceSelect({});
       "",
       `配送方式：${delivery}`,
       `产品数量：${cartQty} 件`,
-      `备选状态：${noBackup ? "不选择备选" : hasAnyBackupSelected ? "已选择备选" : "未完成"}`,
+      `备选状态：${hasBackupCompleted ? "备选完成" : "未完成"}`,
       `总额：RM ${money(total)}`,
     ].join("\n");
  
@@ -2557,7 +2648,7 @@ setBundleComboDeviceSelect({});
   >
     -
   </button>
-
+ 
   <input
     type="number"
     min="0"
@@ -2566,7 +2657,7 @@ setBundleComboDeviceSelect({});
     onChange={(e) => setDraftQtyValue(p, e.target.value)}
     className="h-9 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-sm font-black text-[#5f4432] outline-none focus:border-[#cfae95]"
   />
-
+ 
   <button
     type="button"
     onClick={() => setDraftQtyValue(p, qtyDraft + 1)}
@@ -3017,12 +3108,12 @@ setBundleComboDeviceSelect({});
         <div className="text-base font-black text-[#5f4432]">
           组合烟弹
         </div>
-
+ 
         <div className="rounded-full bg-[#f7efe7] px-3 py-1 text-xs font-bold text-[#8b7260]">
           已选 {bundleComboPodCount}
         </div>
       </div>
-
+ 
       <div className="mt-3">
         {bundleComboPodProducts.length === 0 ? (
           <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -3046,7 +3137,7 @@ setBundleComboDeviceSelect({});
                 </button>
               ))}
             </div>
-
+ 
             {selectedComboPodProduct ? (
               <div className="mt-4 rounded-[24px] border border-[#eadacb] bg-[#fffaf6] p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -3054,12 +3145,12 @@ setBundleComboDeviceSelect({});
                     <div className="text-sm font-black text-[#5f4432]">
                       {cleanProductName(selectedComboPodProduct)}
                     </div>
-
+ 
                     <div className="mt-1 text-xs text-[#8b7260]">
                       Stock: {Number(selectedComboPodProduct.stock || 0)}
                     </div>
                   </div>
-
+ 
                   <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#8b7260]">
                     已选{" "}
                     {Number(
@@ -3067,7 +3158,7 @@ setBundleComboDeviceSelect({});
                     )}
                   </div>
                 </div>
-
+ 
                 <div className="mt-3 grid grid-cols-[36px_1fr_36px] items-center gap-2">
                   <button
                     type="button"
@@ -3087,7 +3178,7 @@ setBundleComboDeviceSelect({});
                   >
                     -
                   </button>
-
+ 
                   <input
                     type="number"
                     min="0"
@@ -3101,7 +3192,7 @@ setBundleComboDeviceSelect({});
                     }
                     className="h-9 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-sm font-black text-[#5f4432] outline-none focus:border-[#cfae95]"
                   />
-
+ 
                   <button
                     type="button"
                     onClick={() =>
@@ -3127,18 +3218,18 @@ setBundleComboDeviceSelect({});
         )}
       </div>
     </div>
-
+ 
     <div className="rounded-[22px] border border-[#eadacb] bg-[#fffdfb] p-3 md:p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="text-base font-black text-[#5f4432]">
           组合烟枪
         </div>
-
+ 
         <div className="rounded-full bg-[#f7efe7] px-3 py-1 text-xs font-bold text-[#8b7260]">
           已选 {bundleComboDeviceCount}
         </div>
       </div>
-
+ 
       <div className="mt-3">
         {bundleComboDeviceProducts.length === 0 ? (
           <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -3162,7 +3253,7 @@ setBundleComboDeviceSelect({});
                 </button>
               ))}
             </div>
-
+ 
             {selectedComboDeviceProduct ? (
               <div className="mt-4 rounded-[24px] border border-[#eadacb] bg-[#fffaf6] p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -3170,12 +3261,12 @@ setBundleComboDeviceSelect({});
                     <div className="text-sm font-black text-[#5f4432]">
                       {cleanProductName(selectedComboDeviceProduct)}
                     </div>
-
+ 
                     <div className="mt-1 text-xs text-[#8b7260]">
                       Stock: {Number(selectedComboDeviceProduct.stock || 0)}
                     </div>
                   </div>
-
+ 
                   <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#8b7260]">
                     已选{" "}
                     {Number(
@@ -3184,7 +3275,7 @@ setBundleComboDeviceSelect({});
                     )}
                   </div>
                 </div>
-
+ 
                 <div className="mt-3 grid grid-cols-[36px_1fr_36px] items-center gap-2">
                   <button
                     type="button"
@@ -3206,7 +3297,7 @@ setBundleComboDeviceSelect({});
                   >
                     -
                   </button>
-
+ 
                   <input
                     type="number"
                     min="0"
@@ -3223,7 +3314,7 @@ setBundleComboDeviceSelect({});
                     }
                     className="h-9 rounded-2xl border border-[#eadacb] bg-white px-2 text-center text-sm font-black text-[#5f4432] outline-none focus:border-[#cfae95]"
                   />
-
+ 
                   <button
                     type="button"
                     onClick={() =>
@@ -3791,67 +3882,92 @@ setBundleComboDeviceSelect({});
                 </h2>
               </div>
  
-              {orderedBrands.length === 0 ? (
+              {orderedBackupGroups.length === 0 ? (
                 <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-4 text-sm text-[#a08874]">
                   下单后才会出现备选选项
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-500">
-                    此项必选：请勾选【不选择备选】或选择至少一个备选口味
+                    此项必选：每个品牌/系列请选择备选，或选择【缺货退款 / 下一单扣】
                   </div>
  
-                  <div className="rounded-3xl border border-[#eadacb] bg-[#fffaf6] p-4">
-                    <label className="flex cursor-pointer items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={noBackup}
-                        onChange={toggleNoBackup}
-                        className="h-4 w-4"
-                      />
-                      <span className="font-semibold text-[#5f4432]">
-                        不选择备选
-                      </span>
-                    </label>
+                  {orderedBackupGroups.map((group) => {
+                    const action = backupActions[group.key] || "";
+                    const selectedList = backupSelections[group.key] || [];
  
-                    <div className="mt-2 text-sm text-[#8a6d59]">
-                      勾选后将自动备注：下一单扣
-                    </div>
-                  </div>
+                    return (
+                      <div
+                        key={group.key}
+                        className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
+                      >
+                        <div className="mb-3 text-base font-black text-[#5f4432]">
+                          {group.title}
+                        </div>
  
-                  {orderedBrands.map((brand) => (
-                    <div
-                      key={brand}
-                      className="rounded-[26px] border border-[#eadacb] bg-[linear-gradient(180deg,#fffdfb_0%,#fcf6f0_100%)] p-4"
-                    >
-                      <div className="mb-3 text-base font-black text-[#5f4432]">
-                        {brand}
+                        <div className="mb-3 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setBackupAction(group.key, "refund")}
+                            className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
+                              action === "refund"
+                                ? "border-red-300 bg-red-50 text-red-600"
+                                : "border-[#eadacb] bg-white text-[#7a5b47] hover:bg-[#f8efe6]"
+                            }`}
+                          >
+                            缺货退款
+                          </button>
+ 
+                          <button
+                            type="button"
+                            onClick={() => setBackupAction(group.key, "next_order")}
+                            className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
+                              action === "next_order"
+                                ? "border-amber-300 bg-amber-50 text-amber-700"
+                                : "border-[#eadacb] bg-white text-[#7a5b47] hover:bg-[#f8efe6]"
+                            }`}
+                          >
+                            下一单扣
+                          </button>
+                        </div>
+ 
+                        <div className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[#a88b77]">
+                          或选择备选口味/颜色
+                        </div>
+ 
+                        <div className="flex flex-wrap gap-2">
+                          {(backupOptions[group.key] || []).map((flavor) => {
+                            const active = selectedList.includes(flavor);
+ 
+                            return (
+                              <button
+                                key={flavor}
+                                type="button"
+                                onClick={() => toggleBackup(group.key, flavor)}
+                                className={`rounded-3xl border px-4 py-2 text-sm font-semibold transition ${
+                                  active
+                                    ? "border-[#cba98a] bg-[#dcc0a8] text-white shadow-sm"
+                                    : "border-[#eadacb] bg-[#fffaf6] text-[#7a5b47] hover:bg-[#f8efe6]"
+                                }`}
+                              >
+                                {flavor}
+                              </button>
+                            );
+                          })}
+                        </div>
+ 
+                        <div className="mt-3 text-xs font-semibold text-[#8a6d59]">
+                          {selectedList.length > 0
+                            ? `已选择 ${selectedList.length} 个备选`
+                            : action === "refund"
+                              ? "已选择：缺货退款"
+                              : action === "next_order"
+                                ? "已选择：下一单扣"
+                                : "还未选择处理方式"}
+                        </div>
                       </div>
- 
-                      <div className="flex flex-wrap gap-2">
-                        {(backupOptions[brand] || []).map((flavor) => {
-                          const active =
-                            backupSelections[brand]?.includes(flavor);
- 
-                          return (
-                            <button
-                              key={flavor}
-                              type="button"
-                              disabled={noBackup}
-                              onClick={() => toggleBackup(brand, flavor)}
-                              className={`rounded-3xl border px-4 py-2 text-sm font-semibold transition ${
-                                active
-                                  ? "border-[#cba98a] bg-[#dcc0a8] text-white shadow-sm"
-                                  : "border-[#eadacb] bg-[#fffaf6] text-[#7a5b47] hover:bg-[#f8efe6]"
-                              } ${noBackup ? "cursor-not-allowed opacity-50" : ""}`}
-                            >
-                              {flavor}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -3897,11 +4013,7 @@ setBundleComboDeviceSelect({});
                 <div className="flex items-center justify-between rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3">
                   <span className="text-[#8b7260]">Backup Status</span>
                   <span className="font-bold text-[#5f4432]">
-                    {noBackup
-                      ? "不选择备选"
-                      : hasAnyBackupSelected
-                        ? "已选择备选"
-                        : "未完成"}
+                    {hasBackupCompleted ? "备选完成" : "未完成"}
                   </span>
                 </div>
  
@@ -3938,12 +4050,12 @@ setBundleComboDeviceSelect({});
  
                 <div
                   className={`rounded-2xl border px-2 py-2 ${
-                    noBackup || hasAnyBackupSelected
+                    hasBackupCompleted
                       ? "border-green-200 bg-green-50 text-green-600"
                       : "border-red-200 bg-red-50 text-red-500"
                   }`}
                 >
-                  {noBackup || hasAnyBackupSelected ? "备选完成" : "备选未选"}
+                  {hasBackupCompleted ? "备选完成" : "备选未选"}
                 </div>
               </div>
  
@@ -4047,3 +4159,4 @@ setBundleComboDeviceSelect({});
     </main>
   );
 }
+代码结束
