@@ -1663,41 +1663,41 @@ useEffect(() => {
   }, [products]);
  
   const orderedBackupGroups = useMemo(() => {
-    const map = new Map();
- 
-    cart.forEach((item) => {
-      if (item.is_bundle) {
-        const brand = normalizeText(item.bundle_brand);
-        const title = brand || item.bundle_name || "BUNDLE";
-        const key = `${brand || item.bundle_name || ""}__`.toUpperCase();
- 
-        if (!map.has(key)) {
-          map.set(key, {
-            key,
-            title,
-            brand,
-            series: "",
-          });
-        }
- 
-        return;
-      }
- 
-      const key = getBackupKey(item);
-      const title = item.series || item.brand || item.name || "产品";
- 
+  const map = new Map();
+
+  cart.forEach((item) => {
+    if (item.is_bundle) {
+      const brand = normalizeText(item.bundle_brand);
+      const title = brand || item.bundle_name || "BUNDLE";
+      const key = `${brand || item.bundle_name || ""}__`.toUpperCase();
+
       if (!map.has(key)) {
         map.set(key, {
           key,
           title,
-          brand: item.brand || "",
-          series: item.series || "",
+          brand,
+          series: "",
         });
       }
-    });
- 
-    return Array.from(map.values());
-  }, [cart]);
+
+      return;
+    }
+
+    const key = getBackupKey(item);
+    const title = item.brand || item.series || item.name || "产品";
+
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        title,
+        brand: item.brand || "",
+        series: item.series || "",
+      });
+    }
+  });
+
+  return Array.from(map.values());
+}, [cart]);
  
   const backupOptions = useMemo(() => {
     const map = {};
@@ -1985,12 +1985,12 @@ cart.forEach((item) => {
   const key = getBackupKey(item)
  
   if (!backupRemarkMap.has(key)) {
-    backupRemarkMap.set(key, {
-      title: item.series || item.brand || item.name || '产品',
-      backups: backupSelections[key] || [],
-      action: backupActions[key] || '',
-    })
-  }
+  backupRemarkMap.set(key, {
+    title: item.brand || item.series || item.name || '产品',
+    backups: backupSelections[key] || [],
+    action: backupActions[key] || '',
+  })
+}
 })
  
 const backupRemarkLines = []
