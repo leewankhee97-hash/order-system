@@ -1992,37 +1992,48 @@ cart.forEach((item) => {
 }
 })
  
-const backupRemarkLines = []
- 
+const backupSelectedLines = []
+const noBackupTitles = []
+
 backupRemarkMap.forEach((group) => {
   const backups = Array.isArray(group.backups) ? group.backups : []
   const action = group.action
- 
+
   if (backups.length > 0) {
-    backupRemarkLines.push('')
-    backupRemarkLines.push(group.title)
- 
+    backupSelectedLines.push('')
+    backupSelectedLines.push(group.title)
+
     backups.forEach((flavor) => {
-      backupRemarkLines.push(`• ${flavor}`)
+      backupSelectedLines.push(`• ${flavor}`)
     })
- 
+
     return
   }
- 
- 
+
   if (action === 'next_order') {
-    backupRemarkLines.push('')
-    backupRemarkLines.push(group.title)
-    backupRemarkLines.push('【不选择备选】')
-    backupRemarkLines.push('如遇缺货，下一单扣')
+    noBackupTitles.push(group.title)
   }
 })
- 
+
 lines.push('')
 lines.push('备注')
- 
-if (backupRemarkLines.length > 0) {
-  lines.push(...backupRemarkLines)
+
+if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
+  lines.push('【备选口味/颜色】')
+
+  if (backupSelectedLines.length > 0) {
+    lines.push(...backupSelectedLines)
+  }
+
+  if (noBackupTitles.length > 0) {
+    lines.push('')
+    noBackupTitles.forEach((title) => {
+      lines.push(title)
+    })
+    lines.push('')
+    lines.push('【不选择备选】')
+    lines.push('如遇缺货，下一单扣')
+  }
 } else {
   lines.push('-')
 }
