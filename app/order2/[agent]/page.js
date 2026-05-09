@@ -2000,7 +2000,6 @@ backupRemarkMap.forEach((group) => {
   const action = group.action
 
   if (backups.length > 0) {
-    backupSelectedLines.push('')
     backupSelectedLines.push(group.title)
 
     backups.forEach((flavor) => {
