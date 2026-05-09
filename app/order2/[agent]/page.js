@@ -2032,7 +2032,6 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
       lines.push(`• ${title}`)
     })
 
-    lines.push('')
     lines.push('⚠️ 如遇缺货，下一单扣')
   }
 } else {
@@ -2164,11 +2163,19 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
     }
  
     if (delivery === "自取") {
-      if (!date || !time) {
-        setError("请选择自取日期和时间");
-        return;
-      }
-    }
+  if (!date || !time) {
+    setError("请选择自取日期和时间");
+    return;
+  }
+
+  const selectedDateTime = new Date(`${date}T${time}`);
+  const now = new Date();
+
+  if (selectedDateTime < now) {
+    setError("自取日期/时间不能选择过去时间，请重新选择");
+    return;
+  }
+}
  
     if (delivery !== "自取") {
       if (!name || !phone || !address) {

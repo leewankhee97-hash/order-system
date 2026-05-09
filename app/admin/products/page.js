@@ -152,8 +152,9 @@ export default function AdminProductsPage() {
  
     const { data, error } = await supabase
       .from('products')
-      .select('*')
-      .order('product_type', { ascending: true })
+.select('*')
+.eq('is_active', true)
+.order('product_type', { ascending: true })
       .order('brand', { ascending: true })
       .order('series', { ascending: true })
       .order('name', { ascending: true })
@@ -774,22 +775,25 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
   }
  
   async function handleDelete(id) {
-    const ok = window.confirm('确定删除这个产品？')
-    if (!ok) return
- 
-    const { error } = await supabase.from('products').delete().eq('id', id)
- 
-    if (error) {
-      setMessage(error.message)
-    } else {
-      if (editingId === id) {
-        handleReset()
-      }
-      setMessage('产品已删除')
-      fetchProducts()
- 
+  const ok = window.confirm('确定下架这个产品？下架后不会影响旧订单记录。')
+  if (!ok) return
+
+  const { error } = await supabase
+    .from('products')
+    .update({ is_active: false })
+    .eq('id', id)
+
+  if (error) {
+    setMessage(error.message || '产品下架失败')
+  } else {
+    if (editingId === id) {
+      handleReset()
     }
+
+    setMessage('产品已下架')
+    fetchProducts()
   }
+}
  
   function renderFilterBar() {
     return (
@@ -1214,7 +1218,7 @@ if (seriesPriceForm.cost !== '') payload.cost = cost
                           </button>
  
                           <button type="button" style={smallDangerButton} onClick={() => handleDelete(p.id)}>
-                            删除
+                            下架
                           </button>
                         </div>
                       </td>
