@@ -405,6 +405,7 @@ const variantSectionRef = useRef(null);
 const bundleSectionRef = useRef(null);
 const bundleControlRef = useRef(null);
 const initRequestRef = useRef(0);
+const errorRef = useRef(null);
  
   const [products, setProducts] = useState([]);
   const [bundles, setBundles] = useState([]);
@@ -446,6 +447,16 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
   const [backupActions, setBackupActions] = useState({});
  
   const [error, setError] = useState("");
+  useEffect(() => {
+  if (!error) return;
+
+  setTimeout(() => {
+    errorRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, 100);
+}, [error]);
   const [success, setSuccess] = useState("");
   const [muarNotice, setMuarNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -3664,10 +3675,13 @@ setError("每个品牌/系列请选择备选口味，或选择【下一单扣】
                 )}
  
                 {error ? (
-                  <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-500">
-                    {error}
-                  </div>
-                ) : null}
+  <div
+    ref={errorRef}
+    className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-500"
+  >
+    {error}
+  </div>
+) : null}
  
                 {success ? (
                   <div className="rounded-3xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
