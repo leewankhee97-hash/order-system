@@ -2027,12 +2027,14 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
 
   if (noBackupTitles.length > 0) {
     lines.push('')
-    noBackupTitles.forEach((title) => {
-      lines.push(title)
-    })
-    lines.push('')
     lines.push('【不选择备选】')
-    lines.push('如遇缺货，下一单扣')
+
+    noBackupTitles.forEach((title) => {
+      lines.push(`• ${title}`)
+    })
+
+    lines.push('')
+    lines.push('⚠️ 如遇缺货，下一单扣')
   }
 } else {
   lines.push('-')
