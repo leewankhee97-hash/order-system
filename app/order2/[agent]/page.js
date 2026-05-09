@@ -2022,7 +2022,6 @@ lines.push('')
 lines.push('备注')
  
 if (backupRemarkLines.length > 0) {
-  lines.push('【备选口味/颜色】')
   lines.push(...backupRemarkLines)
 } else {
   lines.push('-')
