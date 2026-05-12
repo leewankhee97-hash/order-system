@@ -397,7 +397,83 @@ function buildCurrentVersionedUrl(extraParams = {}) {
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
- 
+ function mergeBundleList(oldList = [], newList = []) {
+  const map = new Map();
+
+  [...oldList, ...newList].forEach((item) => {
+    const key = [
+      item.role || "",
+      item.product_id || "",
+      item.product_name || "",
+    ]
+      .join("__")
+      .toUpperCase();
+
+    if (!map.has(key)) {
+      map.set(key, {
+        ...item,
+        qty: Number(item.qty || 0),
+      });
+      return;
+    }
+
+    const current = map.get(key);
+    map.set(key, {
+      ...current,
+      qty: Number(current.qty || 0) + Number(item.qty || 0),
+    });
+  });
+
+  return Array.from(map.values());
+}
+
+function mergeRandomGiftList(oldList = [], newList = []) {
+  const map = new Map();
+
+  [...oldList, ...newList].forEach((gift) => {
+    const key = [gift.label || "", gift.note || ""].join("__").toUpperCase();
+
+    if (!map.has(key)) {
+      map.set(key, {
+        ...gift,
+        qty: Number(gift.qty || 0),
+      });
+      return;
+    }
+
+    const current = map.get(key);
+    map.set(key, {
+      ...current,
+      qty: Number(current.qty || 0) + Number(gift.qty || 0),
+    });
+  });
+
+  return Array.from(map.values());
+}
+
+function mergeBundleCartItem(oldItem, newItem) {
+  return {
+    ...oldItem,
+    qty: Number(oldItem.qty || 0) + Number(newItem.qty || 0),
+    bundle_items: mergeBundleList(
+      oldItem.bundle_items || [],
+      newItem.bundle_items || [],
+    ),
+    bundle_gift_items: mergeBundleList(
+      oldItem.bundle_gift_items || [],
+      newItem.bundle_gift_items || [],
+    ),
+    bundle_combo_items: mergeBundleList(
+      oldItem.bundle_combo_items || [],
+      newItem.bundle_combo_items || [],
+    ),
+    bundle_random_gifts: mergeRandomGiftList(
+      oldItem.bundle_random_gifts || [],
+      newItem.bundle_random_gifts || [],
+    ),
+    is_muar_only: Boolean(oldItem.is_muar_only || newItem.is_muar_only),
+  };
+}
 export default function Page() {
   const { agent } = useParams();
   const productsGridRef = useRef(null);
@@ -1036,8 +1112,28 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
       is_muar_only: bundleHasMuar,
     };
  
-    setCart((prev) => [...prev, bundleCartItem]);
-    setBundleSelect({});
+setCart((prev) => {
+  const existingIndex = prev.findIndex((item) => {
+    if (!item.is_bundle) return false;
+
+    return (
+      String(item.bundle_rule_id) === String(bundleCartItem.bundle_rule_id) &&
+      Number(item.price || 0) === Number(bundleCartItem.price || 0)
+    );
+  });
+
+  if (existingIndex === -1) {
+    return [...prev, bundleCartItem];
+  }
+
+  const next = [...prev];
+  next[existingIndex] = mergeBundleCartItem(
+    next[existingIndex],
+    bundleCartItem,
+  );
+
+  return next;
+});    setBundleSelect({});
 setBundleGiftSelect({});
 setBundleComboPodSelect({});
 setBundleComboDeviceSelect({});
