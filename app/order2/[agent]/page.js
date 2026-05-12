@@ -1679,15 +1679,16 @@ useEffect(() => {
   cart.forEach((item) => {
     if (item.is_bundle) {
       const brand = normalizeText(item.bundle_brand);
-      const title = brand || item.bundle_name || "BUNDLE";
-      const key = `${brand || item.bundle_name || ""}__`.toUpperCase();
+      const bundleName = normalizeText(item.bundle_name) || "BUNDLE";
+      const key = `BUNDLE__${item.bundle_rule_id || item.id || bundleName}`.toUpperCase();
 
       if (!map.has(key)) {
         map.set(key, {
           key,
-          title,
+          title: bundleName,
           brand,
           series: "",
+          is_bundle: true,
         });
       }
 
@@ -1703,6 +1704,7 @@ useEffect(() => {
         title,
         brand: item.brand || "",
         series: item.series || "",
+        is_bundle: false,
       });
     }
   });
@@ -1979,11 +1981,12 @@ const backupRemarkMap = new Map()
  
 cart.forEach((item) => {
   if (item.is_bundle) {
-    const key = `${item.bundle_brand || item.bundle_name || ''}__`.toUpperCase()
+    const bundleName = normalizeText(item.bundle_name) || 'BUNDLE'
+    const key = `BUNDLE__${item.bundle_rule_id || item.id || bundleName}`.toUpperCase()
  
     if (!backupRemarkMap.has(key)) {
       backupRemarkMap.set(key, {
-        title: item.bundle_brand || item.bundle_name || 'BUNDLE',
+        title: bundleName,
         backups: backupSelections[key] || [],
         action: backupActions[key] || '',
       })
@@ -2020,9 +2023,9 @@ backupRemarkMap.forEach((group) => {
     return
   }
 
-  if (action === 'next_order') {
-    noBackupTitles.push(group.title)
-  }
+  if (action === 'next_order' && !noBackupTitles.includes(group.title)) {
+  noBackupTitles.push(group.title)
+}
 })
 
 lines.push('')

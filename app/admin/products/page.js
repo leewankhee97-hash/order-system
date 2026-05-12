@@ -687,10 +687,42 @@ if (!series) throw new Error('请输入 Series')
       const skipped = rows.length - rowsToInsert.length
  
       if (rowsToInsert.length === 0) {
-        throw new Error('没有新增产品：这些 SKU 已存在或输入内容重复')
-      }
- 
-      const { error } = await supabase.from('products').insert(rowsToInsert)
+  throw new Error('没有新增产品：这些 SKU 已存在或输入内容重复')
+}
+
+const previewFlavors = rowsToInsert
+  .slice(0, 8)
+  .map((row) => `• ${row.flavor}`)
+  .join('\n')
+
+const moreText =
+  rowsToInsert.length > 8
+    ? `\n...还有 ${rowsToInsert.length - 8} 个`
+    : ''
+
+const confirmAdd = window.confirm(
+  `是否确定增加【${brand} ${series}】产品？\n\n` +
+  `分类：${productType}\n` +
+  `Brand：${brand}\n` +
+  `Series：${series}\n` +
+  `数量：${rowsToInsert.length} 个${getVariantLabel(productType)}\n` +
+  `LV1：RM${price1}\n` +
+  `LV2：RM${price2}\n` +
+  `LV3：RM${price3}\n` +
+  `库存：${stock}\n` +
+  `成本：RM${cost}\n` +
+  `MUAR 出货：${bulkForm.is_muar_only ? '是' : '否'}\n` +
+  `${skipped > 0 ? `\n重复 SKU：${skipped} 个会跳过\n` : ''}` +
+  `\n准备新增：\n${previewFlavors}${moreText}\n\n` +
+  `按【确定】才会写入 Supabase。`
+)
+
+if (!confirmAdd) {
+  setMessage('已取消新增产品')
+  return
+}
+
+const { error } = await supabase.from('products').insert(rowsToInsert)
  
       if (error) throw error
  
