@@ -1774,15 +1774,26 @@ useEffect(() => {
 
   cart.forEach((item) => {
     if (item.is_bundle) {
-      const brand = normalizeText(item.bundle_brand);
       const bundleName = normalizeText(item.bundle_name) || "BUNDLE";
       const key = `BUNDLE__${item.bundle_rule_id || item.id || bundleName}`.toUpperCase();
+
+      const bundleBrands = [
+        item.bundle_brand,
+        ...(item.bundle_items || []).map((bi) => bi.brand),
+        ...(item.bundle_gift_items || []).map((bi) => bi.brand),
+        ...(item.bundle_combo_items || []).map((bi) => bi.brand),
+      ]
+        .map((b) => normalizeText(b))
+        .filter(Boolean);
+
+      const uniqueBrands = [...new Set(bundleBrands)];
 
       if (!map.has(key)) {
         map.set(key, {
           key,
           title: bundleName,
-          brand,
+          brand: uniqueBrands[0] || "",
+          brands: uniqueBrands,
           series: "",
           is_bundle: true,
         });
@@ -1799,6 +1810,7 @@ useEffect(() => {
         key,
         title,
         brand: item.brand || "",
+        brands: [item.brand || ""].filter(Boolean),
         series: item.series || "",
         is_bundle: false,
       });
@@ -1809,27 +1821,41 @@ useEffect(() => {
 }, [cart]);
  
   const backupOptions = useMemo(() => {
-    const map = {};
- 
-    orderedBackupGroups.forEach((group) => {
-      const list = products
-        .filter((p) => {
+  const map = {};
+
+  orderedBackupGroups.forEach((group) => {
+    const groupBrands = Array.isArray(group.brands)
+      ? group.brands.map((b) => normalizeText(b)).filter(Boolean)
+      : [group.brand].map((b) => normalizeText(b)).filter(Boolean);
+
+    const list = products
+      .filter((p) => {
+        const productBrand = normalizeText(p.brand);
+
+        if (groupBrands.length > 0) {
+          const matchedBrand = groupBrands.some((brand) => eqText(productBrand, brand));
+          if (!matchedBrand) return false;
+        } else {
           if (!eqText(p.brand, group.brand)) return false;
- 
-          if (group.series && !eqText(p.series, group.series)) {
-            return false;
-          }
- 
-          return true;
-        })
-        .map((p) => cleanProductName(p))
-        .filter(Boolean);
- 
-      map[group.key] = [...new Set(list)];
-    });
- 
-    return map;
-  }, [orderedBackupGroups, products]);
+        }
+
+        if (!group.is_bundle && group.series && !eqText(p.series, group.series)) {
+          return false;
+        }
+
+        if (p.is_active === false) return false;
+        if (Number(p.stock || 0) <= 0) return false;
+
+        return true;
+      })
+      .map((p) => cleanProductName(p))
+      .filter(Boolean);
+
+    map[group.key] = [...new Set(list)];
+  });
+
+  return map;
+}, [orderedBackupGroups, products]);
  
  const hasBackupCompleted = useMemo(() => {
   if (orderedBackupGroups.length === 0) return true;
@@ -1976,11 +2002,12 @@ setBundleComboDeviceSelect({});
  
     // ✅ 1. 先显示普通产品 + 价格 + 小计
     buildGroupedNormalItems(cart).forEach((group, gIndex) => {
-      if (gIndex !== 0) {
-        lines.push("");
-      }
- 
-      lines.push(`【${group.name}】`);
+      lines.push("");
+      if (gIndex > 0) {
+  lines.push("");
+}
+
+lines.push(`【${group.name}】`);
  
       const priceMap = {};
  
@@ -1990,15 +2017,28 @@ setBundleComboDeviceSelect({});
         priceMap[priceKey].push(variant);
       });
  
-      Object.entries(priceMap).forEach(([price, variants]) => {
-        lines.push(`💰 RM${price}`);
- 
-        variants.forEach((variant) => {
-          lines.push(`• ${variant.name} ×${variant.qty}`);
-        });
-      });
- 
-      lines.push(`🧮 小计：RM${money(group.subtotal)}`);
+      Object.entries(priceMap).forEach(([price, variants], priceIndex) => {
+  if (priceIndex !== 0) {
+    lines.push("");
+  }
+
+  lines.push(`💰 RM${price} / 支`);
+
+  variants.forEach((variant) => {
+    lines.push(`• ${variant.name} ×${variant.qty}`);
+  });
+
+  const totalQty = variants.reduce((sum, variant) => {
+    return sum + Number(variant.qty || 0);
+  }, 0);
+
+  const subtotal = variants.reduce((sum, variant) => {
+    return sum + Number(variant.subtotal || 0);
+  }, 0);
+
+  lines.push(`📦 数量：${totalQty}支`);
+  lines.push(`🧮 小计：${totalQty} × RM${price} = RM${money(subtotal)}`);
+});
     });
  
     // ✅ 2. 显示 Bundle 产品 + 价格 + 小计
