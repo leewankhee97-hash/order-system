@@ -139,6 +139,18 @@ function getProductType(product) {
   if (!rawOriginal) return "未分类";
   return rawOriginal;
 }
+function getOrderUnit(productOrType) {
+  const type =
+    typeof productOrType === "string"
+      ? productOrType
+      : getProductType(productOrType);
+
+  if (type === "烟弹") return "盒";
+  if (type === "烟杆") return "支";
+  if (type === "一次性") return "支";
+
+  return "支";
+}
  
 function cleanProductName(product) {
   let n = normalizeText(product?.name);
@@ -333,17 +345,19 @@ function getSummaryVariantName(item) {
  
 function buildGroupedNormalItems(cartItems = []) {
   const groupMap = new Map();
- 
+
   cartItems
     .filter((item) => !item.is_bundle)
     .forEach((item) => {
       const groupName = getSummaryGroupName(item);
       const groupKey = groupName.toLowerCase();
       const variantName = getSummaryVariantName(item);
+      const productType = getProductType(item);
+      const unit = getOrderUnit(item);
       const price = Number(item.price || 0);
       const qty = Number(item.qty || 0);
       const itemSubtotal = qty * price;
- 
+
       if (!groupMap.has(groupKey)) {
         groupMap.set(groupKey, {
           name: groupName,
@@ -351,26 +365,28 @@ function buildGroupedNormalItems(cartItems = []) {
           variants: new Map(),
         });
       }
- 
+
       const group = groupMap.get(groupKey);
       group.subtotal += itemSubtotal;
- 
-      const variantKey = `${variantName.toLowerCase()}__${price}`;
- 
+
+      const variantKey = `${variantName.toLowerCase()}__${price}__${unit}`;
+
       if (!group.variants.has(variantKey)) {
         group.variants.set(variantKey, {
           name: variantName,
           qty: 0,
           price,
           subtotal: 0,
+          product_type: productType,
+          unit,
         });
       }
- 
+
       const variant = group.variants.get(variantKey);
       variant.qty += qty;
       variant.subtotal += itemSubtotal;
     });
- 
+
   return Array.from(groupMap.values()).map((group) => ({
     ...group,
     variants: Array.from(group.variants.values()),
@@ -2010,19 +2026,29 @@ setBundleComboDeviceSelect({});
 lines.push(`【${group.name}】`);
  
       const priceMap = {};
- 
-      group.variants.forEach((variant) => {
-        const priceKey = money(variant.price);
-        if (!priceMap[priceKey]) priceMap[priceKey] = [];
-        priceMap[priceKey].push(variant);
-      });
- 
-      Object.entries(priceMap).forEach(([price, variants], priceIndex) => {
+
+group.variants.forEach((variant) => {
+  const price = money(variant.price);
+  const unit = variant.unit || getOrderUnit(variant.product_type);
+  const priceKey = `${price}__${unit}`;
+
+  if (!priceMap[priceKey]) {
+    priceMap[priceKey] = {
+      price,
+      unit,
+      variants: [],
+    };
+  }
+
+  priceMap[priceKey].variants.push(variant);
+});
+
+Object.values(priceMap).forEach(({ price, unit, variants }, priceIndex) => {
   if (priceIndex !== 0) {
     lines.push("");
   }
 
-  lines.push(`💰 RM${price} / 支`);
+  lines.push(`💰 RM${price} / ${unit}`);
 
   variants.forEach((variant) => {
     lines.push(`• ${variant.name} ×${variant.qty}`);
@@ -2036,7 +2062,7 @@ lines.push(`【${group.name}】`);
     return sum + Number(variant.subtotal || 0);
   }, 0);
 
-  lines.push(`📦 数量：${totalQty}支`);
+  lines.push(`📦 数量：${totalQty}${unit}`);
   lines.push(`🧮 小计：${totalQty} × RM${price} = RM${money(subtotal)}`);
 });
     });
