@@ -1761,7 +1761,7 @@ useEffect(() => {
     if (delivery === "邮寄") {
       if (postageItemCount > 29) return "ASK";
       if (EAST.includes((state || "").toUpperCase())) return 28;
-      return 10;
+      return 8;
     }
     return Number(shipping || 0);
   }, [delivery, postageItemCount, state, shipping]);
