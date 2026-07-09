@@ -144,11 +144,11 @@ function getOrderUnit(productOrType) {
     typeof productOrType === "string"
       ? productOrType
       : getProductType(productOrType);
-
+ 
   if (type === "烟弹") return "盒";
   if (type === "烟杆") return "支";
   if (type === "一次性") return "支";
-
+ 
   return "支";
 }
  
@@ -345,7 +345,7 @@ function getSummaryVariantName(item) {
  
 function buildGroupedNormalItems(cartItems = []) {
   const groupMap = new Map();
-
+ 
   cartItems
     .filter((item) => !item.is_bundle)
     .forEach((item) => {
@@ -357,7 +357,7 @@ function buildGroupedNormalItems(cartItems = []) {
       const price = Number(item.price || 0);
       const qty = Number(item.qty || 0);
       const itemSubtotal = qty * price;
-
+ 
       if (!groupMap.has(groupKey)) {
         groupMap.set(groupKey, {
           name: groupName,
@@ -365,12 +365,12 @@ function buildGroupedNormalItems(cartItems = []) {
           variants: new Map(),
         });
       }
-
+ 
       const group = groupMap.get(groupKey);
       group.subtotal += itemSubtotal;
-
+ 
       const variantKey = `${variantName.toLowerCase()}__${price}__${unit}`;
-
+ 
       if (!group.variants.has(variantKey)) {
         group.variants.set(variantKey, {
           name: variantName,
@@ -381,12 +381,12 @@ function buildGroupedNormalItems(cartItems = []) {
           unit,
         });
       }
-
+ 
       const variant = group.variants.get(variantKey);
       variant.qty += qty;
       variant.subtotal += itemSubtotal;
     });
-
+ 
   return Array.from(groupMap.values()).map((group) => ({
     ...group,
     variants: Array.from(group.variants.values()),
@@ -415,7 +415,7 @@ function sleep(ms) {
 }
  function mergeBundleList(oldList = [], newList = []) {
   const map = new Map();
-
+ 
   [...oldList, ...newList].forEach((item) => {
     const key = [
       item.role || "",
@@ -424,7 +424,7 @@ function sleep(ms) {
     ]
       .join("__")
       .toUpperCase();
-
+ 
     if (!map.has(key)) {
       map.set(key, {
         ...item,
@@ -432,23 +432,23 @@ function sleep(ms) {
       });
       return;
     }
-
+ 
     const current = map.get(key);
     map.set(key, {
       ...current,
       qty: Number(current.qty || 0) + Number(item.qty || 0),
     });
   });
-
+ 
   return Array.from(map.values());
 }
-
+ 
 function mergeRandomGiftList(oldList = [], newList = []) {
   const map = new Map();
-
+ 
   [...oldList, ...newList].forEach((gift) => {
     const key = [gift.label || "", gift.note || ""].join("__").toUpperCase();
-
+ 
     if (!map.has(key)) {
       map.set(key, {
         ...gift,
@@ -456,17 +456,17 @@ function mergeRandomGiftList(oldList = [], newList = []) {
       });
       return;
     }
-
+ 
     const current = map.get(key);
     map.set(key, {
       ...current,
       qty: Number(current.qty || 0) + Number(gift.qty || 0),
     });
   });
-
+ 
   return Array.from(map.values());
 }
-
+ 
 function mergeBundleCartItem(oldItem, newItem) {
   return {
     ...oldItem,
@@ -541,7 +541,7 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
   const [error, setError] = useState("");
   useEffect(() => {
   if (!error) return;
-
+ 
   setTimeout(() => {
     errorRef.current?.scrollIntoView({
       behavior: "smooth",
@@ -553,6 +553,8 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
   const [muarNotice, setMuarNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [copiedPreview, setCopiedPreview] = useState("");
+  const [customerPickupPreview, setCustomerPickupPreview] = useState("");
+  const [pickupMessageCopied, setPickupMessageCopied] = useState(false);
  
   const [summaryCopied, setSummaryCopied] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -1131,23 +1133,23 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
 setCart((prev) => {
   const existingIndex = prev.findIndex((item) => {
     if (!item.is_bundle) return false;
-
+ 
     return (
       String(item.bundle_rule_id) === String(bundleCartItem.bundle_rule_id) &&
       Number(item.price || 0) === Number(bundleCartItem.price || 0)
     );
   });
-
+ 
   if (existingIndex === -1) {
     return [...prev, bundleCartItem];
   }
-
+ 
   const next = [...prev];
   next[existingIndex] = mergeBundleCartItem(
     next[existingIndex],
     bundleCartItem,
   );
-
+ 
   return next;
 });    setBundleSelect({});
 setBundleGiftSelect({});
@@ -1787,12 +1789,12 @@ useEffect(() => {
  
   const orderedBackupGroups = useMemo(() => {
   const map = new Map();
-
+ 
   cart.forEach((item) => {
     if (item.is_bundle) {
       const bundleName = normalizeText(item.bundle_name) || "BUNDLE";
       const key = `BUNDLE__${item.bundle_rule_id || item.id || bundleName}`.toUpperCase();
-
+ 
       const bundleBrands = [
         item.bundle_brand,
         ...(item.bundle_items || []).map((bi) => bi.brand),
@@ -1801,9 +1803,9 @@ useEffect(() => {
       ]
         .map((b) => normalizeText(b))
         .filter(Boolean);
-
+ 
       const uniqueBrands = [...new Set(bundleBrands)];
-
+ 
       if (!map.has(key)) {
         map.set(key, {
           key,
@@ -1814,13 +1816,13 @@ useEffect(() => {
           is_bundle: true,
         });
       }
-
+ 
       return;
     }
-
+ 
     const key = getBackupKey(item);
     const title = item.brand || item.series || item.name || "产品";
-
+ 
     if (!map.has(key)) {
       map.set(key, {
         key,
@@ -1832,54 +1834,54 @@ useEffect(() => {
       });
     }
   });
-
+ 
   return Array.from(map.values());
 }, [cart]);
  
   const backupOptions = useMemo(() => {
   const map = {};
-
+ 
   orderedBackupGroups.forEach((group) => {
     const groupBrands = Array.isArray(group.brands)
       ? group.brands.map((b) => normalizeText(b)).filter(Boolean)
       : [group.brand].map((b) => normalizeText(b)).filter(Boolean);
-
+ 
     const list = products
       .filter((p) => {
         const productBrand = normalizeText(p.brand);
-
+ 
         if (groupBrands.length > 0) {
           const matchedBrand = groupBrands.some((brand) => eqText(productBrand, brand));
           if (!matchedBrand) return false;
         } else {
           if (!eqText(p.brand, group.brand)) return false;
         }
-
+ 
         if (!group.is_bundle && group.series && !eqText(p.series, group.series)) {
           return false;
         }
-
+ 
         if (p.is_active === false) return false;
         if (Number(p.stock || 0) <= 0) return false;
-
+ 
         return true;
       })
       .map((p) => cleanProductName(p))
       .filter(Boolean);
-
+ 
     map[group.key] = [...new Set(list)];
   });
-
+ 
   return map;
 }, [orderedBackupGroups, products]);
  
  const hasBackupCompleted = useMemo(() => {
   if (orderedBackupGroups.length === 0) return true;
-
+ 
   return orderedBackupGroups.every((group) => {
     const selected = backupSelections[group.key] || [];
     const action = backupActions[group.key] || "";
-
+ 
     return (
       (Array.isArray(selected) && selected.length > 0) ||
       action === "next_order"
@@ -2022,16 +2024,16 @@ setBundleComboDeviceSelect({});
       if (gIndex > 0) {
   lines.push("");
 }
-
+ 
 lines.push(`【${group.name}】`);
  
       const priceMap = {};
-
+ 
 group.variants.forEach((variant) => {
   const price = money(variant.price);
   const unit = variant.unit || getOrderUnit(variant.product_type);
   const priceKey = `${price}__${unit}`;
-
+ 
   if (!priceMap[priceKey]) {
     priceMap[priceKey] = {
       price,
@@ -2039,29 +2041,29 @@ group.variants.forEach((variant) => {
       variants: [],
     };
   }
-
+ 
   priceMap[priceKey].variants.push(variant);
 });
-
+ 
 Object.values(priceMap).forEach(({ price, unit, variants }, priceIndex) => {
   if (priceIndex !== 0) {
     lines.push("");
   }
-
+ 
   lines.push(`💰 RM${price} / ${unit}`);
-
+ 
   variants.forEach((variant) => {
     lines.push(`• ${variant.name} ×${variant.qty}`);
   });
-
+ 
   const totalQty = variants.reduce((sum, variant) => {
     return sum + Number(variant.qty || 0);
   }, 0);
-
+ 
   const subtotal = variants.reduce((sum, variant) => {
     return sum + Number(variant.subtotal || 0);
   }, 0);
-
+ 
   lines.push(`📦 数量：${totalQty}${unit}`);
   lines.push(`🧮 小计：${totalQty} × RM${price} = RM${money(subtotal)}`);
 });
@@ -2170,44 +2172,44 @@ cart.forEach((item) => {
  
 const backupSelectedLines = []
 const noBackupTitles = []
-
+ 
 backupRemarkMap.forEach((group) => {
   const backups = Array.isArray(group.backups) ? group.backups : []
   const action = group.action
-
+ 
   if (backups.length > 0) {
     backupSelectedLines.push(group.title)
-
+ 
     backups.forEach((flavor) => {
       backupSelectedLines.push(`• ${flavor}`)
     })
-
+ 
     return
   }
-
+ 
   if (action === 'next_order' && !noBackupTitles.includes(group.title)) {
   noBackupTitles.push(group.title)
 }
 })
-
+ 
 lines.push('')
 lines.push('备注')
-
+ 
 if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
   lines.push('【备选口味/颜色】')
-
+ 
   if (backupSelectedLines.length > 0) {
     lines.push(...backupSelectedLines)
   }
-
+ 
   if (noBackupTitles.length > 0) {
     lines.push('')
     lines.push('【不选择备选】')
-
+ 
     noBackupTitles.forEach((title) => {
       lines.push(`• ${title}`)
     })
-
+ 
     lines.push('⚠️ 如遇缺货，下一单扣')
   }
 } else {
@@ -2253,6 +2255,22 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
     return lines.join("\n");
   }
  
+  function buildPickupCustomerMessage(oid) {
+    if (delivery !== "自取") return "";
+ 
+    return [
+      "🏠 自取通知",
+      "",
+      "您好，感谢您的支持 ❤️",
+      `您的自取订单号是：【${oid || "-"}】`,
+      `自取日期：${date || "-"}`,
+      `自取时间：${time || "-"}`,
+      "",
+      "到了后请跟着图片上的指示前往取货点。",
+      "抵达后请联系 011-11966283，并告诉他您要拿的订单。",
+    ].join("\n");
+  }
+ 
   async function copyText(text) {
     if (!text || !String(text).trim()) {
       throw new Error("没有可复制的内容");
@@ -2290,6 +2308,16 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
     }
   }
  
+  async function handleCopyPickupMessage() {
+    try {
+      await copyText(customerPickupPreview || "");
+      setPickupMessageCopied(true);
+    } catch (err) {
+      console.error(err);
+      alert("没有可复制的顾客自取通知");
+    }
+  }
+ 
   function hardRefreshPage() {
     if (typeof window === "undefined") return;
     window.location.replace(
@@ -2300,9 +2328,15 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
   }
  
   function handleCloseSummaryModal() {
-    // ❗ 没复制 → 先确认
+    // ❗ 没复制完整订单 → 先确认
     if (!summaryCopied) {
-      const ok = window.confirm("你还没复制订单摘要，确定要关闭吗？");
+      const ok = window.confirm("你还没复制完整订单摘要，确定要关闭吗？");
+      if (!ok) return;
+    }
+ 
+    // ❗ 自取订单没复制顾客通知 → 再确认
+    if (customerPickupPreview && !pickupMessageCopied) {
+      const ok = window.confirm("你还没复制顾客自取通知，确定要关闭吗？");
       if (!ok) return;
     }
  
@@ -2343,10 +2377,10 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
     setError("请选择自取日期和时间");
     return;
   }
-
+ 
   const selectedDateTime = new Date(`${date}T${time}`);
   const now = new Date();
-
+ 
   if (selectedDateTime < now) {
     setError("自取日期/时间不能选择过去时间，请重新选择");
     return;
@@ -2507,9 +2541,13 @@ setError("每个品牌/系列请选择备选口味，或选择【下一单扣】
       }
  
       const copiedSummary = buildCopiedSummary(oid);
+      const pickupCustomerMessage = buildPickupCustomerMessage(oid);
+ 
       setCopiedPreview(copiedSummary);
+      setCustomerPickupPreview(pickupCustomerMessage);
       setShowSummaryModal(true);
       setSummaryCopied(false);
+      setPickupMessageCopied(false);
       setSuccess(`成功：${oid}`);
  
       resetFormAfterSubmit();
@@ -4292,15 +4330,49 @@ setError("每个品牌/系列请选择备选口味，或选择【下一单扣】
               </button>
             </div>
  
+            <div className="mb-2 text-sm font-black text-[#5f4432]">
+              ① 完整订单摘要（复制发给我们）
+            </div>
+ 
             <textarea
               value={copiedPreview}
               readOnly
               className="min-h-[280px] w-full rounded-3xl border border-[#b6e07b] bg-[#97e067] px-4 py-3 text-sm text-[#17320d] outline-none"
             />
  
+            {customerPickupPreview ? (
+              <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4">
+                <div className="mb-2 text-sm font-black text-amber-700">
+                  ② 顾客自取通知（复制发给顾客）
+                </div>
+ 
+                <div className="mb-3 text-xs font-semibold text-amber-700">
+                  这段是给代理复制后发给顾客的，不需要发给我们。
+                </div>
+ 
+                <textarea
+                  value={customerPickupPreview}
+                  readOnly
+                  className="min-h-[180px] w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-sm text-[#5c4333] outline-none"
+                />
+ 
+                <button
+                  type="button"
+                  onClick={handleCopyPickupMessage}
+                  className={`mt-3 w-full rounded-3xl border px-4 py-2 text-sm font-bold transition ${
+                    pickupMessageCopied
+                      ? "border-green-200 bg-green-50 text-green-600"
+                      : "border-amber-300 bg-amber-400 text-white hover:bg-amber-500"
+                  }`}
+                >
+                  {pickupMessageCopied ? "顾客通知已复制" : "复制顾客自取通知"}
+                </button>
+              </div>
+            ) : null}
+ 
             <div className="mt-4 flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-[#7a5b47]">
-                {summaryCopied ? "已复制，可关闭视窗" : "请先复制订单摘要"}
+                {summaryCopied ? "完整订单已复制" : "请先复制完整订单摘要"}
               </div>
  
               <div className="flex gap-2">
@@ -4313,7 +4385,7 @@ setError("每个品牌/系列请选择备选口味，或选择【下一单扣】
                       : "border-[#d2b49c] bg-[#dcc0a8] text-white hover:bg-[#cfaf93]"
                   }`}
                 >
-                  {summaryCopied ? "已复制" : "复制"}
+                  {summaryCopied ? "已复制" : "复制完整订单"}
                 </button>
  
                 <button
