@@ -2267,7 +2267,8 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
       `自取时间：${time || "-"}`,
       "",
       "到了后请跟着图片上的指示前往取货点。",
-      "抵达后请联系 011-11966283，并告诉他您要拿的订单。",
+      "抵达后请 WhatsApp 011-11966283，并发送您的自取订单号。",
+"请勿拨打电话，仅限 WhatsApp 联系。",
     ].join("\n");
   }
  
