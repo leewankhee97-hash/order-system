@@ -4307,98 +4307,96 @@ setError("每个品牌/系列请选择备选口味，或选择【下一单扣】
         )}
       </div>
  
-      {showSummaryModal && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
+     {showSummaryModal && ( 
+  <div
+    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
+    onClick={handleCloseSummaryModal}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="w-full max-w-xl rounded-[28px] border border-[#eadacb] bg-white p-5 shadow-2xl"
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="text-lg font-black text-[#5f4432]">
+          ORDER SUMMARY
+        </h3>
+
+        <button
+          type="button"
           onClick={handleCloseSummaryModal}
+          className="rounded-full border border-[#eadacb] px-3 py-1 text-xs text-[#7a5b47] hover:bg-[#f8efe6]"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl rounded-[28px] border border-[#eadacb] bg-white p-5 shadow-2xl"
-          >
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-lg font-black text-[#5f4432]">
-                ORDER SUMMARY
-              </h3>
- 
-              <button
-                type="button"
-                onClick={handleCloseSummaryModal}
-                className="rounded-full border border-[#eadacb] px-3 py-1 text-xs text-[#7a5b47] hover:bg-[#f8efe6]"
-              >
-                关闭
-              </button>
-            </div>
- 
-            <div className="mb-2 text-sm font-black text-[#5f4432]">
-              ① 完整订单摘要（复制发给我们）
-            </div>
- 
-            <textarea
-              value={copiedPreview}
-              readOnly
-              className="min-h-[280px] w-full rounded-3xl border border-[#b6e07b] bg-[#97e067] px-4 py-3 text-sm text-[#17320d] outline-none"
-            />
- 
-            {customerPickupPreview ? (
-              <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4">
-                <div className="mb-2 text-sm font-black text-amber-700">
-                  ② 顾客自取通知（复制发给顾客）
-                </div>
- 
-                <div className="mb-3 text-xs font-semibold text-amber-700">
-                  这段是给代理复制后发给顾客的，不需要发给我们。
-                </div>
- 
-                <textarea
-                  value={customerPickupPreview}
-                  readOnly
-                  className="min-h-[180px] w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-sm text-[#5c4333] outline-none"
-                />
- 
-                <button
-                  type="button"
-                  onClick={handleCopyPickupMessage}
-                  className={`mt-3 w-full rounded-3xl border px-4 py-2 text-sm font-bold transition ${
-                    pickupMessageCopied
-                      ? "border-green-200 bg-green-50 text-green-600"
-                      : "border-amber-300 bg-amber-400 text-white hover:bg-amber-500"
-                  }`}
-                >
-                  {pickupMessageCopied ? "顾客通知已复制" : "复制顾客自取通知"}
-                </button>
-              </div>
-            ) : null}
- 
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-[#7a5b47]">
-                {summaryCopied ? "完整订单已复制" : "请先复制完整订单摘要"}
-              </div>
- 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopySummary}
-                  className={`rounded-3xl border px-4 py-2 text-sm font-bold transition ${
-                    summaryCopied
-                      ? "border-green-200 bg-green-50 text-green-600"
-                      : "border-[#d2b49c] bg-[#dcc0a8] text-white hover:bg-[#cfaf93]"
-                  }`}
-                >
-                  {summaryCopied ? "已复制" : "复制完整订单"}
-                </button>
- 
-                <button
-                  type="button"
-                  onClick={handleCloseSummaryModal}
-                  className="rounded-3xl border border-[#eadacb] bg-white px-4 py-2 text-sm font-bold text-[#7a5b47] hover:bg-[#f8efe6]"
-                >
-                  关闭
-                </button>
-              </div>
-            </div>
+          关闭
+        </button>
+      </div>
+
+      <div className="mb-2 text-sm font-black text-[#5f4432]">
+        ① 完整订单摘要（复制发给我们）
+      </div>
+
+      <textarea
+        value={copiedPreview}
+        readOnly
+        className="min-h-[280px] w-full rounded-3xl border border-[#b6e07b] bg-[#97e067] px-4 py-3 text-sm text-[#17320d] outline-none"
+      />
+
+      <button
+        type="button"
+        onClick={handleCopySummary}
+        className={`mt-3 w-full rounded-3xl border px-4 py-3 text-sm font-bold transition ${
+          summaryCopied
+            ? "border-green-200 bg-green-50 text-green-600"
+            : "border-[#d2b49c] bg-[#dcc0a8] text-white hover:bg-[#cfaf93]"
+        }`}
+      >
+        {summaryCopied ? "完整订单已复制" : "复制完整订单"}
+      </button>
+
+      {customerPickupPreview ? (
+        <div className="mt-5 rounded-3xl border border-amber-200 bg-amber-50 p-4">
+          <div className="mb-2 text-sm font-black text-amber-700">
+            ② 顾客自取通知（复制发给顾客）
           </div>
+
+          <div className="mb-3 text-xs font-semibold text-amber-700">
+            这段是给代理复制后发给顾客的，不需要发给我们。
+          </div>
+
+          <textarea
+            value={customerPickupPreview}
+            readOnly
+            className="min-h-[180px] w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-sm text-[#5c4333] outline-none"
+          />
+
+          <button
+            type="button"
+            onClick={handleCopyPickupMessage}
+            className={`mt-3 w-full rounded-3xl border px-4 py-3 text-sm font-bold transition ${
+              pickupMessageCopied
+                ? "border-green-200 bg-green-50 text-green-600"
+                : "border-amber-300 bg-amber-400 text-white hover:bg-amber-500"
+            }`}
+          >
+            {pickupMessageCopied ? "顾客通知已复制" : "复制顾客自取通知"}
+          </button>
         </div>
+      ) : null}
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-[#7a5b47]">
+          {summaryCopied ? "完整订单已复制，可关闭视窗" : "请先复制完整订单"}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleCloseSummaryModal}
+          className="rounded-3xl border border-[#eadacb] bg-white px-4 py-2 text-sm font-bold text-[#7a5b47] hover:bg-[#f8efe6]"
+        >
+          关闭
+        </button>
+             </div>
+        </div>
+      </div>
       )}
     </main>
   );
