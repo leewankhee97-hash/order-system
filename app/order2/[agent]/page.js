@@ -2085,8 +2085,7 @@ Object.values(priceMap).forEach(({ price, unit, variants }, priceIndex) => {
          lines.push(`购买口味：`);
 (item.bundle_items || []).forEach((bi) => {
   const split = splitBrandFlavor(bi.brand, bi.product_name);
-  const unit = getOrderUnit(bi.product_type);
-  lines.push(`• ${split.flavorLine} ×${bi.qty}${unit}`);
+  lines.push(`• ${split.flavorLine} ×${bi.qty}`);
 });
 
 lines.push(
