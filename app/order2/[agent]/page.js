@@ -2082,11 +2082,16 @@ Object.values(priceMap).forEach(({ price, unit, variants }, priceIndex) => {
  
         if ((item.bundle_items || []).length > 0) {
           lines.push("");
-          lines.push(`购买口味：`);
-          (item.bundle_items || []).forEach((bi) => {
-            const split = splitBrandFlavor(bi.brand, bi.product_name);
-            lines.push(`• ${split.flavorLine} ×${bi.qty}`);
-          });
+         lines.push(`购买口味：`);
+(item.bundle_items || []).forEach((bi) => {
+  const split = splitBrandFlavor(bi.brand, bi.product_name);
+  const unit = getOrderUnit(bi.product_type);
+  lines.push(`• ${split.flavorLine} ×${bi.qty}${unit}`);
+});
+
+lines.push(
+  `备注：以上显示数量为最终出货数量，请按此数量出货，不需要另外计算赠品。`,
+);
         }
  
         if ((item.bundle_combo_items || []).length > 0) {
