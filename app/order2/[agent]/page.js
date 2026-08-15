@@ -92,15 +92,15 @@ function FilterButton({ active, onClick, children }) {
     </button>
   );
 }
- 
 function normalizeText(v) {
-  function upperText(v, fallback = "-") {
-  const text = String(v || "").trim();
-  return (text || fallback).toUpperCase();
-}
   return String(v || "")
     .trim()
     .replace(/\s+/g, " ");
+}
+
+function upperText(v, fallback = "-") {
+  const text = String(v || "").trim();
+  return (text || fallback).toUpperCase();
 }
  
 function eqText(a, b) {
