@@ -94,6 +94,10 @@ function FilterButton({ active, onClick, children }) {
 }
  
 function normalizeText(v) {
+  function upperText(v, fallback = "-") {
+  const text = String(v || "").trim();
+  return (text || fallback).toUpperCase();
+}
   return String(v || "")
     .trim()
     .replace(/\s+/g, " ");
@@ -2025,7 +2029,11 @@ setBundleComboDeviceSelect({});
   lines.push("");
 }
  
-lines.push(`【${group.name}】`);
+const groupQty = group.variants.reduce((sum, variant) => {
+  return sum + Number(variant.qty || 0);
+}, 0);
+
+lines.push(`${upperText(group.name)} (${groupQty})`);
  
       const priceMap = {};
  
@@ -2053,8 +2061,8 @@ Object.values(priceMap).forEach(({ price, unit, variants }, priceIndex) => {
   lines.push(`💰 RM${price} / ${unit}`);
  
   variants.forEach((variant) => {
-    lines.push(`• ${variant.name} ×${variant.qty}`);
-  });
+  lines.push(`• ${upperText(variant.name)} ×${variant.qty}${unit}`);
+});
  
   const totalQty = variants.reduce((sum, variant) => {
     return sum + Number(variant.qty || 0);
@@ -2233,11 +2241,11 @@ if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
  
     // ✅ 6. 最后显示收件 / 配送资料
     if (delivery === "邮寄") {
-      lines.push(`收件人：${name || "-"}`);
-      lines.push(`电话：${phone || "-"}`);
-      lines.push(`地址：${address || "-"}`);
-      lines.push(`Postcode：${postcode || "-"}`);
-      lines.push(`State：${state || "-"}`);
+     lines.push(`收件人：${upperText(name)}`);
+lines.push(`电话：${phone || "-"}`);
+lines.push(`地址：${upperText(address)}`);
+lines.push(`POSTCODE：${upperText(postcode)}`);
+lines.push(`STATE：${upperText(state)}`);
     }
  
     if (delivery === "LALAMOVE") {
