@@ -2386,12 +2386,15 @@ lines.push(`STATE：${upperText(state)}`);
     setError("请选择自取日期和时间");
     return;
   }
- 
+
   const selectedDateTime = new Date(`${date}T${time}`);
   const now = new Date();
- 
-  if (selectedDateTime < now) {
-    setError("自取日期/时间不能选择过去时间，请重新选择");
+
+  // 最早自取时间 = 下单时间 + 15 分钟
+  const earliestPickupTime = new Date(now.getTime() + 15 * 60 * 1000);
+
+  if (selectedDateTime < earliestPickupTime) {
+    setError("自取时间最少需要在下单后的 15 分钟，请重新选择");
     return;
   }
 }
