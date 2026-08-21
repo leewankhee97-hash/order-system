@@ -523,6 +523,26 @@ const [selectedComboDeviceFlavor, setSelectedComboDeviceFlavor] = useState("");
  
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const todayString = useMemo(() => {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}, []);
+
+const minimumPickupTime = useMemo(() => {
+  if (date !== todayString) return undefined;
+
+  const minTime = new Date(Date.now() + 15 * 60 * 1000);
+
+  const hours = String(minTime.getHours()).padStart(2, "0");
+  const minutes = String(minTime.getMinutes()).padStart(2, "0");
+
+  return `${hours}:${minutes}`;
+}, [date, todayString]);
  
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -3754,32 +3774,59 @@ setError("每个品牌/系列请选择备选口味，或选择【下一单扣】
                 </div>
  
                 {delivery === "自取" && (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
-                        Pickup Date
-                      </label>
-                      <input
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
-                      />
-                    </div>
- 
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
-                        Pickup Time
-                      </label>
-                      <input
-                        type="time"
-                        value={time}
-                        onChange={(e) => setTime(e.target.value)}
-                        className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
-                      />
-                    </div>
-                  </div>
-                )}
+  <div className="grid gap-3 md:grid-cols-2">
+    <div>
+      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
+        Pickup Date
+      </label>
+
+      <input
+        type="date"
+        value={date}
+        min={todayString}
+        onChange={(e) => {
+          const nextDate = e.target.value;
+
+          setDate(nextDate);
+
+          if (nextDate === todayString) {
+            const now = new Date();
+            const minTime = new Date(now.getTime() + 15 * 60 * 1000);
+
+            const hours = String(minTime.getHours()).padStart(2, "0");
+            const minutes = String(minTime.getMinutes()).padStart(2, "0");
+            const nextMinimumTime = `${hours}:${minutes}`;
+
+            if (time && time < nextMinimumTime) {
+              setTime("");
+            }
+          }
+        }}
+        className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
+      />
+    </div>
+
+    <div>
+      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
+        Pickup Time
+      </label>
+
+      <input
+        type="time"
+        value={time}
+        min={date === todayString ? minimumPickupTime : undefined}
+        onChange={(e) => setTime(e.target.value)}
+        className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
+      />
+
+      {date === todayString && minimumPickupTime ? (
+        <div className="mt-2 text-xs font-semibold text-[#a07857]">
+          今天最早自取时间：{minimumPickupTime}
+        </div>
+      ) : null}
+    </div>
+  </div>
+)}
  
                 {delivery !== "自取" && (
                   <>
