@@ -3817,48 +3817,48 @@ setError("每个品牌/系列请选择备选口味，或选择【下一单扣】
     </div>
 
     <div>
-      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.24em] text-[#a88b77]">
-        Pickup Time
-      </label>
-
-      <input
-  type="time"
-  step="300"
+      <select
   value={time}
-  min={date === todayString ? minimumPickupTime : undefined}
   onChange={(e) => {
-    const selectedTime = e.target.value;
+    setTime(e.target.value);
+    setError("");
+  }}
+  className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
+>
+  <option value="">请选择自取时间</option>
 
-    if (!selectedTime) {
-      setTime("");
-      return;
-    }
+  {Array.from({ length: 24 * 12 }, (_, index) => {
+    const hour = Math.floor(index / 12);
+    const minute = (index % 12) * 5;
 
-    const [hour, minute] = selectedTime.split(":").map(Number);
+    const value = `${String(hour).padStart(2, "0")}:${String(
+      minute,
+    ).padStart(2, "0")}`;
 
-    // 强制只能选择 5 分钟一个档
-    if (minute % 5 !== 0) {
-      setTime("");
-      setError("自取时间只能选择每 5 分钟一个时段");
-      return;
-    }
-
-    // 今天必须至少是现在 + 15 分钟
     if (
       date === todayString &&
       minimumPickupTime &&
-      selectedTime < minimumPickupTime
+      value < minimumPickupTime
     ) {
-      setTime("");
-      setError(`今天最早自取时间为 ${minimumPickupTime}`);
-      return;
+      return null;
     }
 
-    setError("");
-    setTime(selectedTime);
-  }}
-  className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
-/>
+    const displayHour =
+      hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+
+    const period = hour >= 12 ? "PM" : "AM";
+
+    const label = `${String(displayHour).padStart(2, "0")}:${String(
+      minute,
+    ).padStart(2, "0")} ${period}`;
+
+    return (
+      <option key={value} value={value}>
+        {label}
+      </option>
+    );
+  })}
+</select>
 
       {date === todayString && minimumPickupTime ? (
         <div className="mt-2 text-xs font-semibold text-[#a07857]">
