@@ -538,12 +538,22 @@ const minimumPickupTime = useMemo(() => {
 
   const minTime = new Date(Date.now() + 15 * 60 * 1000);
 
-  const hours = String(minTime.getHours()).padStart(2, "0");
-  const minutes = String(minTime.getMinutes()).padStart(2, "0");
+  // 自动向上取到最近的 5 分钟
+  minTime.setSeconds(0, 0);
 
-  return `${hours}:${minutes}`;
+  const minutes = minTime.getMinutes();
+  const remainder = minutes % 5;
+
+  if (remainder !== 0) {
+    minTime.setMinutes(minutes + (5 - remainder));
+  }
+
+  const hours = String(minTime.getHours()).padStart(2, "0");
+  const mins = String(minTime.getMinutes()).padStart(2, "0");
+
+  return `${hours}:${mins}`;
 }, [date, todayString]);
- 
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -3812,12 +3822,43 @@ setError("每个品牌/系列请选择备选口味，或选择【下一单扣】
       </label>
 
       <input
-        type="time"
-        value={time}
-        min={date === todayString ? minimumPickupTime : undefined}
-        onChange={(e) => setTime(e.target.value)}
-        className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
-      />
+  type="time"
+  step="300"
+  value={time}
+  min={date === todayString ? minimumPickupTime : undefined}
+  onChange={(e) => {
+    const selectedTime = e.target.value;
+
+    if (!selectedTime) {
+      setTime("");
+      return;
+    }
+
+    const [hour, minute] = selectedTime.split(":").map(Number);
+
+    // 强制只能选择 5 分钟一个档
+    if (minute % 5 !== 0) {
+      setTime("");
+      setError("自取时间只能选择每 5 分钟一个时段");
+      return;
+    }
+
+    // 今天必须至少是现在 + 15 分钟
+    if (
+      date === todayString &&
+      minimumPickupTime &&
+      selectedTime < minimumPickupTime
+    ) {
+      setTime("");
+      setError(`今天最早自取时间为 ${minimumPickupTime}`);
+      return;
+    }
+
+    setError("");
+    setTime(selectedTime);
+  }}
+  className="w-full rounded-3xl border border-[#eadacb] bg-[#fffaf6] px-4 py-3 text-[#5c4333] outline-none focus:border-[#cfae95]"
+/>
 
       {date === todayString && minimumPickupTime ? (
         <div className="mt-2 text-xs font-semibold text-[#a07857]">
