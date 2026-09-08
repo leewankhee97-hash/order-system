@@ -2231,6 +2231,8 @@ backupRemarkMap.forEach((group) => {
 })
  
 lines.push('')
+lines.push('━━━━━━━━━━━━━━━')
+lines.push('')
 lines.push('备注')
  
 if (backupSelectedLines.length > 0 || noBackupTitles.length > 0) {
