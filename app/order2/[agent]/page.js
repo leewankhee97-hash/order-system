@@ -2116,66 +2116,74 @@ Object.values(priceMap).forEach(({ price, unit, variants }, priceIndex) => {
  
         lines.push("");
         lines.push(`【${item.bundle_name}${titleTag}】`);
-        lines.push(`💰 RM${money(item.price)}`);
- 
-        if ((item.bundle_items || []).length > 0) {
-          lines.push("");
-         lines.push(`购买口味：`);
-(item.bundle_items || []).forEach((bi) => {
-  const split = splitBrandFlavor(bi.brand, bi.product_name);
-  lines.push(`• ${split.flavorLine} ×${bi.qty}`);
-});
-        }
- 
-        if ((item.bundle_combo_items || []).length > 0) {
+lines.push(`💰 RM${money(item.price)}`);
+
+// 🎁 赠品放最前面
+if (
+  (item.bundle_gift_items || []).length > 0 ||
+  (item.bundle_random_gifts || []).length > 0
+) {
+  lines.push("");
+  lines.push(`🎁 FREE GIFT`);
+
+  (item.bundle_gift_items || []).forEach((bi) => {
+    const split = splitBrandFlavor(bi.brand, bi.product_name);
+    lines.push(`☐ ${split.flavorLine} ×${bi.qty}`);
+  });
+
+  (item.bundle_random_gifts || []).forEach((gift) => {
+    lines.push(
+      `☐ ${gift.label} ×${gift.qty}（${gift.note || "随机发货"}）`,
+    );
+  });
+}
+
+// 购买口味
+if ((item.bundle_items || []).length > 0) {
+  lines.push("");
+  lines.push(`购买口味：`);
+
+  (item.bundle_items || []).forEach((bi) => {
+    const split = splitBrandFlavor(bi.brand, bi.product_name);
+    lines.push(`• ${split.flavorLine} ×${bi.qty}`);
+  });
+}
+
+// 固定组合内容
+if ((item.bundle_combo_items || []).length > 0) {
   const podItems = (item.bundle_combo_items || []).filter(
     (bi) => bi.role !== "combo_device",
   );
- 
+
   const deviceItems = (item.bundle_combo_items || []).filter(
     (bi) => bi.role === "combo_device",
   );
- 
+
   lines.push("");
   lines.push(`组合内容：`);
- 
+
   if (podItems.length > 0) {
     lines.push("");
     lines.push(`烟弹`);
+
     podItems.forEach((bi) => {
       const split = splitBrandFlavor(bi.brand, bi.product_name);
       lines.push(`• ${split.flavorLine} ×${bi.qty}`);
     });
   }
- 
+
   if (deviceItems.length > 0) {
     lines.push("");
     lines.push(`烟枪`);
+
     deviceItems.forEach((bi) => {
       const split = splitBrandFlavor(bi.brand, bi.product_name);
       lines.push(`• ${split.flavorLine} ×${bi.qty}`);
     });
   }
 }
- 
-        if (
-          (item.bundle_gift_items || []).length > 0 ||
-          (item.bundle_random_gifts || []).length > 0
-        ) {
-          lines.push("");
-          lines.push(`赠品：`);
-          (item.bundle_gift_items || []).forEach((bi) => {
-            const split = splitBrandFlavor(bi.brand, bi.product_name);
-            lines.push(`• ${split.flavorLine} ×${bi.qty}`);
-          });
-          (item.bundle_random_gifts || []).forEach((gift) => {
-            lines.push(
-              `• ${gift.label} ×${gift.qty}（${gift.note || "随机发货"}）`,
-            );
-          });
-        }
- 
-        lines.push(`🧮 小计：RM${money(subtotal)}`);
+
+lines.push(`🧮 小计：RM${money(subtotal)}`);
       });
  
     // ✅ 3. 备注 / 备选
