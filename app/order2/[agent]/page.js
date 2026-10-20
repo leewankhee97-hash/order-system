@@ -2052,61 +2052,36 @@ setBundleComboDeviceSelect({});
  
     lines.push(deliveryTitle);
  
-    // ✅ 1. 先显示普通产品 + 价格 + 小计
-    buildGroupedNormalItems(cart).forEach((group, gIndex) => {
-      lines.push("");
-      if (gIndex > 0) {
-  lines.push("");
-}
- 
-const groupQty = group.variants.reduce((sum, variant) => {
-  return sum + Number(variant.qty || 0);
-}, 0);
+    // ✅ 1. 普通产品：名称与单价同行，保留口味、数量及小计
+    buildGroupedNormalItems(cart).forEach((group) => {
+      const groupQty = group.variants.reduce(
+        (sum, variant) => sum + Number(variant.qty || 0), 0,
+      );
+      const priceMap = new Map();
 
-lines.push(`${upperText(group.name)} (${groupQty})`);
- 
-      const priceMap = {};
- 
-group.variants.forEach((variant) => {
-  const price = money(variant.price);
-  const unit = variant.unit || getOrderUnit(variant.product_type);
-  const priceKey = `${price}__${unit}`;
- 
-  if (!priceMap[priceKey]) {
-    priceMap[priceKey] = {
-      price,
-      unit,
-      variants: [],
-    };
-  }
- 
-  priceMap[priceKey].variants.push(variant);
-});
- 
-Object.values(priceMap).forEach(({ price, unit, variants }, priceIndex) => {
-  if (priceIndex !== 0) {
-    lines.push("");
-  }
- 
-  lines.push(`💰 RM${price} / ${unit}`);
- 
-  variants.forEach((variant) => {
-  lines.push(`• ${upperText(variant.name)} ×${variant.qty}${unit}`);
-});
- 
-  const totalQty = variants.reduce((sum, variant) => {
-    return sum + Number(variant.qty || 0);
-  }, 0);
- 
-  const subtotal = variants.reduce((sum, variant) => {
-    return sum + Number(variant.subtotal || 0);
-  }, 0);
- 
-  lines.push(`📦 数量：${totalQty}${unit}`);
-  lines.push(`🧮 小计：${totalQty} × RM${price} = RM${money(subtotal)}`);
-});
+      group.variants.forEach((variant) => {
+        const price = money(variant.price);
+        const unit = variant.unit || getOrderUnit(variant.product_type);
+        const key = `${price}__${unit}`;
+        if (!priceMap.has(key)) priceMap.set(key, { price, unit, variants: [] });
+        priceMap.get(key).variants.push(variant);
+      });
+
+      // 若同一产品有不同单价，分别展示数量及价格，避免误解。
+      Array.from(priceMap.values()).forEach(({ price, unit, variants }) => {
+        const totalQty = variants.reduce((sum, v) => sum + Number(v.qty || 0), 0);
+        const subtotal = variants.reduce((sum, v) => sum + Number(v.subtotal || 0), 0);
+        const shortPrice = String(Number(price));
+        lines.push("");
+        lines.push(`${upperText(group.name)} (${priceMap.size === 1 ? groupQty : totalQty}) RM${shortPrice}`);
+        variants.forEach((variant) => {
+          lines.push(`• ${upperText(variant.name)} ×${variant.qty}${unit}`);
+        });
+        lines.push(`📦 数量：${totalQty}${unit}`);
+        lines.push(`🧮 小计：${totalQty} × RM${price} = RM${money(subtotal)}`);
+      });
     });
- 
+
     // ✅ 2. 显示 Bundle 产品 + 价格 + 小计
     cart
       .filter((item) => item.is_bundle)
@@ -2186,6 +2161,54 @@ if ((item.bundle_combo_items || []).length > 0) {
 lines.push(`🧮 小计：RM${money(subtotal)}`);
       });
  
+    // ✅ 3. 物品总数：按产品合并，包含 Bundle 实物及赠品
+    const packedItems = new Map();
+    const addPackedItem = (label, qty, unit) => {
+      const n = Number(qty || 0);
+      if (!Number.isFinite(n) || n <= 0) return;
+      const name = upperText(label);
+      const actualUnit = unit || "支";
+      const key = `${name}__${actualUnit}`;
+      if (!packedItems.has(key)) packedItems.set(key, { name, unit: actualUnit, qty: 0 });
+      packedItems.get(key).qty += n;
+    };
+
+    // 普通产品：依订单标题分组（而非按口味计数）
+    buildGroupedNormalItems(cart).forEach((group) => {
+      group.variants.forEach((variant) => {
+        addPackedItem(group.name, variant.qty, variant.unit);
+      });
+    });
+
+    // Bundle：按每件实物统计；赠品也要纳入包货数量
+    cart.filter((item) => item.is_bundle).forEach((item) => {
+      [
+        ...(item.bundle_items || []),
+        ...(item.bundle_gift_items || []),
+        ...(item.bundle_combo_items || []),
+      ].forEach((bi) => {
+        const label = [normalizeText(bi.brand), normalizeText(bi.series)]
+          .filter(Boolean).join(" ") || normalizeText(bi.product_name) || item.bundle_name;
+        addPackedItem(label, bi.qty, getOrderUnit(bi.product_type));
+      });
+      (item.bundle_random_gifts || []).forEach((gift) => {
+        const unit = /POD|烟弹/i.test(gift.label || "") ? "盒" : "支";
+        addPackedItem(`赠品 ${gift.label || "随机"}`, gift.qty, unit);
+      });
+    });
+
+    const packedList = Array.from(packedItems.values());
+    if (packedList.length > 0) {
+      const totalPacked = packedList.reduce((sum, item) => sum + item.qty, 0);
+      const units = [...new Set(packedList.map((item) => item.unit))];
+      const totalUnit = units.length === 1 ? units[0] : "件";
+      lines.push("");
+      lines.push(`📦 物品总数：${totalPacked}${totalUnit}`);
+      packedList.forEach((item) => {
+        lines.push(`• ${item.name} - ${item.qty}${item.unit}`);
+      });
+    }
+
     // ✅ 3. 备注 / 备选
 const backupRemarkMap = new Map()
  
